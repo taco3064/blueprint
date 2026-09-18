@@ -54,34 +54,44 @@ A GitHub or configuration failure returns `502` with `{"error": "Live evidence i
 cached at the edge for one minute so a broken App is not retried on every request. Failure details
 go only to the Worker log.
 
+## Deployment
+
+`.github/workflows/evidence-feed.yml` owns the Worker's lifecycle; nothing is deployed by hand.
+
+- **Pull requests** that touch this directory bundle the Worker with `wrangler deploy --dry-run`,
+  without deploying it.
+- **Every push to `main`** that touches this directory runs `wrangler deploy`, then
+  `scripts/smoke.ts` against the live URL. The check waits until the new version refuses a query
+  string, then requires `/discussions` to answer `200` with a Discussion feed and the docs-origin
+  CORS grant. The run summary lists the Discussions served; any failed check fails the run.
+- **Run workflow** on `main` (or `gh workflow run evidence-feed.yml --ref main`) redeploys and
+  re-verifies without a commit.
+
+The deployed URL is recorded on the repository's `evidence-feed` environment.
+
 ## Activation
 
-Everything below is done once by the repository owner. Nothing in it is committed except the two
-App identifiers and the Worker URL, which are not secrets.
+Four steps need your own GitHub and Cloudflare sign-in, once. After them, nothing about the feed
+is manual. Only the App ID, the installation ID, and the Worker URL are committed; none of them is a
+secret.
 
 ### 1. GitHub App
 
-Create a GitHub App under the owner account
-(**Settings → Developer settings → GitHub Apps → New GitHub App**), for example
-`Blueprint Evidence Reader`:
+Open the
+[prefilled registration page](https://github.com/settings/apps/new?name=Blueprint+Evidence+Reader&description=Reads+taco3064%2Fblueprint+Discussions+for+the+Evidence+feed+on+the+docs+homepage.&url=https%3A%2F%2Ftaco3064.github.io%2Fblueprint%2F&public=false&webhook_active=false&request_oauth_on_install=false&discussions=read)
+and select **Create GitHub App** (rename it if GitHub reports the name as taken). It is already set
+to **Discussions: Read-only** (GitHub adds **Metadata: Read-only** itself), no webhook, no user
+authorization, and installable **Only on this account**.
 
-- **Homepage URL** — `https://taco3064.github.io/blueprint/`.
-- **Callback URL / Setup URL** — leave empty; clear **Request user authorization (OAuth) during
-  installation**.
-- **Webhook** — clear **Active**. No webhook URL, no events.
-- **Repository permissions** — **Discussions: Read-only**. Leave every other permission at
-  **No access** (GitHub adds **Metadata: Read-only** itself).
-- **Where can this GitHub App be installed?** — **Only on this account**.
+Then, on the new App:
 
-After creating it:
-
-1. Note the **App ID** on the App's **General** page. This is `GITHUB_APP_ID`.
-2. **Generate a private key**. GitHub downloads a `.pem` file. Keep it on your machine only; it
-   goes straight into Cloudflare in step 3 and is never pasted into an issue, pull request, chat,
-   or repository file. GitHub App keys do not expire — they stay valid until deleted.
-3. **Install App** → the owner account → **Only select repositories** → `taco3064/blueprint`.
-4. On the installation's settings page, the URL ends in
-   `/settings/installations/<number>`. That number is `GITHUB_INSTALLATION_ID`.
+1. Note the **App ID** on the **General** page. This is `GITHUB_APP_ID`.
+2. **Generate a private key**. GitHub downloads a `.pem` file. Keep it on your machine until step 4;
+   it is never pasted into an issue, pull request, chat, repository file, or GitHub secret. GitHub
+   App keys do not expire — they stay valid until deleted.
+3. **Install App** → your account → **Only select repositories** → `taco3064/blueprint`.
+4. On the installation's settings page, the URL ends in `/settings/installations/<number>`. That
+   number is `GITHUB_INSTALLATION_ID`.
 
 The Worker asks GitHub for an installation token limited to `blueprint` with `discussions: read`,
 so the token it uses cannot exceed that scope even if the App's permissions are widened later. If
@@ -90,61 +100,46 @@ log before changing any App permission.
 
 ### 2. Cloudflare
 
-- A Cloudflare account on **Workers Free**.
-- A `workers.dev` subdomain (**Workers & Pages → Overview → Subdomain**). The Worker will be
-  served at `https://blueprint-evidence-feed.<subdomain>.workers.dev`.
+- A Cloudflare account on **Workers Free**, with a `workers.dev` subdomain
+  (**Workers & Pages → Overview**). The Worker is served at
+  `https://blueprint-evidence-feed.<subdomain>.workers.dev`.
+- An API token for the deploy job: **My Profile → API Tokens → Create Token → Edit Cloudflare
+  Workers**, with **Account Resources** limited to this account and **Zone Resources** set to all
+  zones from this account.
+- The **Account ID**, shown on **Workers & Pages → Overview**.
 
-Stay on Workers Free. No API token, custom domain, KV, D1, R2, or Durable Object is needed.
+Stay on Workers Free. No custom domain, KV, D1, R2, or Durable Object is needed.
 
-### 3. Deploy
+### 3. Repository secrets
 
-From this directory:
+```sh
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set CLOUDFLARE_ACCOUNT_ID
+```
 
-1. Set `GITHUB_APP_ID` and `GITHUB_INSTALLATION_ID` under `vars` in `wrangler.jsonc`.
-2. Install the tooling and sign in (browser OAuth):
+Each command prompts for its value (or use **Settings → Secrets and variables → Actions**). Only the
+deploy job reads them.
 
-   ```sh
-   npm ci
-   npx wrangler login
-   ```
+### 4. Configuration and the private key
 
-3. Deploy, then store the private key as a Worker secret. The key never touches a file here and
-   never appears in `wrangler.jsonc`:
-
-   ```sh
-   npx wrangler deploy
-   npx wrangler secret put GITHUB_PRIVATE_KEY < /path/to/blueprint-evidence-reader.private-key.pem
-   ```
-
-   In Windows PowerShell, which has no `<` redirection:
-
-   ```powershell
-   Get-Content -Raw C:\path\to\blueprint-evidence-reader.private-key.pem | npx wrangler secret put GITHUB_PRIVATE_KEY
-   ```
-
-   The key GitHub downloads (`BEGIN RSA PRIVATE KEY`) is accepted as is; a PKCS#8 key
-   (`BEGIN PRIVATE KEY`) works too. Pasting the key into the dashboard
-   (**Worker → Settings → Variables and Secrets → Add → Secret**) is equivalent.
-
-4. Check the endpoint:
-
-   ```sh
-   curl -i https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions
-   curl -i -H "Origin: https://taco3064.github.io" https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions
-   ```
-
-   The first returns the repository's Discussions. The second also carries
-   `Access-Control-Allow-Origin: https://taco3064.github.io`. Repeating the first within five minutes
-   answers with `Cf-Cache-Status: HIT`, which shows Workers Caching is serving the feed.
-
-5. Set `EVIDENCE_FEED_URL` in `docs/.vitepress/theme/evidence-feed.ts` to
-   `https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions` and merge it. From then on,
-   Discussion changes need no further commit or docs deployment.
+1. Set `GITHUB_APP_ID` and `GITHUB_INSTALLATION_ID` under `vars` in `wrangler.jsonc`, and
+   `EVIDENCE_FEED_URL` in `docs/.vitepress/theme/evidence-feed.ts` to
+   `https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions`. Merging that deploys the
+   Worker and publishes the homepage.
+2. The first deployment creates the Worker without its key, so its **Verify the live feed** step
+   fails with a `502` that names `GITHUB_PRIVATE_KEY`. Add the key in the Cloudflare dashboard:
+   **Workers & Pages → blueprint-evidence-feed → Settings → Variables and Secrets → Add**, type
+   **Secret**, name `GITHUB_PRIVATE_KEY`, value the whole `.pem` file. The key GitHub downloads
+   (`BEGIN RSA PRIVATE KEY`) is accepted as is; a PKCS#8 key (`BEGIN PRIVATE KEY`) works too.
+   Deployments never touch Worker secrets, so the key stays through every later deploy.
+3. Re-run the failed workflow. It passes once the feed serves the real Discussions, and from then
+   on a Discussion created, edited, or deleted on GitHub reaches the homepage within five minutes.
+4. Delete the local `.pem`, or keep it offline.
 
 ### Rotating the key
 
-Generate a new key on the App page, run `npx wrangler secret put GITHUB_PRIVATE_KEY` with it, then
-delete the old key on the App page.
+Generate a new key on the App page, replace the `GITHUB_PRIVATE_KEY` secret's value in the Cloudflare
+dashboard, then delete the old key on the App page.
 
 ## Local development
 
