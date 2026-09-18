@@ -36,6 +36,15 @@ decision from the current folder shape.
 
 Want to understand the decision or run the CLI manually? See [`init` in Commands](/commands#init).
 
+## Evidence
+
+Case studies and experiment records about Blueprint are published as
+[GitHub Discussions](https://github.com/taco3064/blueprint/discussions). This list reads them from
+GitHub when the page loads, so new, edited, and deleted articles are reflected here within five
+minutes.
+
+<EvidenceFeed />
+
 ## Upgrade or remove with AI
 
 After adoption, ask your coding Agent in plain words. The Agent contract Blueprint generates routes
