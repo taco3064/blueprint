@@ -97,7 +97,8 @@ function validateFramework(framework: unknown): void {
   if (!FRAMEWORKS.includes(framework as string)) {
     throw configValidationError({
       kind: 'invalid-framework',
-      framework: framework === undefined ? undefined : String(framework),
+      declared: framework !== undefined,
+      framework: typeof framework === 'string' ? framework : undefined,
       expected: FRAMEWORKS,
     });
   }
