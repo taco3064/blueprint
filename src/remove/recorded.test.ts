@@ -140,7 +140,7 @@ describe('recordedRemoval · composed ownership', () => {
         { kind: 'write', path: 'apps/web/CLAUDE.md', content: '', reason: 'section' },
       ],
       conflicts: [{ kind: 'malformed-section', path: 'apps/web/GEMINI.md' }],
-      residues: [],
+      residues: [{ kind: 'emptied', path: 'apps/web/CLAUDE.md' }],
     });
   });
 

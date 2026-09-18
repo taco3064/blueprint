@@ -92,6 +92,11 @@ describe('remove plan report', () => {
     [{ kind: 'required-by-source', path: 'vite.config.ts', alias: '~app' }, 'still imports `~app`'],
     [{ kind: 'directory-in-use', path: 'src/pages' }, 'now holds project files'],
     [{ kind: 'unrecorded', path: 'tsconfig.json', detail: 'alias' }, 'import-alias wiring'],
+    [
+      { kind: 'emptied', path: 'CLAUDE.md' },
+      'CLAUDE.md: held only Blueprint\'s managed section and is now empty; kept because nothing '
+      + 'proves Blueprint created the file — delete it if the project does not need it',
+    ],
   ])('explains residue %j', (residue, text) => {
     expect(renderRemovePlan({ ...plan, residues: [residue] })).toContain(text);
   });

@@ -1,4 +1,5 @@
 import { occurrences } from '../lifecycle';
+import type { FileAction, FileResidue } from './types';
 
 const START = '<!-- BLUEPRINT:START -->';
 const END = '<!-- BLUEPRINT:END -->';
@@ -26,6 +27,21 @@ export function stripManagedSection(text: string): SectionStrip {
   const stripped = tail ? head + tail : head.replace(/(\r?\n)(?:\r?\n)+$/, '$1');
 
   return { status: 'stripped', text: stripped, empty: stripped.trim() === '' };
+}
+
+export function strippedSection(
+  file: string,
+  strip: Extract<SectionStrip, { status: 'stripped' }>,
+  created: boolean,
+): { action: FileAction; residues: FileResidue[] } {
+  if (strip.empty && created) {
+    return { action: { kind: 'delete', path: file, reason: 'section' }, residues: [] };
+  }
+
+  return {
+    action: { kind: 'write', path: file, content: strip.text, reason: 'section' },
+    residues: strip.empty ? [{ kind: 'emptied', path: file }] : [],
+  };
 }
 
 export type EditReversal
