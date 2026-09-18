@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { GitReader } from '../project';
 import { runUpgrade } from './upgrade';
 import type { UpgradeOptions } from './upgrade';
@@ -153,7 +154,9 @@ describe('runUpgrade · refusals of the plan and its safety', () => {
 
     lifecycle({
       blueprint: '4.0.0',
-      pending: { from: '4.0.0', to: '4.2.0', migrations: [], operations: [], completed: [] },
+      pending: withPlanIdentity({
+        from: '4.0.0', to: '4.2.0', migrations: [], operations: [], completed: [],
+      }),
     });
 
     await expect(upgrade()).rejects.toThrow('lifecycle 4.2.0. upgrade never downgrades');
@@ -248,17 +251,19 @@ describe('runUpgrade · --complete refusals', () => {
 
     lifecycle({
       blueprint: '4.0.0',
-      pending: { from: '4.0.0', to: '4.1.0', migrations: [], operations: [], completed: [] },
+      pending: withPlanIdentity({
+        from: '4.0.0', to: '4.1.0', migrations: [], operations: [], completed: [],
+      }),
     });
 
     await expect(upgrade({ complete: 'x' })).rejects.toThrow('Pending: none.');
 
     lifecycle({
       blueprint: '4.0.0',
-      pending: {
+      pending: withPlanIdentity({
         from: '4.0.0', to: '4.1.0', migrations: [], completed: [],
         operations: [{ id: 'ghost', applications: ['.'], evidence: {}, supersedes: [] }],
-      },
+      }),
     });
 
     await expect(upgrade({ complete: 'ghost' }))

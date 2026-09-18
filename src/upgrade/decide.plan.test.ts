@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { LifecycleState, UpgradeCatalog, UpgradeOperation } from '../lifecycle';
 import { decideUpgrade } from './decide';
 import type { DecisionInput } from './decide';
@@ -127,7 +128,7 @@ describe('decideUpgrade · plans', () => {
       evidence: 'state',
       target: '4.1.0',
       state,
-      pending: {
+      pending: withPlanIdentity({
         from: '3.2.0',
         to: '4.1.0',
         migrations: ['reshape'],
@@ -136,7 +137,7 @@ describe('decideUpgrade · plans', () => {
           { id: 'second', applications: ['.'], evidence: {}, supersedes: [] },
         ],
         completed: [],
-      },
+      }),
       migrations: [{ id: 'reshape', applications: ['.'] }],
       suppressed: [],
       inapplicable: [],
@@ -149,10 +150,10 @@ describe('decideUpgrade · plans', () => {
   it('re-plans a pending upgrade without repeating its completed operations', () => {
     const state = lifecycle({
       blueprint: '3.2.0',
-      pending: {
+      pending: withPlanIdentity({
         from: '3.2.0', to: '4.0.0', migrations: ['reshape'], completed: ['first'],
         operations: [{ id: 'first', applications: ['.'], evidence: {}, supersedes: [] }],
-      },
+      }),
     });
 
     const decision = decide({
@@ -174,10 +175,10 @@ describe('decideUpgrade · plans', () => {
   });
 
   it('resumes the recorded pending upgrade exactly as recorded', () => {
-    const pending = {
+    const pending = withPlanIdentity({
       from: '3.2.0', to: '4.1.0', migrations: ['reshape'], completed: [],
       operations: [{ id: 'second', applications: ['.'], evidence: {}, supersedes: [] }],
-    };
+    });
 
     const state = lifecycle({ blueprint: '3.2.0', pending });
 
@@ -266,7 +267,9 @@ describe('decideUpgrade · installed package evidence', () => {
       evidence: 'installed-package',
       target: '4.1.0',
       state: lifecycle({ blueprint: '4.1.0', provenance: 'partial' }),
-      pending: { from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [] },
+      pending: withPlanIdentity({
+        from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [],
+      }),
       migrations: [],
       suppressed: [],
       inapplicable: [],

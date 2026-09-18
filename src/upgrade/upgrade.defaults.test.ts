@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runningPackage } from '../lifecycle';
+import { runningPackage, withPlanIdentity } from '../lifecycle';
 import type { OperationalText } from '../operational-contract';
 import type { GitReader } from '../project';
 import { gatherUpgradeFacts } from './facts';
@@ -97,10 +97,10 @@ describe('runUpgrade · confirmation operations', () => {
 
     write('.blueprint-lifecycle.json', JSON.stringify({
       schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [],
-      pending: {
+      pending: withPlanIdentity({
         from: '4.0.0', to: '4.1.0', migrations: [], completed: [],
         operations: [{ id: 'confirm-me', applications: ['.'], evidence: {}, supersedes: [] }],
-      },
+      }),
       applications: {},
     }));
 

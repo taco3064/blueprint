@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { lifecycleHistoryProblem } from './history';
+import { withPlanIdentity } from './plan';
 import type { LifecycleState, PendingUpgrade, UpgradeCatalog, UpgradeOperation } from './types';
 
 function op(id: string, introducedIn: string): UpgradeOperation {
@@ -24,7 +25,7 @@ const CATALOG: UpgradeCatalog = {
   operations: [op('review', '4.0.0'), op('tidy', '4.1.0')],
 };
 
-const PENDING: PendingUpgrade = {
+const PENDING: PendingUpgrade = withPlanIdentity({
   from: '3.2.0',
   to: '4.1.0',
   migrations: ['reshape'],
@@ -33,7 +34,7 @@ const PENDING: PendingUpgrade = {
     { id: 'tidy', applications: ['.'], evidence: {}, supersedes: [] },
   ],
   completed: ['review'],
-};
+});
 
 function state(patch: Partial<LifecycleState>): LifecycleState {
   return {
@@ -52,7 +53,9 @@ describe('lifecycleHistoryProblem', () => {
 
     expect(lifecycleHistoryProblem(state({
       blueprint: '4.1.0',
-      pending: { from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [] },
+      pending: withPlanIdentity({
+        from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [],
+      }),
     }), CATALOG)).toBeNull();
   });
 

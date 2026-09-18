@@ -6,6 +6,7 @@ import {
   LIFECYCLE_FILE,
   lifecycleHistoryProblem,
   resolveUpgrade,
+  withPlanIdentity,
 } from '../lifecycle';
 import type {
   LifecycleState,
@@ -210,13 +211,13 @@ function plannedUpgrade(input: DecisionInput, target: string): UpgradeDecision {
   return proceed(input, {
     mode: pending === null ? 'start' : 'replan',
     state,
-    pending: {
+    pending: withPlanIdentity({
       from: source,
       to: target,
       migrations: resolution.migrations.map((migration) => migration.id),
       operations: resolution.operations,
       completed: pending?.completed ?? [],
-    },
+    }),
     resolution,
   });
 }
@@ -249,7 +250,7 @@ function currentUpgrade(
 }
 
 function emptyPending(from: string, to: string): PendingUpgrade {
-  return { from, to, migrations: [], operations: [], completed: [] };
+  return withPlanIdentity({ from, to, migrations: [], operations: [], completed: [] });
 }
 
 function resolutionRefusal(

@@ -3,20 +3,21 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { withPlanIdentity } from './plan';
 import {
   LIFECYCLE_FILE,
   parseLifecycleState,
   readLifecycleState,
   serializeLifecycleState,
 } from './state';
-import type { LifecycleState } from './types';
+import type { LifecycleState, PendingUpgrade } from './types';
 
 const valid: LifecycleState = {
   schema: 1,
   blueprint: '4.1.0',
   provenance: 'complete',
   operations: ['review-retired-module-private'],
-  pending: {
+  pending: withPlanIdentity({
     from: '3.2.0',
     to: '4.1.0',
     migrations: ['legacy-unit-shape'],
@@ -27,7 +28,7 @@ const valid: LifecycleState = {
       supersedes: [{ id: 'older', completed: true }],
     }],
     completed: [],
-  },
+  }),
   applications: {
     'apps/web': { provenance: [{ kind: 'generated', path: 'docs/architecture-handbook.md' }] },
     '.': { provenance: [] },
@@ -108,16 +109,42 @@ describe('lifecycle state file', () => {
       ...valid, applications: { [escape]: { provenance: [] } },
     }))).toEqual({ status: 'invalid', reason: 'applications' });
 
-    const scope = operation({ applications: ['.', escape] });
+    for (const patch of [{ applications: ['.', escape] }, { evidence: { [escape]: [] } }]) {
+      const pending = withPlanIdentity(operation(patch).pending as PendingUpgrade);
 
-    expect(parseLifecycleState(JSON.stringify({ ...valid, ...scope })))
+      expect(parseLifecycleState(JSON.stringify({ ...valid, pending })))
+        .toEqual({ status: 'invalid', reason: 'pending' });
+    }
+  });
+});
+
+describe('lifecycle state file · pending plan identity', () => {
+  it('refuses a pending plan whose recorded identity no longer matches it', () => {
+    const { plan, ...unsigned } = valid.pending!;
+
+    expect(plan).toMatch(/^[0-9a-f]{64}$/);
+
+    expect(parseLifecycleState(JSON.stringify({ ...valid, pending: unsigned })))
       .toEqual({ status: 'invalid', reason: 'pending' });
 
-    expect(parseLifecycleState(JSON.stringify({
-      ...valid, ...operation({ evidence: { [escape]: [] } }),
-    }))).toEqual({ status: 'invalid', reason: 'pending' });
-  });
+    for (const pending of [
+      { ...valid.pending, from: '3.1.0' },
+      { ...valid.pending, to: '4.2.0' },
+      { ...valid.pending, migrations: [] },
+      { ...valid.pending, operations: [] },
+      operation({ evidence: { '.': ['styles'] } }).pending,
+    ]) {
+      expect(parseLifecycleState(JSON.stringify({ ...valid, pending })))
+        .toEqual({ status: 'invalid', reason: 'pending' });
+    }
 
+    expect(parseLifecycleState(JSON.stringify({
+      ...valid, pending: { ...valid.pending, completed: ['review-retired-module-private'] },
+    })).status).toBe('present');
+  });
+});
+
+describe('lifecycle state file · invalid fields', () => {
   it('reports malformed JSON and unsupported schemas', () => {
     expect(parseLifecycleState('{')).toEqual({ status: 'invalid', reason: 'json' });
     expect(parseLifecycleState('[]')).toEqual({ status: 'invalid', reason: 'schema' });

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { Blueprint } from '../config';
 import type { GitReader } from '../project';
 import { runRemove } from './remove';
@@ -127,12 +128,12 @@ describe('runRemove · refusals that protect the repository', () => {
 
     write('.blueprint-lifecycle.json', JSON.stringify({
       schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [],
-      pending: {
+      pending: withPlanIdentity({
         from: '4.0.0', to: '4.1.0', migrations: [], completed: [],
         operations: [{
           id: 'review', applications: ['apps/web', 'apps/admin'], evidence: {}, supersedes: [],
         }],
-      },
+      }),
       applications: { 'apps/web': { provenance: [] }, 'apps/admin': { provenance: [] } },
     }));
 

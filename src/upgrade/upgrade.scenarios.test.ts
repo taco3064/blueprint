@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { UpgradeCatalog, UpgradeOperation } from '../lifecycle';
 import type { OperationalText } from '../operational-contract';
 import type { GitReader } from '../project';
@@ -190,7 +191,7 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     }));
 
     await expect(upgrade({ reconcile: rewrite, running: { root: '/runner', version: '4.0.0' } }))
-      .rejects.toThrow('it no longer records the pending upgrade 4.0.0 → 4.0.0');
+      .rejects.toThrow('it no longer records the lifecycle and pending upgrade 4.0.0 → 4.0.0');
 
     expect(state()).toMatchObject({ blueprint: '4.0.0', pending: null });
   });
@@ -203,10 +204,10 @@ describe('runUpgrade · lifecycle checkpoints', () => {
       operations: [op('first-step', '4.1.0')],
     };
 
-    const pending = {
+    const pending = withPlanIdentity({
       from: '4.0.0', to: '4.1.0', migrations: [], completed: ['first-step'],
       operations: [{ id: 'first-step', applications: ['.'], evidence: {}, supersedes: [] }],
-    };
+    });
 
     write('.blueprint-lifecycle.json', JSON.stringify({
       schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [], pending,
@@ -220,9 +221,23 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     const instruction = (id: string) => `Do ${id}.` as OperationalText;
 
     await expect(upgrade({ catalog, instruction, reconcile }))
-      .rejects.toThrow('it no longer records the pending upgrade 4.0.0 → 4.1.0 this run verified');
+      .rejects.toThrow('it no longer records the lifecycle and pending upgrade 4.0.0 → 4.1.0');
 
     expect(state()).toMatchObject({ blueprint: '4.0.0', pending: { completed: [] } });
+  });
+
+  it('refuses to finish when reconciliation rewrites completed history', async () => {
+    adopt('4.0.0');
+
+    const reconcile = async () => write('.blueprint-lifecycle.json', JSON.stringify({
+      ...state(), operations: ['first-step'],
+    }));
+
+    await expect(upgrade({ reconcile, running: { root: '/runner', version: '4.0.0' } }))
+      .rejects.toThrow('it no longer records the lifecycle and pending upgrade 4.0.0 → 4.0.0');
+
+    expect(state()).toMatchObject({ blueprint: '4.0.0', operations: ['first-step'] });
+    expect(state().pending).not.toBeNull();
   });
 
   it('names catalog problems that do not belong to one operation', async () => {
@@ -248,10 +263,10 @@ describe('runUpgrade · lifecycle checkpoints', () => {
 
     write('.blueprint-lifecycle.json', JSON.stringify({
       schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [],
-      pending: {
+      pending: withPlanIdentity({
         from: '4.0.0', to: '4.1.0', migrations: [], completed: ['first-step'],
         operations: [{ id: 'first-step', applications: ['.'], evidence: {}, supersedes: [] }],
-      },
+      }),
       applications: {},
     }));
 
