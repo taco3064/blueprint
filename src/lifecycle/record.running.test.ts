@@ -28,6 +28,7 @@ describe('recordAdoption without a readable running package', () => {
       applied: [{ kind: 'mkdir', path: 'src' }],
       firstAdoption: true,
       legacyShape: false,
+      finished: true,
     })).toEqual({ status: 'skipped', reason: 'unproven-checkpoint' });
   });
 });

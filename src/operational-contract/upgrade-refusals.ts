@@ -7,8 +7,11 @@ export type UpgradeRefusalFact
     | { kind: 'not-adopted'; root: string }
     | { kind: 'invalid-state'; file: string; reason: string }
     | { kind: 'missing-state'; file: string; installed: string }
+    | { kind: 'adoption-incomplete'; file: string }
+    | { kind: 'state-changed'; file: string; detail: string }
     | { kind: 'not-installed'; applications: string[] }
     | { kind: 'mixed-installed'; versions: string[] }
+    | { kind: 'installed-newer'; application: string; installed: string; target: string }
     | { kind: 'unsupported-source'; source: string; checkpoint: string }
     | { kind: 'downgrade'; source: string; target: string }
     | { kind: 'invalid-catalog'; problems: string[] }
@@ -39,15 +42,24 @@ const REFUSALS: { [K in UpgradeRefusalFact['kind']]: Renderer<K> } = {
   'invalid-state': (fact) => renderLifecycleStateInvalid(fact.file, fact.reason),
   'missing-state': (fact) => `${fact.file} is missing, but @kekkai/blueprint ${fact.installed} `
     + 'always records it, so its lifecycle history cannot be proven. Restore it from version '
-    + `control (for example \`git checkout -- ${fact.file}\`). If it was never committed, run `
-    + '`npx blueprint init` to re-establish the checkpoint from the installed package; ownership '
-    + `of earlier edits is not reconstructed. ${RECOVERY}`,
+    + `control (for example \`git checkout -- ${fact.file}\`). Blueprint does not rebuild it from `
+    + `the installed package, and no command re-establishes it here. ${RECOVERY}`,
+  'adoption-incomplete': (fact) => `${fact.file} records Blueprint-owned files, but no completed `
+    + 'lifecycle: the adoption that wrote them never finished. Run `npx blueprint init` to finish '
+    + `adoption, then run the upgrade. ${RECOVERY}`,
+  'state-changed': (fact) => `${fact.file} changed while this upgrade was running `
+    + `(${fact.detail}), so the recorded pending upgrade can no longer be proven. The lifecycle `
+    + 'checkpoint stays where it was. Restore the file from version control, then re-run '
+    + '`npx @kekkai/blueprint@latest upgrade`.',
   'not-installed': (fact) => `@kekkai/blueprint is not installed for ${fact.applications.join(', ')}, `
     + 'so the source version cannot be proven. Install the project dependencies first (for example '
     + `\`npm ci\`), then re-run the upgrade. ${RECOVERY}`,
   'mixed-installed': (fact) => `adopted applications have different installed @kekkai/blueprint `
     + `versions (${fact.versions.join(', ')}). One repository keeps one Blueprint version; align the `
     + `installs through the package manager, then re-run the upgrade. ${RECOVERY}`,
+  'installed-newer': (fact) => `${fact.application} resolves @kekkai/blueprint ${fact.installed}, `
+    + `which is newer than the running ${fact.target}. upgrade never downgrades the package; run `
+    + `\`npx @kekkai/blueprint@latest upgrade\` instead. ${RECOVERY}`,
   'unsupported-source': (fact) => `Blueprint ${fact.source} is below the supported upgrade window, `
     + `which starts at ${fact.checkpoint}. Reach ${fact.checkpoint} with that release's own tooling `
     + `(install @kekkai/blueprint@${fact.checkpoint}, run \`npx blueprint init\` and \`npx blueprint `

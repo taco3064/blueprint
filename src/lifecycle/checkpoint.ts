@@ -5,6 +5,7 @@ import { compareVersions } from './version';
 
 export type SourceCheckpoint
   = | { kind: 'state'; version: string; state: LifecycleState }
+    | { kind: 'adoption-incomplete' }
     | { kind: 'bootstrap'; version: string; evidence: 'installed-package' | 'legacy-config' }
     | { kind: 'missing-state'; installed: string }
     | { kind: 'invalid-state'; reason: string }
@@ -26,7 +27,9 @@ export function sourceCheckpoint(input: SourceCheckpointInput): SourceCheckpoint
   }
 
   if (state.status === 'present') {
-    return { kind: 'state', version: state.state.blueprint, state: state.state };
+    return state.state.blueprint === null
+      ? { kind: 'adoption-incomplete' }
+      : { kind: 'state', version: state.state.blueprint, state: state.state };
   }
 
   if (!input.installed.length || input.installed.some((version) => version === null)) {

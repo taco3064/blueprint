@@ -166,12 +166,32 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     expect(state()).toMatchObject({ blueprint: '4.0.0', provenance: 'partial', pending: null });
   });
 
-  it('recreates the completed state if reconciliation removed the state file', async () => {
+  it('refuses to finish when the lifecycle state changed under the upgrade', async () => {
     adopt('4.0.0');
 
     const reconcile = async () => fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
 
-    expect(await upgrade({ reconcile, running: { root: '/runner', version: '4.0.0' } })).toBe(0);
+    await expect(upgrade({ reconcile, running: { root: '/runner', version: '4.0.0' } }))
+      .rejects.toThrow('.blueprint-lifecycle.json changed while this upgrade was running (it is '
+        + 'gone)');
+
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
+
+    const corrupt = async () => write('.blueprint-lifecycle.json', '{');
+
+    await expect(upgrade({ reconcile: corrupt, running: { root: '/runner', version: '4.0.0' } }))
+      .rejects.toThrow('changed while this upgrade was running (it is unreadable: json)');
+
+    fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
+
+    const rewrite = async () => write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.0.0', provenance: 'partial', operations: [], pending: null,
+      applications: {},
+    }));
+
+    await expect(upgrade({ reconcile: rewrite, running: { root: '/runner', version: '4.0.0' } }))
+      .rejects.toThrow('it no longer records the pending upgrade 4.0.0 → 4.0.0');
+
     expect(state()).toMatchObject({ blueprint: '4.0.0', pending: null });
   });
 

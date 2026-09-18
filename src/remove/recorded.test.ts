@@ -80,8 +80,67 @@ describe('recordedRemoval', () => {
       { kind: 'edit', path: '.gitignore', before: 'lost', after: '' },
     ])).toEqual({
       actions: [{ kind: 'write', path: 'apps/web/.gitignore', content: 'dist\n', reason: 'edit' }],
+      conflicts: [{ kind: 'irreversible-edit', path: 'apps/web/.gitignore' }],
+      residues: [],
+    });
+  });
+});
+
+describe('recordedRemoval · composed ownership', () => {
+  it('deletes a file Blueprint created once its later Blueprint edits are reversed', () => {
+    write('jsconfig.json', '{"paths":{"~app/*":["./src/*"]}}');
+    write('tsconfig.json', '{"strict":true,"paths":{}}');
+
+    expect(removal([
+      { kind: 'created', path: 'jsconfig.json', sha256: digest('{}') },
+      { kind: 'edit', path: 'jsconfig.json', before: '', after: '"paths":{"~app/*":["./src/*"]}' },
+      { kind: 'created', path: 'tsconfig.json', sha256: digest('{}') },
+      { kind: 'edit', path: 'tsconfig.json', before: '', after: ',"paths":{}' },
+    ])).toEqual({
+      actions: [
+        { kind: 'delete', path: 'apps/web/jsconfig.json', reason: 'created' },
+        {
+          kind: 'write',
+          path: 'apps/web/tsconfig.json',
+          content: '{"strict":true}',
+          reason: 'edit',
+        },
+      ],
       conflicts: [],
-      residues: [{ kind: 'irreversible', path: 'apps/web/.gitignore' }],
+      residues: [{ kind: 'modified', path: 'apps/web/tsconfig.json' }],
+    });
+  });
+
+  it('reverses a managed section in a recorded file and deletes it only when Blueprint '
+    + 'created it', () => {
+    const section = '<!-- BLUEPRINT:START -->\npointer\n<!-- BLUEPRINT:END -->\n';
+
+    write('docs/NOTES.md', section);
+    write('AGENTS.md', `# House rules\n\n${section}`);
+    write('CLAUDE.md', section);
+    write('GEMINI.md', '<!-- BLUEPRINT:START -->\nbroken\n');
+    write('COPILOT.md', '# Already cleaned by hand\n');
+
+    expect(removal([
+      { kind: 'section', path: 'docs/NOTES.md', created: true },
+      { kind: 'section', path: 'AGENTS.md', created: false },
+      { kind: 'section', path: 'CLAUDE.md', created: false },
+      { kind: 'section', path: 'GEMINI.md', created: true },
+      { kind: 'section', path: 'gone.md', created: true },
+      { kind: 'section', path: 'COPILOT.md', created: true },
+    ])).toEqual({
+      actions: [
+        { kind: 'delete', path: 'apps/web/docs/NOTES.md', reason: 'section' },
+        {
+          kind: 'write',
+          path: 'apps/web/AGENTS.md',
+          content: '# House rules\n',
+          reason: 'section',
+        },
+        { kind: 'write', path: 'apps/web/CLAUDE.md', content: '', reason: 'section' },
+      ],
+      conflicts: [{ kind: 'malformed-section', path: 'apps/web/GEMINI.md' }],
+      residues: [],
     });
   });
 

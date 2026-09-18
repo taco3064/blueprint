@@ -46,6 +46,14 @@ function refuseUnsafeFacts(facts: RemovalFacts): void {
       kind: 'missing-state', file: LIFECYCLE_FILE, installed,
     }));
   }
+
+  const pending = facts.state.status === 'present' && facts.state.state.pending !== null;
+
+  if (pending && facts.remaining.length) {
+    throw new Error(renderRemoveRefusal({
+      kind: 'pending-upgrade', file: LIFECYCLE_FILE, applications: facts.remaining,
+    }));
+  }
 }
 
 function leftovers(facts: RemovalFacts, plan: RemovalPlan): string[] {

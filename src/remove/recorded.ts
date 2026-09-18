@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { digest } from '../lifecycle';
 import type { ProvenanceRecord } from '../lifecycle';
-import { restoreScript, reverseEdit } from './documents';
+import { restoreScript, reverseEdit, stripManagedSection } from './documents';
 import { readText } from './references';
 import { carriesBlueprintSignature } from './signatures';
 import type { ApplicationRemoval, FileResidue } from './types';
@@ -44,7 +44,11 @@ function residueFor(context: RecordedContext, file: string): FileResidue | null 
 
 const at = (context: RecordedContext, file: string) => path.posix.join(context.prefix, file);
 
-function wholeFiles(context: RecordedContext, removal: ApplicationRemoval): void {
+interface Reversal extends ApplicationRemoval {
+  text: string | null;
+}
+
+function generatedFiles(context: RecordedContext, removal: ApplicationRemoval): void {
   for (const record of recordsOf(context, 'generated')) {
     const text = readText(path.join(context.root, record.path));
 
@@ -54,21 +58,43 @@ function wholeFiles(context: RecordedContext, removal: ApplicationRemoval): void
       removal.residues.push({ kind: 'modified', path: at(context, record.path) });
     }
   }
-
-  for (const record of recordsOf(context, 'created')) {
-    const text = readText(path.join(context.root, record.path));
-    const kept = residueFor(context, record.path);
-
-    if (text !== null && (digest(text) !== record.sha256 || kept !== null)) {
-      removal.residues.push(kept ?? { kind: 'modified', path: at(context, record.path) });
-    } else if (text !== null) {
-      removal.actions.push({ kind: 'delete', path: at(context, record.path), reason: 'created' });
-    }
-  }
 }
 
-function reverseFile(context: RecordedContext, file: string, edits: Edit[]): ApplicationRemoval {
-  const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
+function createdFiles(
+  context: RecordedContext,
+  removal: ApplicationRemoval,
+  reversals: ReadonlyMap<string, Reversal>,
+): Set<string> {
+  const deleted = new Set<string>();
+
+  for (const record of recordsOf(context, 'created')) {
+    const reversal = reversals.get(record.path);
+
+    const text = reversal === undefined
+      ? readText(path.join(context.root, record.path))
+      : reversal.text;
+
+    const kept = reversal === undefined ? residueFor(context, record.path) : null;
+
+    if (text === null) {
+      continue;
+    }
+
+    if (kept !== null) {
+      removal.residues.push(kept);
+    } else if (digest(text) === record.sha256) {
+      deleted.add(record.path);
+      removal.actions.push({ kind: 'delete', path: at(context, record.path), reason: 'created' });
+    } else {
+      removal.residues.push({ kind: 'modified', path: at(context, record.path) });
+    }
+  }
+
+  return deleted;
+}
+
+function reverseFile(context: RecordedContext, file: string, edits: Edit[]): Reversal {
+  const removal: Reversal = { actions: [], conflicts: [], residues: [], text: null };
   const original = readText(path.join(context.root, file));
   const kept = residueFor(context, file);
 
@@ -88,7 +114,7 @@ function reverseFile(context: RecordedContext, file: string, edits: Edit[]): App
         kind: 'ambiguous-edit', path: at(context, file), occurrences: result.occurrences,
       });
     } else if (result.status === 'irreversible') {
-      removal.residues.push({ kind: 'irreversible', path: at(context, file) });
+      removal.conflicts.push({ kind: 'irreversible-edit', path: at(context, file) });
     }
   }
 
@@ -96,7 +122,29 @@ function reverseFile(context: RecordedContext, file: string, edits: Edit[]): App
     removal.actions.push({ kind: 'write', path: at(context, file), content: text, reason: 'edit' });
   }
 
-  return removal;
+  return { ...removal, text };
+}
+
+function sections(context: RecordedContext, removal: ApplicationRemoval): void {
+  for (const record of recordsOf(context, 'section')) {
+    const text = readText(path.join(context.root, record.path));
+
+    if (text === null) {
+      continue;
+    }
+
+    const strip = stripManagedSection(text);
+
+    if (strip.status === 'malformed') {
+      removal.conflicts.push({ kind: 'malformed-section', path: at(context, record.path) });
+    } else if (strip.status === 'stripped') {
+      removal.actions.push(strip.empty && record.created
+        ? { kind: 'delete', path: at(context, record.path), reason: 'section' }
+        : {
+            kind: 'write', path: at(context, record.path), content: strip.text, reason: 'section',
+          });
+    }
+  }
 }
 
 function restoreFile(
@@ -165,11 +213,15 @@ function directories(context: RecordedContext, removal: ApplicationRemoval): voi
 export function recordedRemoval(context: RecordedContext): ApplicationRemoval {
   const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
 
-  wholeFiles(context, removal);
+  const reversals = new Map([...byPath(recordsOf(context, 'edit'))]
+    .map(([file, edits]) => [file, reverseFile(context, file, edits)] as const));
+
+  generatedFiles(context, removal);
+
+  const deleted = createdFiles(context, removal, reversals);
 
   const parts = [
-    ...[...byPath(recordsOf(context, 'edit'))]
-      .map(([file, edits]) => reverseFile(context, file, edits)),
+    ...[...reversals].flatMap(([file, reversal]) => deleted.has(file) ? [] : [reversal]),
     ...[...byPath(recordsOf(context, 'script'))]
       .map(([file, scripts]) => restoreFile(context, file, scripts)),
   ];
@@ -180,6 +232,7 @@ export function recordedRemoval(context: RecordedContext): ApplicationRemoval {
     removal.residues.push(...part.residues);
   }
 
+  sections(context, removal);
   directories(context, removal);
 
   return removal;

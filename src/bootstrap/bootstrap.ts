@@ -447,6 +447,7 @@ function applyAndNarrate(
   const { exec, log } = effects;
   const recorder = adoptionRecorder(root, effects.state, actions);
   let landed = 0;
+  let finished = false;
 
   try {
     apply(root, actions, {
@@ -459,6 +460,8 @@ function applyAndNarrate(
 
       onInstallStarting: (action) => log(renderInstallStarting(action.note, action.command)),
     });
+
+    finished = true;
   } catch (error) {
     const skipped = actions.slice(landed + 1).filter((action) => action.kind !== 'instruct');
     const failed = actions[landed];
@@ -471,7 +474,7 @@ function applyAndNarrate(
       skipped,
     }));
   } finally {
-    recorder.finish(log);
+    recorder.finish(log, finished);
   }
 }
 

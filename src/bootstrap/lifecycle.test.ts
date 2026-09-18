@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runInit } from './bootstrap';
 import { adoptionRecorder } from './lifecycle';
 import { detect } from '../project';
-import { digest } from '../lifecycle';
+import { digest, runningPackage } from '../lifecycle';
 import { vuePreset } from '../presets';
 
 let root: string;
@@ -136,7 +136,9 @@ describe('init lifecycle recording', () => {
 
     expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(false);
   });
+});
 
+describe('init lifecycle recording · failures', () => {
   it('keeps ownership of actions that landed before an install failure', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
@@ -148,8 +150,35 @@ describe('init lifecycle recording', () => {
       log,
     })).rejects.toThrow('offline');
 
+    expect(lifecycle()).toMatchObject({ blueprint: null, provenance: 'complete' });
+
     expect(lifecycle().applications['.'].provenance)
       .toContainEqual({ kind: 'generated', path: 'docs/architecture-handbook.md' });
+
+    expectLogged('the lifecycle checkpoint stays unestablished because adoption did not finish');
+
+    const loadConfig = async () => vuePreset({ name: 'demo' });
+
+    await runInit(root, { install: false, log, loadConfig });
+
+    expect(lifecycle().blueprint).toBe(runningPackage()!.version);
+  });
+
+  it('refuses to run when a lifecycle-aware adoption lost its state file', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
+    fs.mkdirSync(path.join(root, 'node_modules/@kekkai/blueprint'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'node_modules/@kekkai/blueprint/package.json'),
+      JSON.stringify({ name: '@kekkai/blueprint', version: '4.1.0' }),
+    );
+
+    await expect(runInit(root, { install: false, log }))
+      .rejects.toThrow('.blueprint-lifecycle.json is missing, and @kekkai/blueprint 4.1.0 always '
+        + 'writes it');
+
+    expect(fs.existsSync(path.join(root, 'docs/architecture-handbook.md'))).toBe(false);
   });
 
   it('explains why an adopted repository without a provable checkpoint '
@@ -165,11 +194,7 @@ describe('init lifecycle recording', () => {
 });
 
 describe('adoption recorder', () => {
-  it.each([
-    [`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`, '3.2.0'],
-    [`old.blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`, '4.1.0'],
-    [`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}.bak`, '4.1.0'],
-  ])('dates an unrecorded adoption beside %s from %s', (backup, version) => {
+  function adoptedBeside(backup: string): void {
     writePkg({ name: 'demo' });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
     fs.writeFileSync(path.join(root, backup), ADOPTED_CONFIG);
@@ -183,9 +208,23 @@ describe('adoption recorder', () => {
     const recorder = adoptionRecorder(root, detect(root), []);
 
     recorder.landed({ kind: 'mkdir', path: 'src/pages', note: 'x' as never });
-    recorder.finish(log);
+    recorder.finish(log, true);
+  }
 
-    expect(lifecycle()).toMatchObject({ blueprint: version, provenance: 'partial' });
+  it('dates a pre-lifecycle adoption from its 3.2 config backup', () => {
+    adoptedBeside(`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`);
+
+    expect(lifecycle()).toMatchObject({ blueprint: '3.2.0', provenance: 'partial' });
+  });
+
+  it.each([
+    `old.blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`,
+    `blueprint.config.mjs.pre-v4-${'a'.repeat(64)}.bak`,
+  ])('refuses to rebuild lost state beside %s', (backup) => {
+    adoptedBeside(backup);
+
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
+    expectLogged('a missing file is lost history, not a fresh adoption');
   });
 
   it('diffs a later write to the same file against the earlier write', () => {
@@ -199,7 +238,7 @@ describe('adoption recorder', () => {
     const recorder = adoptionRecorder(root, detect(root), actions);
 
     actions.forEach((action) => recorder.landed(action));
-    recorder.finish(log);
+    recorder.finish(log, true);
 
     expect(lifecycle().applications['.'].provenance).toEqual([
       { kind: 'created', path: 'notes.txt', sha256: digest('one\n') },
@@ -213,12 +252,12 @@ describe('adoption recorder', () => {
     const recorder = adoptionRecorder(root, detect(root), []);
 
     recorder.landed({ kind: 'instruct', note: 'x' as never });
-    recorder.finish(log);
+    recorder.finish(log, true);
 
     expect(lines).toEqual([]);
 
     recorder.landed({ kind: 'install', command: 'npm install', note: 'x' as never });
-    recorder.finish(log);
+    recorder.finish(log, true);
 
     expect(lines).toHaveLength(1);
     expect(lifecycle().applications['.'].provenance).toEqual([]);

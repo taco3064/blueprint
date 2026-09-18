@@ -22,7 +22,7 @@ export type RemoveActionFact
 
 export type RemoveResidueFact
   = | { kind: 'required-by-source'; path: string; alias: string }
-    | { kind: 'modified' | 'irreversible' | 'directory-in-use'; path: string }
+    | { kind: 'modified' | 'directory-in-use'; path: string }
     | { kind: 'unrecorded'; path: string; detail: 'alias' | 'lint-script' }
     | { kind: 'unrecorded-folder'; path: string }
     | {
@@ -94,8 +94,6 @@ function residueLine(residue: RemoveResidueFact): string {
         + 'alias wiring is ordinary project wiring now';
     case 'modified':
       return `${residue.path}: Blueprint created it, but it changed since`;
-    case 'irreversible':
-      return `${residue.path}: a recorded Blueprint edit cannot be located for reversal`;
     case 'directory-in-use':
       return `${residue.path}: Blueprint created this folder, but it now holds project files`;
     case 'unrecorded-folder':

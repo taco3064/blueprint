@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   LIFECYCLE_FILE,
   lifecycleStateProblem,
+  lostLifecycleState,
   recordAdoption,
 } from '../lifecycle';
 import type { AppliedAction } from '../lifecycle';
@@ -14,6 +15,7 @@ import {
   renderLifecycleRecordNote,
   renderLifecycleRecordSkipped,
   renderLifecycleStateInvalid,
+  renderLifecycleStateMissing,
 } from '../operational-contract';
 import type { Action } from './types';
 
@@ -21,7 +23,7 @@ const LEGACY_BACKUP = /^blueprint\.config\.mjs\.pre-v4-[0-9a-f]{64}$/;
 
 export interface AdoptionRecorder {
   landed: (action: Action) => void;
-  finish: (log: (line: string) => void) => void;
+  finish: (log: (line: string) => void, finished: boolean) => void;
 }
 
 export function lifecycleRootOf(state: ProjectState): string {
@@ -29,10 +31,17 @@ export function lifecycleRootOf(state: ProjectState): string {
 }
 
 export function assertLifecycleState(state: ProjectState): void {
-  const reason = lifecycleStateProblem(lifecycleRootOf(state));
+  const root = lifecycleRootOf(state);
+  const reason = lifecycleStateProblem(root);
 
   if (reason !== null) {
     throw new Error(renderLifecycleStateInvalid(LIFECYCLE_FILE, reason));
+  }
+
+  const lost = lostLifecycleState(root, state.applicationRoot);
+
+  if (lost !== null) {
+    throw new Error(renderLifecycleStateMissing(LIFECYCLE_FILE, lost));
   }
 }
 
@@ -96,7 +105,7 @@ export function adoptionRecorder(
         before.set(entry.path, entry.content);
       }
     },
-    finish: (log) => {
+    finish: (log, finished) => {
       if (!applied.length) {
         return;
       }
@@ -106,6 +115,7 @@ export function adoptionRecorder(
         applicationRoot: state.applicationRoot,
         applied,
         firstAdoption,
+        finished,
         legacyShape: fs.readdirSync(root).some((name) => LEGACY_BACKUP.test(name)),
       });
 

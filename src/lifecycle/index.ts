@@ -20,10 +20,15 @@ export { digest, forgetPaths, mergeProvenance, parseProvenance } from './provena
 export {
   applicationKey,
   lifecycleStateProblem,
+  lostLifecycleState,
   recordAdoption,
   UPGRADE_PLAYBOOK_FILE,
 } from './record';
-export type { RecordAdoptionInput, RecordAdoptionOutcome } from './record';
+export type {
+  LifecycleEstablishment,
+  RecordAdoptionInput,
+  RecordAdoptionOutcome,
+} from './record';
 export { resolveUpgrade } from './resolve';
 export { lifecycleRootFor } from './root';
 export type {

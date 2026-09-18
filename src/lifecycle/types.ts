@@ -73,7 +73,7 @@ export interface ApplicationLifecycle {
 
 export interface LifecycleState {
   schema: 1;
-  blueprint: string;
+  blueprint: string | null;
   provenance: 'complete' | 'partial';
   operations: string[];
   pending: PendingUpgrade | null;

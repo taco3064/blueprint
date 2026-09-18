@@ -70,6 +70,38 @@ describe('lifecycle state file', () => {
     expect(parseLifecycleState(JSON.stringify({ ...valid, pending: null })).status).toBe('present');
   });
 
+  it('accepts records without a completed checkpoint', () => {
+    expect(parseLifecycleState(JSON.stringify({ ...valid, blueprint: null })).status)
+      .toBe('present');
+  });
+
+  it.each([
+    '../outside.md',
+    'apps/../../outside.md',
+    '/etc/passwd',
+    'C:\\Windows\\hosts',
+    'apps\\web\\file.md',
+    '',
+  ])('refuses %j as an owned path, application key, or operation scope', (escape) => {
+    const owned = { applications: { '.': { provenance: [{ kind: 'generated', path: escape }] } } };
+
+    expect(parseLifecycleState(JSON.stringify({ ...valid, ...owned })))
+      .toEqual({ status: 'invalid', reason: 'applications' });
+
+    expect(parseLifecycleState(JSON.stringify({
+      ...valid, applications: { [escape]: { provenance: [] } },
+    }))).toEqual({ status: 'invalid', reason: 'applications' });
+
+    const scope = operation({ applications: [escape] });
+
+    expect(parseLifecycleState(JSON.stringify({ ...valid, ...scope })))
+      .toEqual({ status: 'invalid', reason: 'pending' });
+
+    expect(parseLifecycleState(JSON.stringify({
+      ...valid, ...operation({ evidence: { [escape]: [] } }),
+    }))).toEqual({ status: 'invalid', reason: 'pending' });
+  });
+
   it('reports malformed JSON and unsupported schemas', () => {
     expect(parseLifecycleState('{')).toEqual({ status: 'invalid', reason: 'json' });
     expect(parseLifecycleState('[]')).toEqual({ status: 'invalid', reason: 'schema' });

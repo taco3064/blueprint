@@ -10,7 +10,7 @@ import {
   UPGRADE_PLAYBOOK_FILE,
   writeLifecycleState,
 } from '../lifecycle';
-import type { LifecycleState, PackageLocation, UpgradeCatalog } from '../lifecycle';
+import type { PackageLocation, UpgradeCatalog } from '../lifecycle';
 import type { GitReader } from '../project';
 import {
   renderUpgradeComplete,
@@ -256,16 +256,33 @@ async function verifyAdoptedApplications(facts: UpgradeFacts, context: Context):
 
 function recordCompletion(root: string, decision: UpgradeProceed): void {
   const current = readLifecycleState(root);
-  const state = current.status === 'present' ? current.state : decision.state;
 
-  const completed: LifecycleState = {
+  if (current.status !== 'present') {
+    throw refusal({
+      kind: 'state-changed',
+      file: LIFECYCLE_FILE,
+      detail: current.status === 'missing' ? 'it is gone' : `it is unreadable: ${current.reason}`,
+    });
+  }
+
+  const { state } = current;
+  const pending = state.pending;
+
+  if (pending?.from !== decision.pending.from || pending.to !== decision.pending.to) {
+    throw refusal({
+      kind: 'state-changed',
+      file: LIFECYCLE_FILE,
+      detail: `it no longer records the pending upgrade ${decision.source} → ${decision.target}`,
+    });
+  }
+
+  writeLifecycleState(root, {
     ...state,
     blueprint: decision.target,
-    operations: [...new Set([...state.operations, ...decision.pending.completed])],
+    operations: [...new Set([...state.operations, ...pending.completed])],
     pending: null,
-  };
+  });
 
-  writeLifecycleState(root, completed);
   removePlaybook(root);
 }
 

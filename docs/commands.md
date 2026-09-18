@@ -307,9 +307,11 @@ npx @kekkai/blueprint@latest upgrade
 npx @kekkai/blueprint@4.1.0 upgrade
 ```
 
-There is no `--to` flag, and `upgrade` never downgrades. Running it with the release a repository
-already records reports that the lifecycle is current; `init` repairs generated integration and
-`doctor` verifies it.
+There is no `--to` flag, and `upgrade` never downgrades — neither the recorded lifecycle nor the
+installed package. It reports the lifecycle as current only when the recorded checkpoint and every
+application's installed package are both at the running release; when the record matches but an
+application resolves an older package or none at all, `upgrade` repairs the install instead.
+`init` repairs generated integration and `doctor` verifies it.
 
 ### Why `npm update` is not an upgrade
 
@@ -372,8 +374,12 @@ resolved plan.
   version, and the upgrade completes only when every adopted application verifies.
 - An unfinished authoring playbook or topology transformation must finish first.
 - If `.blueprint-lifecycle.json` is unreadable, or missing where the installed release always
-  records it, `upgrade` stops. Restore it from version control; if it was never committed, run
-  `npx blueprint init` to re-establish the checkpoint from the installed package.
+  records it, every command that needs it stops. Restore it from version control; Blueprint never
+  rebuilds lifecycle history from the installed package, and no command re-establishes it.
+- Records without a completed lifecycle — written by an adoption that failed part-way — are not a
+  checkpoint. Finish the adoption with `npx blueprint init` first.
+- If the lifecycle state changes under a running upgrade, finalization stops and the checkpoint
+  stays where it was.
 
 ## `remove`
 
@@ -394,8 +400,10 @@ owns it:
   config are deleted while they still carry Blueprint's generated marker. Once someone removed
   that marker, the file belongs to the project.
 - **Managed sections** — shared Agent documents such as `CLAUDE.md` and `AGENTS.md` lose only the
-  text between `<!-- BLUEPRINT:START -->` and `<!-- BLUEPRINT:END -->`. A file that held nothing
-  else is deleted.
+  text between `<!-- BLUEPRINT:START -->` and `<!-- BLUEPRINT:END -->`, including documents the
+  current config no longer names but the lifecycle still records. A file left empty is deleted only
+  where Blueprint owns the whole file: the records say Blueprint created it, or the file holds
+  nothing but that section. A document that existed before Blueprint is kept, empty or not.
 - **Shared-file edits** — `.gitignore` exceptions, package scripts, TypeScript or JavaScript
   `paths`, and Vite aliases are reversed only when the lifecycle records the exact edit and the
   current file still contains it. Alias wiring that application source still imports is kept.
@@ -409,7 +417,8 @@ owns it:
 
 `remove` refuses the whole removal, and changes nothing, when:
 
-- a recorded shared-file edit diverged or now appears more than once;
+- a recorded shared-file edit diverged, now appears more than once, or records text Blueprint
+  removed, which the record alone cannot put back;
 - managed-section markers are broken;
 - a file that stays, such as a hand-written ESLint config or a package script, still imports
   `@kekkai/blueprint`, runs the Blueprint CLI, or loads a `blueprint.config.mjs` being deleted.
@@ -420,7 +429,14 @@ Each conflict names the file and the fix. Resolve them and re-run `--dry-run`.
 
 Run from the repository root to remove every adopted application. Run from one application in a
 multi-application repository to de-adopt only that application: the lifecycle state keeps its
-siblings, and a package declared where siblings still resolve it is not uninstalled.
+siblings, and a package declared where siblings still resolve it is not uninstalled. While an
+upgrade is pending, removing part of the repository is refused, because the recorded plan would
+keep naming an application that no longer exists; finish the upgrade, or remove the whole adoption,
+which retires the pending plan and its playbook.
+
+A file Blueprint created and later edited is composed across time: the later edits are reversed
+first, and the file is deleted when it returns to the content Blueprint created and nothing in the
+project still needs it.
 
 Repositories adopted before lifecycle records existed have no proof of shared-file edits. `remove`
 deletes only name- or content-proven Blueprint artifacts and reports what it could not prove, such
