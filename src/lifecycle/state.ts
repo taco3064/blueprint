@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { planIdentity } from './plan';
 import { isApplicationKey, isRecord, parseProvenance } from './provenance';
 import type {
   ApplicationLifecycle,
@@ -87,7 +88,8 @@ function pendingValid(value: unknown): value is PendingUpgrade {
     && isStringList(value.migrations)
     && isStringList(value.completed)
     && Array.isArray(value.operations)
-    && value.operations.every(pendingOperationValid);
+    && value.operations.every(pendingOperationValid)
+    && value.plan === planIdentity(value as unknown as PendingUpgrade);
 }
 
 function pendingOperationValid(value: unknown): value is PendingOperation {

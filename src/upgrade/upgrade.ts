@@ -269,13 +269,14 @@ function recordCompletion(root: string, decision: UpgradeProceed): void {
   }
 
   const { state } = current;
+  const recorded = { ...decision.state, pending: decision.pending };
 
-  if (!isDeepStrictEqual(state.pending, decision.pending)) {
+  if (!isDeepStrictEqual({ ...state, applications: {} }, { ...recorded, applications: {} })) {
     throw refusal({
       kind: 'state-changed',
       file: LIFECYCLE_FILE,
-      detail: `it no longer records the pending upgrade ${decision.source} → ${decision.target} `
-        + 'this run verified',
+      detail: `it no longer records the lifecycle and pending upgrade ${decision.source} → `
+        + `${decision.target} this run verified`,
     });
   }
 

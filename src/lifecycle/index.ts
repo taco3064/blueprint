@@ -17,6 +17,8 @@ export {
 } from './package';
 export type { ManifestOwner, PackageLocation } from './package';
 export { lifecycleHistoryProblem } from './history';
+export { planIdentity, withPlanIdentity } from './plan';
+export type { PlannedUpgrade } from './plan';
 export { digest, forgetPaths, mergeProvenance, parseProvenance } from './provenance';
 export {
   applicationKey,

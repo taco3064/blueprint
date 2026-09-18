@@ -64,6 +64,7 @@ export interface PendingUpgrade {
   to: string;
   migrations: string[];
   operations: PendingOperation[];
+  plan: string;
   completed: string[];
 }
 

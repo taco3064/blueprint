@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { UpgradeCatalog, UpgradeOperation } from '../lifecycle';
 import type { OperationalText } from '../operational-contract';
 import type { GitReader } from '../project';
@@ -60,13 +61,13 @@ function adopt(): void {
 
   write('.blueprint-lifecycle.json', JSON.stringify({
     schema: 1, blueprint: '3.2.0', provenance: 'complete', operations: [],
-    pending: {
+    pending: withPlanIdentity({
       from: '3.2.0', to: '4.1.0', migrations: [], completed: [],
       operations: [
         { id: 'confirm-first', applications: ['apps/web'], evidence: {}, supersedes: [] },
         { id: 'clean-backups', applications: ['apps/admin'], evidence: {}, supersedes: [] },
       ],
-    },
+    }),
     applications: {},
   }));
 }
@@ -163,6 +164,42 @@ describe('runUpgrade · resuming outside a clean worktree', () => {
       pending: null,
       applications,
     });
+  });
+
+  it.each([
+    ['omits an operation', (pending: Record<string, unknown[]>) => ({
+      ...pending, operations: pending.operations.slice(0, 1),
+    })],
+    ['moves an operation to another application', (pending: Record<string, unknown[]>) => ({
+      ...pending,
+      operations: [
+        pending.operations[0],
+        { ...pending.operations[1] as object, applications: ['.'] },
+      ],
+    })],
+    ['rewrites supersession history', (pending: Record<string, unknown[]>) => ({
+      ...pending,
+      operations: [
+        pending.operations[0],
+        {
+          ...pending.operations[1] as object,
+          supersedes: [{ id: 'confirm-first', completed: true }],
+        },
+      ],
+    })],
+  ])('refuses to resume a recorded plan that %s between runs', async (_, tamper) => {
+    adopt();
+
+    const recorded = state();
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      ...recorded, pending: tamper(recorded.pending),
+    }));
+
+    for (const run of [() => upgrade(), () => upgrade({ complete: 'confirm-first' })]) {
+      await expect(run())
+        .rejects.toThrow('.blueprint-lifecycle.json is unreadable: its `pending` field is invalid');
+    }
   });
 
   it('refuses to complete an operation without any lifecycle state', async () => {
