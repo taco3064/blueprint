@@ -180,15 +180,17 @@ describe('applicationRemoval · combining recorded and proven evidence', () => {
   });
 
   it('keeps a residue for a file it rewrites rather than deletes', () => {
-    write('.gitignore', 'dist\n!docs/a.md\n');
+    write('jsconfig.json', '{"strict":true,"paths":{}}');
 
     expect(applicationRemoval(application([
-      { kind: 'edit', path: '.gitignore', before: '', after: '!docs/a.md\n' },
-      { kind: 'edit', path: '.gitignore', before: 'gone', after: '' },
+      { kind: 'created', path: 'jsconfig.json', sha256: digest('{}') },
+      { kind: 'edit', path: 'jsconfig.json', before: '', after: ',"paths":{}' },
     ]), 'provenance')).toEqual({
-      actions: [{ kind: 'write', path: '.gitignore', content: 'dist\n', reason: 'edit' }],
+      actions: [
+        { kind: 'write', path: 'jsconfig.json', content: '{"strict":true}', reason: 'edit' },
+      ],
       conflicts: [],
-      residues: [{ kind: 'irreversible', path: '.gitignore' }],
+      residues: [{ kind: 'modified', path: 'jsconfig.json' }],
     });
   });
 

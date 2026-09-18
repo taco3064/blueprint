@@ -300,6 +300,7 @@ export {
   renderLifecycleRecordNote,
   renderLifecycleRecordSkipped,
   renderLifecycleStateInvalid,
+  renderLifecycleStateMissing,
 } from './lifecycle';
 export type { LifecycleEstablishment, LifecycleRecordSkip } from './lifecycle';
 export {

@@ -51,12 +51,16 @@ exact shared-file edits it made, the folders it created, and the dependencies it
 **Ownership:** Blueprint owns it. Commit it and never edit it by hand. It is operational state, not
 architecture: `blueprint.config.mjs` stays the only architecture authority.
 
-**Lifecycle:** `init` creates it on first adoption and adds ownership facts on every run.
-`upgrade` records a pending upgrade before changing anything and moves the checkpoint only after
-verification. `remove` deletes it with the last adopted application. A repository adopted before
-lifecycle state existed gets a checkpoint from provable facts only; edits Blueprint made before that
-are reported by `remove` rather than reversed. If the file becomes unreadable, Blueprint commands
-that depend on it stop until it is restored from version control.
+**Lifecycle:** `init` creates it on first adoption and adds ownership facts on every run. An
+adoption that fails part-way keeps the records for what it wrote, without claiming a completed
+lifecycle; the next finished `init` establishes the checkpoint. `upgrade` records a pending upgrade
+before changing anything and moves the checkpoint only after verification, and only while the file
+still records that pending upgrade. `remove` deletes it with the last adopted application. A
+repository adopted before lifecycle state existed gets a checkpoint from provable facts only; edits
+Blueprint made before that are reported by `remove` rather than reversed. If the file is unreadable,
+holds a path that leaves the repository, or is missing where the installed release always records
+it, every command that depends on it stops until it is restored from version control. Blueprint
+never rebuilds it from the installed package.
 
 ### ESLint configuration
 

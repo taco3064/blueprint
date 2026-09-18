@@ -203,6 +203,10 @@ describe('upgrade refusals', () => {
     [{ kind: 'no-pending', id: 'x' }, '`npx blueprint upgrade --dry-run`'],
     [{ kind: 'unknown-operation', id: 'x', pending: ['a', 'b'] }, 'Pending: a, b.'],
     [{ kind: 'git-required' }, 'Initialize or enter the repository first. Nothing was changed.'],
+    [
+      { kind: 'installed-newer', application: 'apps/web', installed: '4.2.0', target: '4.1.0' },
+      'apps/web resolves @kekkai/blueprint 4.2.0, which is newer than the running 4.1.0',
+    ],
   ])('explains %j', (fact, fragment) => {
     expect(renderUpgradeRefusal(fact)).toContain(fragment);
   });

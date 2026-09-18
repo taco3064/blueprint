@@ -275,9 +275,9 @@ Doctor 會辨識 `lint` 指令；未宣告 `lint` 時，則辨識 `eslint` 指�
 
 ## `upgrade`
 
-`upgrade` 會把已導入 Blueprint 的專案升級到較新的版本。<br>
-要升到哪個版本，就用那個版本來執行；<br>
-正在執行的套件，是決定目標版本的唯一依據：
+`upgrade` 負責把已導入 Blueprint 的專案升級到較新的版本。
+
+要升級到哪一版，就用那一版的 Blueprint 執行：
 
 ```bash
 npx @kekkai/blueprint@latest upgrade --dry-run
@@ -285,122 +285,182 @@ npx @kekkai/blueprint@latest upgrade
 npx @kekkai/blueprint@4.1.0 upgrade
 ```
 
-沒有 `--to` 旗標，`upgrade` 也絕不降版。<br>
-用專案已記錄的同一個版本執行時，它只會回報生命週期已是最新；<br>
-要修復產生的整合內容請用 `init`，要驗證則用 `doctor`。
+正在執行的 `@kekkai/blueprint` 套件就是唯一的目標版本來源，因此沒有另外的 `--to` 旗標。
 
-### 為什麼 `npm update` 不算升級
+`upgrade` 不會用來降版。它也會同時確認專案目前實際安裝的 Blueprint 版本與生命週期檢查點；只有兩者都已經位於正確的目標狀態時，才會回報目前不需要升級。
 
-只更新相依套件，會漏掉 Blueprint 版本裡落在你專案中的那些部分：<br>
-設定檔遷移、重新產生的產出、需要人或程式撰寫 Agent 判斷的語意工作，以及最後的驗證。<br>
-`upgrade` 負責整個流程：
+如果只是要重新產生 Blueprint 管理的內容，請使用 `blueprint init`；如果只是要確認目前狀態，請使用 `blueprint doctor`。
 
-1. **規劃**：讀取 `.blueprint-lifecycle.json` 裡的生命週期檢查點。<br>
-   生命週期狀態出現之前就導入的專案，只依可證明的事實建立檢查點：<br>
-   已安裝的 `@kekkai/blueprint` 版本；<br>
-   或是 Blueprint 3.2 的設定檔格式證明導入早於 4.0 時，採用 3.2.0。<br>
-   接著在執行任何動作之前，先解析 `(source, target]` 區間（不含起始版本、含目標版本）內，<br>
-   每個版本的所有結構化升級操作。
-2. **記錄待完成的升級**：先寫進生命週期狀態，執行中斷時才能接續。
-3. **更新 `@kekkai/blueprint`**：透過偵測到的 npm、pnpm 或 Yarn，<br>
-   把宣告它的 `package.json` 與 lockfile 更新到正在執行的目標版本；<br>
-   之後改用這份已安裝的套件繼續，讓設定檔載入的是新版本。
-4. **以程式執行確定性遷移**：透過 `blueprint init` 重新對齊每個已導入的應用程式，<br>
-   其中包含支援的 3.2 → 4.0 設定檔遷移。
-5. **把語意工作交給程式撰寫 Agent**：若還有剩下的工作，會整理成一份解析後的 `blueprint-upgrade.md`。<br>
-   每完成一項操作，就用 `npx blueprint upgrade --complete <operation-id>` 記錄。<br>
-   Blueprint 會先驗證能量測的部分，才接受這筆紀錄。
-6. **驗證並記錄**：重新執行 `npx blueprint upgrade`。<br>
-   它會再對齊一次，並在每個已導入的應用程式執行 `blueprint inspect --baseline` 與 `blueprint doctor`；<br>
-   全部通過後，才會推進生命週期檢查點。<br>
-   專案自己的 lint、typecheck、test、build 指令也要一併執行。
+### 為什麼只執行 `npm update` 不夠
 
-### 跨版本累積的升級操作
+Blueprint 的版本升級不只包含 npm 套件本身。
 
-一個版本可以新增零到多項升級操作。<br>
-每項操作都有穩定的 id、引入它的版本、決定是否適用的專案事實、一項驗證方式，<br>
-以及選填、指向較早操作的關係：
+新版本可能同時需要：
 
-- **需要先完成（`requires`）**：讓這項操作排在另一項之後。
-- **取消（`cancels`）**：直接跨版本升級時，移除一項尚未在這個專案執行過的較舊操作。<br>
-  取消不是回復：已經執行過的操作仍會保留紀錄，要清理它造成的影響，得靠另一項獨立的操作。
-- **取代（`supersedes`）**：以新操作取代較舊的操作。<br>
-  取代者負責最終狀態；不論專案是否已執行過舊操作，都能收斂到同一個結果。
+- 更新專案中的 `@kekkai/blueprint` 相依套件；
+- 執行 Blueprint 可以安全確定的設定或整合遷移；
+- 重新產生 Blueprint 管理的輸出；
+- 執行需要人或程式撰寫 Agent 判斷的語意工作；
+- 驗證所有已導入的應用程式是否真的完成升級。
 
-因此，像 3.2 → 4.1 這樣直接跨版本升級，和分成幾次較小的升級，最後都會抵達同一個受支援的目標。<br>
-Agent 永遠不會拿到原始的版本說明或 CHANGELOG 條目，只會拿到解析後的計畫。
+因此，單獨執行 `npm update`、`pnpm update` 或 `yarn upgrade` 並不等於完成 Blueprint 的升級生命週期。
+
+`upgrade` 會依序處理完整流程：
+
+1. **確認起始狀態並產生計畫。**
+   讀取 `.blueprint-lifecycle.json` 中已完成的生命週期版本與升級紀錄。
+   如果專案是在生命週期狀態功能加入之前就已經導入 Blueprint，只能使用受支援且可證明的套件與設定事實建立起始檢查點。
+   接著一次收集 `(source, target]` 區間內所有版本的結構化升級操作，先處理 `requires`、`cancels`、`supersedes` 與適用條件，算出最終有效計畫，之後才開始修改專案。
+
+2. **記錄尚未完成的升級。**
+   在執行其他修改之前，先把本次升級的來源版本、目標版本與有效計畫寫進生命週期狀態。
+   如果流程中斷，之後可以從同一份 pending state 接續，不會重複已完成的操作。
+
+3. **把專案相依套件更新到目標版本。**
+   Blueprint 會使用偵測到的 npm、pnpm 或 Yarn，更新真正宣告 `@kekkai/blueprint` 的 `package.json` 與 lockfile。
+   更新完成後，後續流程會改由專案剛安裝好的 Blueprint 執行，確保設定檔載入、遷移與產出全部使用目標版本。
+
+4. **執行可由程式確定完成的遷移。**
+   Blueprint 會透過既有的 `init` 與其他既有 owner，執行可以安全自動完成的設定與整合遷移，不把可確定的工作丟給 Agent 判斷。
+
+5. **處理仍需要語意判斷的工作。**
+   如果最終有效計畫還有語意操作，Blueprint 會產生一份 `blueprint-upgrade.md`。
+   Agent 只執行這份已解析完成的計畫，不直接執行歷史 CHANGELOG 或 release note。
+   每完成一項操作後，使用：
+
+   ```bash
+   npx blueprint upgrade --complete <operation-id>
+   ```
+
+   Blueprint 會先執行該操作可以量測的驗證，再記錄完成狀態。
+
+6. **完成最後驗證。**
+   所有語意操作完成後，再執行：
+
+   ```bash
+   npx blueprint upgrade
+   ```
+
+   Blueprint 會重新對齊每個已導入的應用程式，並執行 `blueprint inspect --baseline` 與 `blueprint doctor`。
+   只有所有必要驗證都成功，生命週期檢查點才會移到目標版本。
+
+   最後仍應執行專案自己的 lint、typecheck、test 與 build 指令。
+
+### 跨版本的累積升級計畫
+
+一個 Blueprint 版本可以新增零到多項結構化升級操作。
+
+每項操作都有固定 id、加入它的版本、適用條件與驗證方式，也可以宣告與較早操作的關係：
+
+- **`requires`**：這項操作必須排在另一項操作之後。
+- **`cancels`**：如果較舊的操作在這個 repository 還沒執行過，就從本次直接升級的有效計畫中移除。取消不等於還原；已經執行過的歷史不會被假裝成沒發生過。
+- **`supersedes`**：由新的操作接手最終狀態。無論舊操作以前已經執行過，還是直接跨版本而從未執行，新操作都必須把專案收斂到同一個受支援的目標狀態。
+
+因此：
+
+```text
+3.2 → 4.1
+```
+
+直接升級，和：
+
+```text
+3.2 → 4.0 → 4.1
+```
+
+分段升級，可以有不同的歷史執行紀錄，但最後必須收斂到同一個 Blueprint 目標狀態。
+
+Agent 不會自行重播每一版的 CHANGELOG 或 release note，只會收到 Blueprint 已經解析完成的最終有效計畫。
 
 ### 選項
 
-- **`--dry-run`** — 印出起始版本與 Blueprint 信任它的理由、目標版本、已導入的應用程式與各自安裝的版本、安裝指令、確定性遷移、解析後的語意計畫（包含被移除與不適用的操作），以及安全前提。<br>不做任何修改。
-- **`--complete <operation-id>`** — 某項待完成的語意操作通過驗證後，記錄這一項。<br>不能與 `--dry-run` 並用。
+- **`--dry-run`** — 顯示起始版本、起始版本的證據、目標版本、所有已導入的應用程式與實際安裝版本、套件更新指令、確定性遷移、最終有效的語意計畫，以及開始升級前必須滿足的安全條件。完全不修改專案。
+- **`--complete <operation-id>`** — 在某項待完成的語意操作通過自己的驗證後，記錄這項操作已完成。不能與 `--dry-run` 同時使用。
 
-### 邊界
+### 升級邊界
 
-- 支援的起始版本從 3.2.0 開始。<br>
-  更舊的導入必須先用 3.2.0 自己的工具升到 3.2.0。
-- 開始升級時，Git 工作目錄不能有未提交的變更，整次升級才能被審查、也能整個還原。<br>
-  已有待完成的升級時，不受這項限制，會直接接續。
-- 生命週期以整個專案為單位。<br>
-  所有已導入的應用程式必須共用同一個已安裝的 Blueprint 版本；<br>
-  每個應用程式都通過驗證，升級才算完成。
-- 尚未完成的架構編寫指南或拓樸轉換，必須先完成。
-- `.blueprint-lifecycle.json` 無法讀取，或在已安裝版本一定會記錄它的情況下卻不存在時，`upgrade` 會停止。<br>
-  請從版本控制還原；若從未提交過，就執行 `npx blueprint init`，依已安裝的套件重新建立檢查點。
+支援的升級起點目前從 3.2.0 開始。更早的 Blueprint 導入，必須先依該版本原本支援的方式到達 3.2.0，再進入目前的 upgrade lifecycle。
+
+開始新的升級之前，必須位於 Git repository，而且工作目錄不能有未提交的變更，讓整次升級可以完整檢視與還原。已經有 pending upgrade 時，則依既有紀錄接續，不要求把升級本身造成的修改先清掉。
+
+Blueprint 的 lifecycle 是 repository-wide。所有已導入的應用程式都必須維持一致且可證明的 Blueprint 套件狀態；只有每個必要應用程式都完成驗證，repository 的生命週期才能推進。
+
+如果還有未完成的架構編寫或拓樸轉換流程，必須先完成或明確處理，不能同時開始新的 upgrade lifecycle。
+
+如果 `.blueprint-lifecycle.json` 本來應該存在，卻遺失、損壞或包含無法驗證的內容，`upgrade` 會停止，不會依目前檔案或已安裝套件自行重建歷史。請先從版本控制或其他可信來源還原生命週期狀態；如果無法還原，應停止並交由 owner 決定後續處理方式。
 
 ## `remove`
 
-`remove` 用來解除 Blueprint 的導入。<br>
-請在解除安裝套件之前執行：
+`remove` 用來安全地把 Blueprint 從專案中移除。
+
+請在解除安裝 `@kekkai/blueprint` 之前執行：
 
 ```bash
 npx blueprint remove --dry-run
 npx blueprint remove
 ```
 
-它會先規劃完整的清理，<br>
-並依「這項內容屬於 Blueprint」的證據，替每個動作分類：
+Blueprint 會先算出完整的 repository-wide 移除計畫，確認每一項內容的所有權證據與可逆性。只要有任何共用內容無法安全判定，整次移除都會在實際修改之前停止。
 
-- **Blueprint 檔案** — `blueprint.config.mjs`、`.blueprint-lifecycle.json`、`.blueprint-baseline.json`、<br>
-  設定檔備份、未完成的架構編寫／轉換／升級工作檔，以及 `*.blueprint.*` 合併參考檔，都會刪除。
-- **產出** — 架構手冊、Blueprint 完整管理的 Agent 規則檔，以及產生的 ESLint 設定，<br>
-  只要仍帶有 Blueprint 的產生標記就會刪除。<br>
-  一旦有人移除了這個標記，檔案就歸專案所有。
-- **標記區塊** — `CLAUDE.md`、`AGENTS.md` 等共用的 Agent 文件，<br>
-  只會移除 `<!-- BLUEPRINT:START -->` 與 `<!-- BLUEPRINT:END -->` 之間的內容。<br>
-  檔案若除此之外沒有其他內容，就整個刪除。
-- **共用檔案的修改** — `.gitignore` 例外、`package.json` 的 scripts、TypeScript 或 JavaScript 的 `paths`，以及 Vite 別名，<br>
-  只有在生命週期記錄了確切的修改、而目前檔案仍包含這項修改時才會還原。<br>
-  應用程式原始碼仍在匯入的別名接線會保留。
-- **資料夾** — Blueprint 建立的分層資料夾，只有在裡面除了 `.gitkeep` 之外什麼都沒有時才會移除；<br>
-  因移除而變空的資料夾也會一併清掉。
-- **相依套件** — 最後才透過偵測到的套件管理工具解除安裝 `@kekkai/blueprint`。<br>
-  Blueprint 記錄為自己安裝的 ESLint 套件也會解除安裝，除非專案留下的檔案仍在使用。
+### Blueprint 可以移除哪些內容
 
-### 有衝突就在修改前停止
+- **Blueprint 自己的檔案**
+  例如 `blueprint.config.mjs`、`.blueprint-lifecycle.json`、`.blueprint-baseline.json`、受支援的設定備份，以及未完成的 Blueprint workflow 檔案。
 
-下列情況下，`remove` 會拒絕整次移除，什麼都不改：
+- **Blueprint 產生的輸出**
+  例如架構手冊、Blueprint 完整管理的 Agent 規則檔與 Blueprint 產生的 ESLint 設定。
+  Whole-file deletion 必須有足夠的 Blueprint ownership evidence；如果檔案後來已經改成由專案自行管理，就會保留並回報。
 
-- 記錄過的共用檔案修改已經與現況不符，或現在出現不只一次；
-- 標記區塊的標記已經損壞；
-- 會保留下來的檔案（例如手寫的 ESLint 設定或 `package.json` script）<br>
-  仍匯入 `@kekkai/blueprint`、執行 Blueprint CLI，或載入即將刪除的 `blueprint.config.mjs`。
+- **共用 Agent 文件中的 Blueprint 區塊**
+  `CLAUDE.md`、`AGENTS.md` 等共用文件只會移除 `<!-- BLUEPRINT:START -->` 到 `<!-- BLUEPRINT:END -->` 之間的 Blueprint-managed section。
+  只有能證明整個檔案原本就是 Blueprint 建立時，才可以在移除區塊後刪除整個檔案；原本就存在的 user-owned file 必須保留。
 
-每個衝突都會指出檔案與修正方式。<br>
-處理完之後，重新執行 `--dry-run`。
+- **Blueprint 對共用檔案做過的修改**
+  `.gitignore`、`package.json` scripts、TypeScript / JavaScript `paths`、Vite alias 等內容，只有在 lifecycle provenance 與目前檔案內容能共同證明「這一段就是 Blueprint 當初做的修改」時才會自動還原。
+  如果應用程式原始碼仍需要某段一般性接線，例如 import alias，該接線會保留。
 
-### 範圍與較舊的導入
+- **Blueprint 建立的資料夾**
+  Blueprint 能證明由自己建立，而且目前沒有專案內容的資料夾可以移除。若資料夾已經放入實際專案檔案，就會保留並回報。
 
-在專案根目錄執行，會移除所有已導入的應用程式。<br>
-在多應用程式專案裡，從其中一個應用程式執行，只會解除那個應用程式的導入：<br>
-生命週期狀態會保留其他應用程式的紀錄；<br>
-套件若宣告在其他應用程式仍會解析到的位置，也不會被解除安裝。
+- **相依套件**
+  `@kekkai/blueprint` 一定最後才解除安裝。Blueprint 有完整 provenance 證明由自己加入的相關工具套件，也只會在其餘專案內容不再使用時一起移除。
 
-在生命週期紀錄出現之前導入的專案，沒有共用檔案修改的證明。<br>
-`remove` 只會刪除能以名稱或內容證明屬於 Blueprint 的檔案，<br>
-並把無法證明的部分回報給你檢查，例如別名接線、lint script 裡串接的 ESLint 指令、<br>
-只剩 `.gitkeep` 的分層資料夾，或 ESLint 套件。<br>
-之後才補建生命週期檢查點的專案，在檢查點建立之前做的修改也一樣處理。
+### 有衝突時，整次移除會先停止
 
-移除後的專案，不再留有任何可證明屬於 Blueprint 的設定、生命週期、產出、標記區塊或相依套件痕跡。<br>
-`remove` 不會為了讓應用程式原始碼跟導入前一天逐位元組相同而改寫它。
+以下情況不能直接進行破壞性清理：
+
+- lifecycle 記錄的共用檔案修改已經與目前內容不一致；
+- 同一段曾由 Blueprint 插入的內容現在出現多次，無法判斷哪一段才是原本的修改；
+- lifecycle 雖然記得 Blueprint 做過修改，但目前證據不足以精確還原；
+- Blueprint-managed section 的 marker 已損壞或不完整；
+- 會留下來的設定、script 或其他檔案仍引用 `@kekkai/blueprint`、Blueprint CLI，或即將刪除的 `blueprint.config.mjs`。
+
+這些情況都會在任何刪除或改寫之前停止，並指出衝突的位置。處理完之後，再重新執行：
+
+```bash
+npx blueprint remove --dry-run
+```
+
+確認新的完整計畫。
+
+### 多應用程式 repository
+
+從 repository root 執行 `remove`，會移除範圍內所有已導入的應用程式。
+
+如果只在其中一個應用程式範圍執行，Blueprint 可以只移除該應用程式，但必須保持 repository-wide lifecycle 一致。其他仍採用 Blueprint 的 sibling application，其 lifecycle/provenance 與共用 Blueprint 套件都必須保留。
+
+如果 repository 目前還有尚未完成的 upgrade lifecycle，而只移除其中部分應用程式會讓 pending plan 失效，Blueprint 必須先停止，而不是留下仍引用已移除應用程式的 stale upgrade plan。
+
+### 在生命週期紀錄出現之前就已導入的專案
+
+較舊的 Blueprint 導入沒有完整 provenance 可以證明所有共用檔案修改。
+
+這種情況下，`remove` 只會自動刪除能從檔名、Blueprint marker 或其他可靠內容證據證明屬於 Blueprint 的項目。
+
+無法證明的內容會保留並明確列出，例如可能由 Blueprint 加入的 alias wiring、lint script、只剩 `.gitkeep` 的舊分層資料夾，或無法證明由 Blueprint 安裝的工具套件。
+
+Blueprint 不會因為某個值「看起來很像預設值」就把它當成自己的修改。
+
+移除完成後，範圍內不應再留下任何能證明仍由 Blueprint 擁有或管理的設定、生命週期狀態、產出、managed section 或相依套件。
+
+`remove` 的目標是乾淨地移除 Blueprint 的 ownership 與 tooling footprint，不是為了追求位元組層級的回復，而去改寫仍由應用程式本身需要的程式碼或設定。

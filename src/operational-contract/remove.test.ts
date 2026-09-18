@@ -9,7 +9,7 @@ import {
 } from './remove';
 import type { RemovePlanFact, RemoveReasonFact, RemoveResidueFact } from './remove';
 import { renderRemoveConflicts, renderRemoveRefusal } from './remove-conflicts';
-import type { RemoveConflictFact } from './remove-conflicts';
+import type { RemoveConflictFact, RemoveRefusalFact } from './remove-conflicts';
 
 const plan: RemovePlanFact = {
   dryRun: false,
@@ -90,7 +90,6 @@ describe('remove plan report', () => {
 
   it.each<[RemoveResidueFact, string]>([
     [{ kind: 'required-by-source', path: 'vite.config.ts', alias: '~app' }, 'still imports `~app`'],
-    [{ kind: 'irreversible', path: 'a' }, 'cannot be located for reversal'],
     [{ kind: 'directory-in-use', path: 'src/pages' }, 'now holds project files'],
     [{ kind: 'unrecorded', path: 'tsconfig.json', detail: 'alias' }, 'import-alias wiring'],
   ])('explains residue %j', (residue, text) => {
@@ -137,12 +136,27 @@ describe('remove outcome messages', () => {
       { kind: 'reference', path: 'x.config.ts', detail: 'config-path' },
       'still loads a blueprint.config.mjs',
     ],
+    [
+      { kind: 'irreversible-edit', path: '.gitignore' },
+      'Blueprint recorded removing text here',
+    ],
   ])('explains conflict %j', (conflict, text) => {
     expect(renderRemoveConflicts([conflict])).toContain(text);
   });
 
-  it('refuses without an adopted scope', () => {
-    expect(renderRemoveRefusal({ kind: 'not-adopted', root: '/repo' }))
-      .toContain('no adopted application was found at or below /repo');
+  it.each<[RemoveRefusalFact, string]>([
+    [{ kind: 'not-adopted', root: '/repo' }, 'no adopted application was found at or below /repo'],
+    [
+      { kind: 'missing-state', file: '.blueprint-lifecycle.json', installed: '4.1.0' },
+      'Blueprint does not rebuild the records',
+    ],
+    [
+      {
+        kind: 'pending-upgrade', file: '.blueprint-lifecycle.json', applications: ['apps/admin'],
+      },
+      'records an upgrade in progress, and apps/admin stay adopted',
+    ],
+  ])('refuses %j', (fact, fragment) => {
+    expect(renderRemoveRefusal(fact)).toContain(fragment);
   });
 });

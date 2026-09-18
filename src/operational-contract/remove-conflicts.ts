@@ -12,6 +12,7 @@ export type RemoveConflictFact
       current: string | null;
     }
     | { kind: 'unreadable-manifest'; path: string }
+    | { kind: 'irreversible-edit'; path: string }
     | {
       kind: 'reference';
       path: string;
@@ -21,7 +22,8 @@ export type RemoveConflictFact
 
 export type RemoveRefusalFact
   = | { kind: 'not-adopted'; root: string }
-    | { kind: 'missing-state'; file: string; installed: string };
+    | { kind: 'missing-state'; file: string; installed: string }
+    | { kind: 'pending-upgrade'; file: string; applications: string[] };
 
 function conflictLine(fact: RemoveConflictFact): string {
   switch (fact.kind) {
@@ -38,6 +40,10 @@ function conflictLine(fact: RemoveConflictFact): string {
     case 'unreadable-manifest':
       return `${fact.path}: not valid JSON, so the recorded script change cannot be reversed — `
         + 'fix the JSON first';
+    case 'irreversible-edit':
+      return `${fact.path}: Blueprint recorded removing text here, and the record alone cannot `
+        + 'prove where it belongs — restore the file from version control, or reverse that edit by '
+        + 'hand, then re-run';
     default:
       return referenceLine(fact);
   }
@@ -63,13 +69,23 @@ export function renderRemoveConflicts(conflicts: readonly RemoveConflictFact[]):
   ]);
 }
 
+const REFUSALS: Record<RemoveRefusalFact['kind'], (fact: never) => string> = {
+  'not-adopted': (fact: Extract<RemoveRefusalFact, { kind: 'not-adopted' }>) =>
+    `no adopted application was found at or below ${fact.root}. Run \`blueprint remove\` from `
+    + 'the repository or from the adopted application you want to de-adopt. Nothing was changed.',
+  'missing-state': (fact: Extract<RemoveRefusalFact, { kind: 'missing-state' }>) =>
+    `${fact.file} is missing, but @kekkai/blueprint ${fact.installed} always records it, so `
+    + 'ownership of shared-file edits cannot be proven. Restore it from version control (for '
+    + `example \`git checkout -- ${fact.file}\`). Blueprint does not rebuild the records, so `
+    + 'removal has nothing to reverse from. Nothing was changed.',
+  'pending-upgrade': (fact: Extract<RemoveRefusalFact, { kind: 'pending-upgrade' }>) =>
+    `${fact.file} records an upgrade in progress, and ${fact.applications.join(', ')} stay `
+    + 'adopted. Removing part of the repository now would leave that upgrade pointing at an '
+    + 'application that no longer exists. Finish or abandon the upgrade first — `npx '
+    + '@kekkai/blueprint@latest upgrade`, or remove the whole repository adoption. Nothing was '
+    + 'changed.',
+};
+
 export function renderRemoveRefusal(fact: RemoveRefusalFact): OperationalText {
-  return operationalText(fact.kind === 'not-adopted'
-    ? `no adopted application was found at or below ${fact.root}. Run \`blueprint remove\` from `
-    + 'the repository or from the adopted application you want to de-adopt. Nothing was changed.'
-    : `${fact.file} is missing, but @kekkai/blueprint ${fact.installed} always records it, so `
-      + 'ownership of shared-file edits cannot be proven. Restore it from version control (for '
-      + `example \`git checkout -- ${fact.file}\`). If it was never committed, run \`npx blueprint `
-      + 'init` to re-establish the checkpoint; removal then reports earlier edits as residues. '
-      + 'Nothing was changed.');
+  return operationalText(REFUSALS[fact.kind](fact as never));
 }

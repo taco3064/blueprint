@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { parseProvenance } from './provenance';
+import { isApplicationKey, isRecord, parseProvenance } from './provenance';
 import type {
   ApplicationLifecycle,
   LifecycleState,
@@ -56,12 +56,12 @@ export function serializeLifecycleState(state: LifecycleState): string {
   return `${JSON.stringify({ ...state, applications }, null, 2)}\n`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function isStringList(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isApplicationList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isApplicationKey);
 }
 
 function stateProblem(value: unknown): string | null {
@@ -70,7 +70,7 @@ function stateProblem(value: unknown): string | null {
   }
 
   const checks: [string, boolean][] = [
-    ['blueprint', isVersion(value.blueprint)],
+    ['blueprint', value.blueprint === null || isVersion(value.blueprint)],
     ['provenance', value.provenance === 'complete' || value.provenance === 'partial'],
     ['operations', isStringList(value.operations)],
     ['pending', value.pending === null || pendingValid(value.pending)],
@@ -93,8 +93,9 @@ function pendingValid(value: unknown): value is PendingUpgrade {
 function pendingOperationValid(value: unknown): value is PendingOperation {
   return isRecord(value)
     && typeof value.id === 'string'
-    && isStringList(value.applications)
+    && isApplicationList(value.applications)
     && isRecord(value.evidence)
+    && Object.keys(value.evidence).every(isApplicationKey)
     && Object.values(value.evidence).every(isStringList)
     && Array.isArray(value.supersedes)
     && value.supersedes.every((entry) => isRecord(entry)
@@ -103,6 +104,8 @@ function pendingOperationValid(value: unknown): value is PendingOperation {
 }
 
 function applicationsValid(value: unknown): value is Record<string, ApplicationLifecycle> {
-  return isRecord(value) && Object.values(value).every((application) =>
-    isRecord(application) && parseProvenance(application.provenance) !== null);
+  return isRecord(value)
+    && Object.keys(value).every(isApplicationKey)
+    && Object.values(value).every((application) =>
+      isRecord(application) && parseProvenance(application.provenance) !== null);
 }

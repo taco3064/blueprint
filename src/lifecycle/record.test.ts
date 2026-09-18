@@ -41,6 +41,7 @@ function record(input: Partial<RecordAdoptionInput> = {}) {
     applied: [{ kind: 'mkdir', path: 'src/pages' }],
     firstAdoption: false,
     legacyShape: false,
+    finished: true,
     runningVersion: '4.1.0',
     ...input,
   });
@@ -86,11 +87,51 @@ describe('recordAdoption', () => {
     expect(outcome).toMatchObject({ established: 'bootstrap' });
     expect(written(outcome)).toMatchObject({ blueprint: '4.0.0', provenance: 'partial' });
   });
+});
 
-  it('re-establishes a missing lifecycle from a lifecycle-aware installed package', () => {
+describe('recordAdoption · missing and unfinished checkpoints', () => {
+  it('refuses to rebuild the state a lifecycle-aware release should have written', () => {
     install('4.2.0');
 
-    expect(written(record())).toMatchObject({ blueprint: '4.2.0', provenance: 'partial' });
+    expect(record()).toEqual({ status: 'skipped', reason: 'missing-state' });
+  });
+
+  it('records what an unfinished first adoption wrote without claiming a checkpoint', () => {
+    const outcome = record({ firstAdoption: true, finished: false });
+
+    expect(outcome).toMatchObject({ established: 'records-only' });
+
+    expect(written(outcome)).toMatchObject({
+      blueprint: null,
+      provenance: 'complete',
+      applications: { '.': { provenance: [{ kind: 'directory', path: 'src/pages' }] } },
+    });
+
+    fs.writeFileSync(path.join(root, LIFECYCLE_FILE), (outcome as { content: string }).content);
+
+    const finished = record({ applied: [{ kind: 'mkdir', path: 'src/hooks' }] });
+
+    expect(finished).toMatchObject({ established: 'first' });
+
+    expect(written(finished)).toMatchObject({
+      blueprint: '4.1.0',
+      applications: {
+        '.': {
+          provenance: [
+            { kind: 'directory', path: 'src/pages' },
+            { kind: 'directory', path: 'src/hooks' },
+          ],
+        },
+      },
+    });
+  });
+
+  it('leaves an unfinished adoption unestablished until a run finishes', () => {
+    const records = record({ firstAdoption: true, finished: false });
+
+    fs.writeFileSync(path.join(root, LIFECYCLE_FILE), (records as { content: string }).content);
+
+    expect(written(record({ finished: false }))).toMatchObject({ blueprint: null });
   });
 
   it('uses legacy config evidence as the checkpoint', () => {

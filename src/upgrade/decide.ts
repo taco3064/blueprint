@@ -76,11 +76,38 @@ function readinessRefusal(input: DecisionInput): UpgradeDecision | null {
     : null;
 }
 
+function installedRefusal(facts: UpgradeFacts, target: string): UpgradeDecision | null {
+  const installed = facts.applications
+    .flatMap((entry) => entry.installed === null ? [] : [entry]);
+
+  const versions = [...new Set(installed.map((entry) => entry.installed!.version))]
+    .sort(compareVersions);
+
+  if (versions.length > 1) {
+    return refuse({ kind: 'mixed-installed', versions });
+  }
+
+  const newer = installed.find((entry) => compareVersions(entry.installed!.version, target) > 0);
+
+  return newer === undefined
+    ? null
+    : refuse({
+        kind: 'installed-newer',
+        application: newer.key,
+        installed: newer.installed!.version,
+        target,
+      });
+}
+
 function checkpointRefusal(facts: UpgradeFacts): UpgradeDecision | null {
   const { checkpoint } = facts;
 
   if (checkpoint.kind === 'invalid-state') {
     return refuse({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason: checkpoint.reason });
+  }
+
+  if (checkpoint.kind === 'adoption-incomplete') {
+    return refuse({ kind: 'adoption-incomplete', file: LIFECYCLE_FILE });
   }
 
   if (checkpoint.kind === 'missing-state') {
@@ -111,7 +138,11 @@ export function decideUpgrade(input: DecisionInput): UpgradeDecision {
     ?? readinessRefusal(input)
     ?? checkpointRefusal(facts);
 
-  return refusal ?? plannedUpgrade(input, running.version);
+  const decision = refusal ?? plannedUpgrade(input, running.version);
+
+  return decision.kind === 'refuse'
+    ? decision
+    : installedRefusal(facts, running.version) ?? decision;
 }
 
 function baseState(facts: UpgradeFacts, version: string): LifecycleState {
@@ -190,7 +221,10 @@ function currentUpgrade(
 ): UpgradeDecision {
   const { state, source, target } = plan;
 
-  return input.facts.checkpoint.kind === 'state'
+  const settled = input.facts.applications
+    .every((entry) => entry.installed?.version === target);
+
+  return input.facts.checkpoint.kind === 'state' && settled
     ? { kind: 'current', version: target }
     : proceed(input, {
         mode: 'start', state, pending: emptyPending(source, target), resolution: null,

@@ -80,6 +80,59 @@ describe('runRemove · scope edges', () => {
   });
 });
 
+describe('runRemove · refusals that protect the repository', () => {
+  it('never lets recorded paths reach outside the application', async () => {
+    write('blueprint.config.mjs', 'export default {};\n');
+    write('secret.txt', 'keep me\n');
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.1.0', provenance: 'complete', operations: [], pending: null,
+      applications: { '.': { provenance: [{ kind: 'generated', path: '../secret.txt' }] } },
+    }));
+
+    await expect(remove(path.join(root, 'app')))
+      .rejects.toThrow('.blueprint-lifecycle.json is unreadable: its `applications` field is '
+        + 'invalid');
+
+    expect(exists('secret.txt')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(true);
+  });
+
+  it('refuses to remove one application while an upgrade is pending', async () => {
+    for (const app of ['apps/web', 'apps/admin']) {
+      write(`${app}/blueprint.config.mjs`, 'export default {};\n');
+    }
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [],
+      pending: {
+        from: '4.0.0', to: '4.1.0', migrations: [], completed: [],
+        operations: [{
+          id: 'review', applications: ['apps/web', 'apps/admin'], evidence: {}, supersedes: [],
+        }],
+      },
+      applications: { 'apps/web': { provenance: [] }, 'apps/admin': { provenance: [] } },
+    }));
+
+    write('blueprint-upgrade.md', '# pending\n');
+
+    const git: GitReader = (args) => ({
+      status: 0,
+      stdout: args[1] === '--show-toplevel' ? root : 'true',
+      stderr: '',
+    });
+
+    await expect(remove(path.join(root, 'apps/web'), { git }))
+      .rejects.toThrow('records an upgrade in progress, and apps/admin stay adopted');
+
+    expect(exists('apps/web/blueprint.config.mjs')).toBe(true);
+
+    expect(await remove(root, { git })).toBe(0);
+    expect(exists('.blueprint-lifecycle.json')).toBe(false);
+    expect(exists('blueprint-upgrade.md')).toBe(false);
+  });
+});
+
 describe('runRemove · evidence edges', () => {
   it('uses configured merge targets, extension-less references, and the default '
     + 'handbook', async () => {

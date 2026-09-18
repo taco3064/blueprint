@@ -116,6 +116,14 @@ describe('runUpgrade · refusals before any change', () => {
     await expect(upgrade()).rejects.toThrow('@kekkai/blueprint is not installed for .,');
   });
 
+  it('refuses records whose first adoption never finished', async () => {
+    adopt();
+    lifecycle({ blueprint: null });
+
+    await expect(upgrade()).rejects.toThrow('.blueprint-lifecycle.json records Blueprint-owned '
+      + 'files, but no completed lifecycle');
+  });
+
   it('refuses mixed installed versions in one repository', async () => {
     adopt('apps/a', '4.0.0');
     adopt('apps/b', '3.2.0');
@@ -133,7 +141,9 @@ describe('runUpgrade · refusals before any change', () => {
       'Blueprint 3.1.0 is below the supported upgrade window, which starts at 3.2.0',
     );
   });
+});
 
+describe('runUpgrade · refusals of the plan and its safety', () => {
   it('never downgrades a recorded lifecycle or a pending upgrade', async () => {
     adopt('.', '4.2.0');
     lifecycle({ blueprint: '4.2.0' });

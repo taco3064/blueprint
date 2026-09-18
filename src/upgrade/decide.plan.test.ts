@@ -66,7 +66,7 @@ function decide(facts: Partial<UpgradeFacts>, target = '4.1.0') {
 }
 
 const stateCheckpoint = (state: LifecycleState) =>
-  ({ kind: 'state', version: state.blueprint, state }) as const;
+  ({ kind: 'state', version: state.blueprint!, state }) as const;
 
 describe('decideUpgrade · checkpoint refusals', () => {
   it('names only the applications that have no installed package', () => {
@@ -74,6 +74,13 @@ describe('decideUpgrade · checkpoint refusals', () => {
       applications: [application('apps/web', null), application('apps/admin', '4.0.0')],
     })).toEqual({
       kind: 'refuse', refusal: { kind: 'not-installed', applications: ['apps/web'] },
+    });
+  });
+
+  it('refuses records that never completed an adoption', () => {
+    expect(decide({ checkpoint: { kind: 'adoption-incomplete' } })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'adoption-incomplete', file: '.blueprint-lifecycle.json' },
     });
   });
 
@@ -178,6 +185,57 @@ describe('decideUpgrade · plans', () => {
         inapplicable: [],
         installs: [],
       });
+  });
+});
+
+describe('decideUpgrade · installed package evidence', () => {
+  it('repairs the install instead of reporting current when the package is behind', () => {
+    const state = lifecycle({ blueprint: '4.1.0' });
+
+    const recorded = {
+      state: { status: 'present' as const, state },
+      checkpoint: stateCheckpoint(state),
+    };
+
+    expect(decide({ ...recorded, applications: [application('.', '4.1.0')] }))
+      .toEqual({ kind: 'current', version: '4.1.0' });
+
+    for (const installed of ['4.0.0', null]) {
+      expect(decide({ ...recorded, applications: [application('.', installed)] })).toMatchObject({
+        kind: 'proceed',
+        mode: 'start',
+        source: '4.1.0',
+        target: '4.1.0',
+        pending: { from: '4.1.0', to: '4.1.0', operations: [] },
+        installs: [{ manifest: '.', command: 'npm install -D @kekkai/blueprint@4.1.0' }],
+      });
+    }
+  });
+
+  it('refuses to move an application back to an older running package', () => {
+    const state = lifecycle({ blueprint: '4.1.0' });
+
+    expect(decide({
+      state: { status: 'present', state },
+      checkpoint: stateCheckpoint(state),
+      applications: [application('.', '4.1.0'), application('apps/web', '4.2.0')],
+    })).toEqual({
+      kind: 'refuse',
+      refusal: {
+        kind: 'mixed-installed', versions: ['4.1.0', '4.2.0'],
+      },
+    });
+
+    expect(decide({
+      state: { status: 'present', state },
+      checkpoint: stateCheckpoint(state),
+      applications: [application('apps/web', '4.2.0')],
+    })).toEqual({
+      kind: 'refuse',
+      refusal: {
+        kind: 'installed-newer', application: 'apps/web', installed: '4.2.0', target: '4.1.0',
+      },
+    });
   });
 
   it('establishes state for an unrecorded adoption already on the running release', () => {

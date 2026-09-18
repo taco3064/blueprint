@@ -12,14 +12,27 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 const text = (value: unknown): value is string => typeof value === 'string';
 
+export function isContainedPath(value: unknown): value is string {
+  return text(value)
+    && value.length > 0
+    && !value.startsWith('/')
+    && !/^[A-Za-z]:/.test(value)
+    && !value.includes('\\')
+    && !value.split('/').includes('..');
+}
+
+export function isApplicationKey(value: unknown): value is string {
+  return value === '.' || isContainedPath(value);
+}
+
 const SHAPES: Record<ProvenanceRecord['kind'], (value: Record<string, unknown>) => boolean> = {
-  generated: (value) => text(value.path),
-  created: (value) => text(value.path) && text(value.sha256),
-  section: (value) => text(value.path) && typeof value.created === 'boolean',
-  edit: (value) => text(value.path) && text(value.before) && text(value.after),
-  script: (value) => text(value.path) && text(value.name) && text(value.after)
+  generated: (value) => isContainedPath(value.path),
+  created: (value) => isContainedPath(value.path) && text(value.sha256),
+  section: (value) => isContainedPath(value.path) && typeof value.created === 'boolean',
+  edit: (value) => isContainedPath(value.path) && text(value.before) && text(value.after),
+  script: (value) => isContainedPath(value.path) && text(value.name) && text(value.after)
     && (value.before === null || text(value.before)),
-  directory: (value) => text(value.path),
+  directory: (value) => isContainedPath(value.path),
   dependency: (value) => text(value.name),
 };
 

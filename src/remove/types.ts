@@ -32,6 +32,7 @@ export type RemovalConflict
       current: string | null;
     }
     | { kind: 'unreadable-manifest'; path: string }
+    | { kind: 'irreversible-edit'; path: string }
     | {
       kind: 'reference';
       path: string;
@@ -42,7 +43,6 @@ export type RemovalConflict
 export type RemovalResidue
   = | { kind: 'required-by-source'; path: string; alias: string }
     | { kind: 'modified'; path: string }
-    | { kind: 'irreversible'; path: string }
     | { kind: 'directory-in-use'; path: string }
     | { kind: 'unrecorded'; path: string; detail: 'alias' | 'lint-script' }
     | { kind: 'unrecorded-folder'; path: string }
