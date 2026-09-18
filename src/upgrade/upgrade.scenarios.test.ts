@@ -195,6 +195,36 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     expect(state()).toMatchObject({ blueprint: '4.0.0', pending: null });
   });
 
+  it('refuses to finish a pending plan that changed under the same versions', async () => {
+    adopt('4.1.0');
+
+    const catalog: UpgradeCatalog = {
+      supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [],
+      operations: [op('first-step', '4.1.0')],
+    };
+
+    const pending = {
+      from: '4.0.0', to: '4.1.0', migrations: [], completed: ['first-step'],
+      operations: [{ id: 'first-step', applications: ['.'], evidence: {}, supersedes: [] }],
+    };
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [], pending,
+      applications: {},
+    }));
+
+    const reconcile = async () => write('.blueprint-lifecycle.json', JSON.stringify({
+      ...state(), pending: { ...pending, completed: [] },
+    }));
+
+    const instruction = (id: string) => `Do ${id}.` as OperationalText;
+
+    await expect(upgrade({ catalog, instruction, reconcile }))
+      .rejects.toThrow('it no longer records the pending upgrade 4.0.0 → 4.1.0 this run verified');
+
+    expect(state()).toMatchObject({ blueprint: '4.0.0', pending: { completed: [] } });
+  });
+
   it('names catalog problems that do not belong to one operation', async () => {
     adopt('4.0.0');
 

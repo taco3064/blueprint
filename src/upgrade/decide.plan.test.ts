@@ -77,6 +77,16 @@ describe('decideUpgrade · checkpoint refusals', () => {
     });
   });
 
+  it('refuses recorded history the running catalog could not have produced', () => {
+    const state = lifecycle({ blueprint: '3.2.0', operations: ['first'] });
+
+    expect(decide({ state: { status: 'present', state }, checkpoint: stateCheckpoint(state) }))
+      .toEqual({
+        kind: 'refuse',
+        refusal: { kind: 'invalid-state', file: '.blueprint-lifecycle.json', reason: 'operations' },
+      });
+  });
+
   it('refuses records that never completed an adoption', () => {
     expect(decide({ checkpoint: { kind: 'adoption-incomplete' } })).toEqual({
       kind: 'refuse',
@@ -200,6 +210,14 @@ describe('decideUpgrade · installed package evidence', () => {
     expect(decide({ ...recorded, applications: [application('.', '4.1.0')] }))
       .toEqual({ kind: 'current', version: '4.1.0' });
 
+    expect(decide({
+      ...recorded,
+      applications: [application('.', '4.1.0'), application('apps/web', null)],
+    })).toMatchObject({
+      kind: 'proceed',
+      installs: [{ manifest: 'apps/web', command: 'npm install -D @kekkai/blueprint@4.1.0' }],
+    });
+
     for (const installed of ['4.0.0', null]) {
       expect(decide({ ...recorded, applications: [application('.', installed)] })).toMatchObject({
         kind: 'proceed',
@@ -218,7 +236,7 @@ describe('decideUpgrade · installed package evidence', () => {
     expect(decide({
       state: { status: 'present', state },
       checkpoint: stateCheckpoint(state),
-      applications: [application('.', '4.1.0'), application('apps/web', '4.2.0')],
+      applications: [application('apps/web', '4.2.0'), application('.', '4.1.0')],
     })).toEqual({
       kind: 'refuse',
       refusal: {

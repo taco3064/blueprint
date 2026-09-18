@@ -1,8 +1,11 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { defaultExec } from '../bootstrap';
 import type { Exec } from '../bootstrap';
 import {
   installedPackage,
   LIFECYCLE_FILE,
+  lifecycleHistoryProblem,
   readLifecycleState,
   runningInstallSpec,
   runningPackage,
@@ -266,20 +269,20 @@ function recordCompletion(root: string, decision: UpgradeProceed): void {
   }
 
   const { state } = current;
-  const pending = state.pending;
 
-  if (pending?.from !== decision.pending.from || pending.to !== decision.pending.to) {
+  if (!isDeepStrictEqual(state.pending, decision.pending)) {
     throw refusal({
       kind: 'state-changed',
       file: LIFECYCLE_FILE,
-      detail: `it no longer records the pending upgrade ${decision.source} → ${decision.target}`,
+      detail: `it no longer records the pending upgrade ${decision.source} → ${decision.target} `
+        + 'this run verified',
     });
   }
 
   writeLifecycleState(root, {
     ...state,
     blueprint: decision.target,
-    operations: [...new Set([...state.operations, ...pending.completed])],
+    operations: [...new Set([...state.operations, ...decision.pending.completed])],
     pending: null,
   });
 
@@ -294,6 +297,12 @@ function completeOperation(facts: UpgradeFacts, context: Context, id: string): n
   }
 
   const { state } = facts.state;
+  const history = lifecycleHistoryProblem(state, context.catalog);
+
+  if (history !== null) {
+    throw refusal({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason: history });
+  }
+
   const { pending } = state;
   const problem = completionRefusal({ root: facts.root, catalog: context.catalog, pending }, id);
 

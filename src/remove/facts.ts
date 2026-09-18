@@ -3,10 +3,9 @@ import path from 'node:path';
 import type { Blueprint } from '../config';
 import {
   applicationKey,
-  compareVersions,
   installedPackage,
-  LIFECYCLE_SINCE,
   lifecycleRootFor,
+  lostLifecycleState,
   manifestOwner,
   readLifecycleState,
 } from '../lifecycle';
@@ -86,14 +85,7 @@ function modeOf(state: LifecycleStateRead): RemovalMode {
 }
 
 export function missingStateInstall(facts: RemovalFacts): string | null {
-  if (facts.state.status !== 'missing') {
-    return null;
-  }
-
-  const aware = facts.scope.map((application) => application.installed?.version)
-    .find((version) => version !== undefined && compareVersions(version, LIFECYCLE_SINCE) >= 0);
-
-  return aware ?? null;
+  return lostLifecycleState(facts.root);
 }
 
 export async function gatherRemovalFacts(

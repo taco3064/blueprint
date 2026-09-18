@@ -16,6 +16,7 @@ export {
   runningPackage,
 } from './package';
 export type { ManifestOwner, PackageLocation } from './package';
+export { lifecycleHistoryProblem } from './history';
 export { digest, forgetPaths, mergeProvenance, parseProvenance } from './provenance';
 export {
   applicationKey,

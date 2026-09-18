@@ -98,6 +98,28 @@ describe('runRemove · refusals that protect the repository', () => {
     expect(exists('blueprint.config.mjs')).toBe(true);
   });
 
+  it('refuses a scoped removal when a sibling proves the repository lost its state', async () => {
+    for (const [app, version] of [['apps/old', '4.0.0'], ['apps/new', '4.1.0']]) {
+      write(`${app}/blueprint.config.mjs`, 'export default {};\n');
+
+      write(`${app}/node_modules/@kekkai/blueprint/package.json`, JSON.stringify({
+        name: '@kekkai/blueprint', version,
+      }));
+    }
+
+    const git: GitReader = (args) => ({
+      status: 0,
+      stdout: args[1] === '--show-toplevel' ? root : 'true',
+      stderr: '',
+    });
+
+    await expect(remove(path.join(root, 'apps/old'), { git }))
+      .rejects.toThrow('.blueprint-lifecycle.json is missing, but @kekkai/blueprint 4.1.0 always '
+        + 'records it');
+
+    expect(exists('apps/old/blueprint.config.mjs')).toBe(true);
+  });
+
   it('refuses to remove one application while an upgrade is pending', async () => {
     for (const app of ['apps/web', 'apps/admin']) {
       write(`${app}/blueprint.config.mjs`, 'export default {};\n');

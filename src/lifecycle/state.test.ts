@@ -75,12 +75,28 @@ describe('lifecycle state file', () => {
       .toBe('present');
   });
 
+  it('accepts nested owned paths, including ones that merely contain a colon', () => {
+    const owned = {
+      applications: {
+        '.': { provenance: [{ kind: 'generated', path: 'docs/notes:v1.md' }] },
+        'apps/web': { provenance: [{ kind: 'directory', path: 'src/pages' }] },
+      },
+    };
+
+    expect(parseLifecycleState(JSON.stringify({ ...valid, ...owned })).status).toBe('present');
+  });
+
   it.each([
     '../outside.md',
     'apps/../../outside.md',
     '/etc/passwd',
     'C:\\Windows\\hosts',
+    'C:/Windows/hosts',
     'apps\\web\\file.md',
+    'apps//web',
+    'apps/./web',
+    'apps/',
+    './',
     '',
   ])('refuses %j as an owned path, application key, or operation scope', (escape) => {
     const owned = { applications: { '.': { provenance: [{ kind: 'generated', path: escape }] } } };
@@ -92,7 +108,7 @@ describe('lifecycle state file', () => {
       ...valid, applications: { [escape]: { provenance: [] } },
     }))).toEqual({ status: 'invalid', reason: 'applications' });
 
-    const scope = operation({ applications: [escape] });
+    const scope = operation({ applications: ['.', escape] });
 
     expect(parseLifecycleState(JSON.stringify({ ...valid, ...scope })))
       .toEqual({ status: 'invalid', reason: 'pending' });

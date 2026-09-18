@@ -14,11 +14,9 @@ const text = (value: unknown): value is string => typeof value === 'string';
 
 export function isContainedPath(value: unknown): value is string {
   return text(value)
-    && value.length > 0
-    && !value.startsWith('/')
     && !/^[A-Za-z]:/.test(value)
     && !value.includes('\\')
-    && !value.split('/').includes('..');
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 export function isApplicationKey(value: unknown): value is string {

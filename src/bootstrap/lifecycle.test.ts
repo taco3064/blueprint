@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -162,6 +163,34 @@ describe('init lifecycle recording · failures', () => {
     await runInit(root, { install: false, log, loadConfig });
 
     expect(lifecycle().blueprint).toBe(runningPackage()!.version);
+  });
+
+  it('refuses a pre-lifecycle application when a sibling proves lost state', async () => {
+    expect(spawnSync('git', ['init', '--quiet'], { cwd: root }).status).toBe(0);
+
+    for (const [app, version] of [['apps/old', '4.0.0'], ['apps/new', '4.1.0']]) {
+      const dir = path.join(root, app);
+
+      fs.mkdirSync(path.join(dir, 'node_modules/@kekkai/blueprint'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(dir, 'package.json'),
+        JSON.stringify({ dependencies: { vue: '^3' } }),
+      );
+
+      fs.writeFileSync(path.join(dir, 'blueprint.config.mjs'), ADOPTED_CONFIG);
+
+      fs.writeFileSync(
+        path.join(dir, 'node_modules/@kekkai/blueprint/package.json'),
+        JSON.stringify({ name: '@kekkai/blueprint', version }),
+      );
+    }
+
+    await expect(runInit(path.join(root, 'apps/old'), { install: false, log }))
+      .rejects.toThrow('.blueprint-lifecycle.json is missing, and @kekkai/blueprint 4.1.0 always '
+        + 'writes it');
+
+    expect(fs.existsSync(path.join(root, 'apps/old/docs'))).toBe(false);
   });
 
   it('refuses to run when a lifecycle-aware adoption lost its state file', async () => {

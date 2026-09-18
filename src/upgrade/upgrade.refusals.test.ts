@@ -247,9 +247,21 @@ describe('runUpgrade · --complete refusals', () => {
       .rejects.toThrow('--complete x needs a pending upgrade');
 
     lifecycle({
+      blueprint: '4.0.0',
       pending: { from: '4.0.0', to: '4.1.0', migrations: [], operations: [], completed: [] },
     });
 
     await expect(upgrade({ complete: 'x' })).rejects.toThrow('Pending: none.');
+
+    lifecycle({
+      blueprint: '4.0.0',
+      pending: {
+        from: '4.0.0', to: '4.1.0', migrations: [], completed: [],
+        operations: [{ id: 'ghost', applications: ['.'], evidence: {}, supersedes: [] }],
+      },
+    });
+
+    await expect(upgrade({ complete: 'ghost' }))
+      .rejects.toThrow('.blueprint-lifecycle.json is unreadable: its `pending` field is invalid');
   });
 });
