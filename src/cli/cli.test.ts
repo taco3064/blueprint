@@ -54,6 +54,16 @@ describe('run', () => {
     ], root)).toBe(0);
   });
 
+  it('keeps --source-root a survey flag that init rejects', async () => {
+    expect(await run(['init', '--source-root', 'apps/web/src', '--dry-run'], root)).toBe(1);
+
+    expect(
+      (console.error as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+        String(call[0]).includes('unknown flag for init: --source-root'),
+      ),
+    ).toBe(true);
+  });
+
   it('runs init in the given cwd and returns 0', async () => {
     fs.writeFileSync(
       path.join(root, 'package.json'),
