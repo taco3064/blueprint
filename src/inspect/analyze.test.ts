@@ -74,7 +74,7 @@ describe('analyze · file layout', () => {
     framework: 'react',
     architecture: {
       alias: '~app',
-      layers: [{ name: 'a', does: '' }, { name: 'b', does: '' }],
+      layers: [{ name: 'a', does: 'First layer.' }, { name: 'b', does: 'Second layer.' }],
     },
   });
 
@@ -96,9 +96,9 @@ describe('analyze · per-layer unit layout', () => {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'pages', does: '' },
-        { name: 'resources', does: '', layout: 'folder', entry: 'main' },
-        { name: 'services', does: '' },
+        { name: 'pages', does: 'Routes.' },
+        { name: 'resources', does: 'Resources.', layout: 'folder', entry: 'main' },
+        { name: 'services', does: 'Network access.' },
       ],
     },
   });

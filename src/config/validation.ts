@@ -1,5 +1,6 @@
 export type ConfigValidationFact
   = | { kind: 'blueprint-name' }
+    | { kind: 'invalid-framework'; framework?: string; expected: readonly string[] }
     | { kind: 'architecture-layers-array' }
     | { kind: 'architecture-alias' }
     | { kind: 'architecture-layers-empty' }
@@ -7,6 +8,7 @@ export type ConfigValidationFact
     | { kind: 'duplicate-layer'; name: string }
     | { kind: 'layer-name-path'; name: string }
     | { kind: 'layer-name-artifact'; name: string }
+    | { kind: 'layer-does'; layer: string }
     | { kind: 'modules-empty' }
     | { kind: 'module-does'; module: string }
     | { kind: 'module-case-collision'; first: string; second: string }

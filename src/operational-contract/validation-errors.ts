@@ -19,6 +19,10 @@ type ErrorRendererMap = {
 
 const renderers = {
   'blueprint-name': () => 'name must be a non-empty string when provided.',
+  'invalid-framework': (fact) =>
+    `${fact.framework === undefined
+      ? 'framework is required'
+      : `framework "${fact.framework}" is not supported`} — expected ${fact.expected.join(' | ')}.`,
   'architecture-layers-array': () => 'architecture.layers must be an array.',
   'architecture-alias': () => 'architecture.alias must be a non-empty string.',
   'architecture-layers-empty': () => 'architecture.layers must not be empty.',
@@ -32,6 +36,7 @@ const renderers = {
     `Layer "${fact.name}" contains characters that corrupt emitted artifacts `
     + '— a layer name becomes a folder, a file glob, and a diagram node. '
     + 'Stick to letters, digits, ".", "_", "-".',
+  'layer-does': (fact) => `Layer "${fact.layer}" must have a non-empty does.`,
   'modules-empty': () => 'architecture.modules must be an array when set — omit it for '
     + 'layer-first, or use [] for a module-first runway with no domain module yet.',
   'module-does': (fact) => `Module "${fact.module}" must have a non-empty does.`,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateBlueprint } from '../operational-contract';
+import { defineBlueprint, validateBlueprint } from '../operational-contract';
 import type { Blueprint } from './types';
 
 function base(): Blueprint {
@@ -81,6 +81,11 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
       (bp: Blueprint) => { bp.emit = { agents: [{ target: 'windsurf', path: 4 as never }] }; },
       /has an empty path/,
     ],
+    [
+      'a layer does',
+      (bp: Blueprint) => { bp.architecture.layers[1].does = 3 as never; },
+      /Layer "hooks" must have a non-empty does\./,
+    ],
   ])('names the field when %s is not a string', (_label, mutate, pattern) => {
     const config = base();
 
@@ -108,6 +113,11 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
       (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ global: '   ' }]; },
       /global with no name/,
     ],
+    [
+      'a layer does',
+      (bp: Blueprint) => { bp.architecture.layers[1].does = '   '; },
+      /Layer "hooks" must have a non-empty does\./,
+    ],
   ])('rejects whitespace-only %s', (_label, mutate, pattern) => {
     const config = base();
 
@@ -129,6 +139,41 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
 
     nullRule.rules = { maxLines: null as never };
     expect(() => validateBlueprint(nullRule)).toThrow(/invalid tier/);
+  });
+});
+
+describe('defineBlueprint · the fields the documented contract requires', () => {
+  it.each(['vue', 'react', 'auto'] as const)('accepts framework %s', (framework) => {
+    const config = base();
+
+    config.framework = framework;
+
+    expect(defineBlueprint(config)).toBe(config);
+  });
+
+  it.each([
+    ['a missing', undefined, 'framework is required — expected vue | react | auto.'],
+    [
+      'an unsupported',
+      'svelte',
+      'framework "svelte" is not supported — expected vue | react | auto.',
+    ],
+    ['a non-string', 3, 'framework "3" is not supported — expected vue | react | auto.'],
+  ])('rejects %s framework', (_label, framework, message) => {
+    const config = base();
+
+    config.framework = framework as never;
+
+    expect(() => defineBlueprint(config)).toThrow(message);
+    expect(() => validateBlueprint(config)).toThrow(message);
+  });
+
+  it('rejects a layer without does', () => {
+    const config = base();
+
+    delete (config.architecture.layers[1] as { does?: string }).does;
+
+    expect(() => defineBlueprint(config)).toThrow('Layer "hooks" must have a non-empty does.');
   });
 });
 

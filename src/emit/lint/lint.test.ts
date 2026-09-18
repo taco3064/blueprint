@@ -257,9 +257,9 @@ describe('emitLint · shape', () => {
       architecture: {
         alias: '~app',
         layers: [
-          { name: 'components', does: '', layout: 'folder', entry: 'index' },
+          { name: 'components', does: 'Reusable UI.', layout: 'folder', entry: 'index' },
           {
-            name: 'services', does: '', layout: 'folder', entry: 'index',
+            name: 'services', does: 'Network access.', layout: 'folder', entry: 'index',
             owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }],
           },
         ],
@@ -294,8 +294,8 @@ describe('emitLint · shape', () => {
       architecture: {
         alias: '~app',
         layers: [
-          { name: 'components', does: '', layout: 'folder', entry: 'index' },
-          { name: 'hooks', does: '', layout: 'folder', entry: 'index' },
+          { name: 'components', does: 'Reusable UI.', layout: 'folder', entry: 'index' },
+          { name: 'hooks', does: 'State adapters.', layout: 'folder', entry: 'index' },
         ],
         testFiles: [spec],
         layerFilesIgnore: ['**/*.d.ts'],
@@ -410,10 +410,10 @@ describe('emitLint · what an exempted package splits into', () => {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: '', layout: 'folder', entry: 'index' },
+        { name: 'components', does: 'Reusable UI.', layout: 'folder', entry: 'index' },
         {
           name: 'services',
-          does: '',
+          does: 'Network access.',
           layout: 'folder',
           entry: 'index',
           // One owned package excuses some files, the other excuses none — the
