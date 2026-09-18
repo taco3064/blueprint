@@ -1,6 +1,7 @@
 import { h } from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import AdoptWithAI from './AdoptWithAI.vue';
+import EvidenceFeed from './EvidenceFeed.vue';
 import VersionBadge from './VersionBadge.vue';
 import './custom.css';
 
@@ -15,5 +16,6 @@ export default {
     }),
   enhanceApp({ app }) {
     app.component('AdoptWithAI', AdoptWithAI);
+    app.component('EvidenceFeed', EvidenceFeed);
   },
 };

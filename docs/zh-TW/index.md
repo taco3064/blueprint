@@ -35,6 +35,15 @@ ESLint 檢查、給人閱讀的架構手冊，以及程式撰寫 Agent 的工作
 
 想先理解差異或自行操作 CLI，可閱讀[指令中的 `init`](/zh-TW/commands#init)。
 
+## 實證
+
+Blueprint 的案例研究與實驗紀錄，<br>
+都發表在 [GitHub Discussions](https://github.com/taco3064/blueprint/discussions)。<br>
+這份清單會在頁面載入時直接向 GitHub 讀取，<br>
+文章新增、修改或刪除後，五分鐘內就會反映在這裡。
+
+<EvidenceFeed />
+
 ## 用 AI 升級或移除 Blueprint
 
 導入 Blueprint 之後，你可以直接用平常的方式告訴程式撰寫 Agent 你要做什麼。
