@@ -20,11 +20,11 @@ const copy = {
   },
   'zh-TW': {
     dateLocale: 'zh-TW',
-    loading: '正在從 GitHub Discussions 載入實證文章。',
+    loading: '正在載入 GitHub Discussions 上的實證文章。',
     empty: '目前還沒有發表任何實證文章。',
-    unavailable: '即時實證暫時無法載入。',
+    unavailable: '目前無法載入實證文章。',
     published: '發表於',
-    all: '到 GitHub 看所有 Blueprint Discussions',
+    all: '前往 GitHub 查看所有 Blueprint Discussions',
   },
 } as const;
 

@@ -39,8 +39,8 @@ ESLint 檢查、給人閱讀的架構手冊，以及程式撰寫 Agent 的工作
 
 Blueprint 的案例研究與實驗紀錄，<br>
 都發表在 [GitHub Discussions](https://github.com/taco3064/blueprint/discussions)。<br>
-這份清單會在頁面載入時直接向 GitHub 讀取，<br>
-文章新增、修改或刪除後，五分鐘內就會反映在這裡。
+頁面載入時會取得 GitHub Discussions 的最新內容；<br>
+文章新增、修改或刪除後，最多五分鐘內就會反映在這裡。
 
 <EvidenceFeed />
 
