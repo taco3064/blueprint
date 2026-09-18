@@ -1,3 +1,7 @@
+/**
+ * @module @kekkai/blueprint
+ * @mergeModuleWith <project>
+ */
 export {
   defineBlueprint,
   emitAgentFiles,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["scripts/typedoc-entry.ts"],
+  "entryPoints": ["scripts/typedoc-entry.ts", "scripts/typedoc-operational-contract.ts"],
   "tsconfig": "tsconfig.typedoc.json",
   "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme"],
   "out": "docs/api",
@@ -8,5 +8,15 @@
   "readme": "none",
   "cleanOutputDir": true,
   "excludeInternal": true,
-  "includeVersion": true
+  "treatWarningsAsErrors": true,
+  "intentionallyNotExported": [
+    "src/markdown/validation.ts:MarkdownValidationFact",
+    "src/operational-contract/bootstrap-actions.ts:EslintWiringFacts",
+    "src/operational-contract/doctor.ts:AliasConsumerEvidence",
+    "src/operational-contract/transformation.ts:LayerToModuleCandidateFact",
+    "src/operational-contract/transformation.ts:RelativeImportFact",
+    "src/operational-contract/transformation.ts:TransformationCheckFact",
+    "src/operational-contract/transformation.ts:TransformationEdgeFact",
+    "src/operational-contract/upgrade-instructions.ts:UpgradeVerificationRuleFact"
+  ]
 }
