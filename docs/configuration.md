@@ -151,7 +151,7 @@ position; it is not an ordinary domain module and does not repeat the shared lay
   - Shape and default: required non-empty `string`.
   - Meaning: Folder/layer identity. Names must be unique and cannot be paths or reserved generated-artifact names.
 - **`does`**
-  - Shape and default: required `string`.
+  - Shape and default: required non-empty `string`.
   - Meaning: One-line responsibility rendered into generated guidance.
 - **`mustNot`**
   - Shape and default: `string[]`, default `[]`.

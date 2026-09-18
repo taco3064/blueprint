@@ -314,6 +314,7 @@ describe('runDeps · a hand-written config is validated on load', () => {
     // became real (field issue #23).
     const invalid = async () =>
       ({
+        framework: 'react',
         architecture: { alias: '~app', layers: [{ name: 'pages' }], module: { entry: '' } },
       }) as never;
 

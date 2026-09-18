@@ -14,6 +14,7 @@ import { activeSetting } from './settings';
 import { configValidationError } from './validation';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
+const FRAMEWORKS = ['vue', 'react', 'auto'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
 const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
 
@@ -72,6 +73,7 @@ export function defineBlueprint(config: Blueprint): Blueprint {
 export function validateBlueprint(bp: Blueprint): Blueprint {
   validateName(bp.name);
   rejectUnknownKeys(bp, BLUEPRINT_KEYS, 'the blueprint');
+  validateFramework(bp.framework);
   validateArchitecture(bp.architecture);
   validateEmit(bp.emit);
   validateUniqueIds(bp.principles ?? [], 'principle');
@@ -88,6 +90,16 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 function validateName(name: string | undefined): void {
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
     throw configValidationError({ kind: 'blueprint-name' });
+  }
+}
+
+function validateFramework(framework: unknown): void {
+  if (!FRAMEWORKS.includes(framework as string)) {
+    throw configValidationError({
+      kind: 'invalid-framework',
+      framework: framework === undefined ? undefined : String(framework),
+      expected: FRAMEWORKS,
+    });
   }
 }
 
@@ -120,6 +132,7 @@ function validateLayers(layers: LayerDef[]): void {
 
   for (const layer of layers) {
     validateLayerName(layer, names);
+    validateLayerDoes(layer);
     rejectRetiredLayerModule(layer);
     rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
@@ -140,6 +153,12 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
     throw configValidationError({ kind: 'layer-name-path', name: layer.name });
   } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
     throw configValidationError({ kind: 'layer-name-artifact', name: layer.name });
+  }
+}
+
+function validateLayerDoes(layer: LayerDef): void {
+  if (typeof layer.does !== 'string' || !layer.does.trim()) {
+    throw configValidationError({ kind: 'layer-does', layer: layer.name });
   }
 }
 
