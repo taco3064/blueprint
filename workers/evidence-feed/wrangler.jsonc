@@ -9,8 +9,8 @@
     "enabled": true
   },
   "vars": {
-    "GITHUB_APP_ID": "",
-    "GITHUB_INSTALLATION_ID": "",
+    "GITHUB_APP_ID": "4988210",
+    "GITHUB_INSTALLATION_ID": "162710734",
     "GITHUB_OWNER": "taco3064",
     "GITHUB_REPO": "blueprint"
   }

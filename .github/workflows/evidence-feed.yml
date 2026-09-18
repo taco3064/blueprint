@@ -77,6 +77,14 @@ jobs:
             exit 1
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Match the homepage to the deployed URL
+        env:
+          WORKER_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          if ! grep -qF "'$WORKER_URL/discussions'" ../../docs/.vitepress/theme/evidence-feed.ts; then
+            echo "::error::EVIDENCE_FEED_URL in docs/.vitepress/theme/evidence-feed.ts is not $WORKER_URL/discussions, so the homepage reads a different Worker."
+            exit 1
+          fi
       - name: Verify the live feed
         env:
           WORKER_URL: ${{ steps.deploy.outputs.url }}

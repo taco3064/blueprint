@@ -60,10 +60,11 @@ go only to the Worker log.
 
 - **Pull requests** that touch this directory bundle the Worker with `wrangler deploy --dry-run`,
   without deploying it.
-- **Every push to `main`** that touches this directory runs `wrangler deploy`, then
-  `scripts/smoke.ts` against the live URL. The check waits until the new version refuses a query
-  string, then requires `/discussions` to answer `200` with a Discussion feed and the docs-origin
-  CORS grant. The run summary lists the Discussions served; any failed check fails the run.
+- **Every push to `main`** that touches this directory runs `wrangler deploy`, requires the
+  homepage's `EVIDENCE_FEED_URL` to be the URL it just deployed, then runs `scripts/smoke.ts`
+  against that URL. The check waits until the new version refuses a query string, then requires
+  `/discussions` to answer `200` with a Discussion feed and the docs-origin CORS grant. The run
+  summary lists the Discussions served; any failed check fails the run.
 - **Run workflow** on `main` (or `gh workflow run evidence-feed.yml --ref main`) redeploys and
   re-verifies without a commit.
 
@@ -73,7 +74,12 @@ The deployed URL is recorded on the repository's `evidence-feed` environment.
 
 Four steps need your own GitHub and Cloudflare sign-in, once. After them, nothing about the feed
 is manual. Only the App ID, the installation ID, and the Worker URL are committed; none of them is a
-secret.
+secret. The current values:
+
+- **App ID** — `4988210` (`GITHUB_APP_ID` in `wrangler.jsonc`).
+- **Installation ID** — `162710734` (`GITHUB_INSTALLATION_ID` in `wrangler.jsonc`).
+- **Worker URL** — `https://blueprint-evidence-feed.tabacotaco.workers.dev/discussions`
+  (`EVIDENCE_FEED_URL` in `docs/.vitepress/theme/evidence-feed.ts`).
 
 ### 1. GitHub App
 
@@ -122,10 +128,10 @@ deploy job reads them.
 
 ### 4. Configuration and the private key
 
-1. Set `GITHUB_APP_ID` and `GITHUB_INSTALLATION_ID` under `vars` in `wrangler.jsonc`, and
-   `EVIDENCE_FEED_URL` in `docs/.vitepress/theme/evidence-feed.ts` to
-   `https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions`. Merging that deploys the
-   Worker and publishes the homepage.
+1. Commit the App ID and installation ID under `vars` in `wrangler.jsonc`, and the Worker URL
+   (`https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions`) as `EVIDENCE_FEED_URL`
+   in `docs/.vitepress/theme/evidence-feed.ts`. Merging that deploys the Worker and publishes the
+   homepage.
 2. The first deployment creates the Worker without its key, so its **Verify the live feed** step
    fails with a `502` that names `GITHUB_PRIVATE_KEY`. Add the key in the Cloudflare dashboard:
    **Workers & Pages → blueprint-evidence-feed → Settings → Variables and Secrets → Add**, type

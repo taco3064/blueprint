@@ -19,7 +19,7 @@ export interface LoadOptions {
 }
 
 export const DISCUSSIONS_URL = 'https://github.com/taco3064/blueprint/discussions';
-export const EVIDENCE_FEED_URL: string | null = null;
+export const EVIDENCE_FEED_URL = 'https://blueprint-evidence-feed.tabacotaco.workers.dev/discussions';
 export const FEED_TIMEOUT_MS = 8000;
 
 const DISCUSSION_URL = /^https:\/\/github\.com\/taco3064\/blueprint\/discussions\/\d+$/;
@@ -38,7 +38,7 @@ function isEvidence(value: unknown): value is EvidenceItem {
     && isText(item.updatedAt);
 }
 
-export function feedUrl(override: string | undefined): string | null {
+export function feedUrl(override: string | undefined): string {
   return override || EVIDENCE_FEED_URL;
 }
 
@@ -48,9 +48,7 @@ export function parseFeed(payload: unknown): EvidenceItem[] | null {
   return Array.isArray(discussions) && discussions.every(isEvidence) ? discussions : null;
 }
 
-export async function loadEvidence(url: string | null, options: LoadOptions = {}): Promise<EvidenceState> {
-  if (!url) return UNAVAILABLE;
-
+export async function loadEvidence(url: string, options: LoadOptions = {}): Promise<EvidenceState> {
   try {
     const response = await (options.fetch ?? fetch)(url, {
       credentials: 'omit',
