@@ -86,9 +86,6 @@ describe('sourceCheckpoint', () => {
   });
 
   it('lets a legacy config shape prove an older source than the installed package', () => {
-    expect(checkpoint({ installed: ['4.1.0'], legacyShape: true }))
-      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
-
     expect(checkpoint({ installed: ['3.2.0'], legacyShape: true }))
       .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
 
@@ -97,5 +94,12 @@ describe('sourceCheckpoint', () => {
 
     expect(checkpoint({ installed: ['4.1.0'], legacyShape: true, history: 'never-recorded' }))
       .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+  });
+
+  it('never lets a legacy config shape rebuild lost or unprovable lifecycle state', () => {
+    for (const history of ['recorded', 'unknown'] as const) {
+      expect(checkpoint({ installed: ['4.1.0'], legacyShape: true, history }))
+        .toEqual({ kind: 'missing-state', installed: '4.1.0' });
+    }
   });
 });

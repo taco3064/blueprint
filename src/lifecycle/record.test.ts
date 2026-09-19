@@ -220,10 +220,17 @@ describe('lostLifecycleState', () => {
 });
 
 describe('recordAdoption · checkpoints and merging', () => {
-  it('uses legacy config evidence as the checkpoint', () => {
+  it('uses legacy config evidence as the checkpoint only when no state entered Git', () => {
     install('4.2.0');
 
-    expect(written(record({ legacyShape: true }))).toMatchObject({ blueprint: '3.2.0' });
+    expect(written(record({ legacyShape: true, git: neverRecorded })))
+      .toMatchObject({ blueprint: '3.2.0' });
+
+    expect(record({ legacyShape: true, git: recorded }))
+      .toEqual({ status: 'skipped', reason: 'missing-state' });
+
+    expect(record({ legacyShape: true }))
+      .toEqual({ status: 'skipped', reason: 'missing-state' });
   });
 
   it('skips recording when no checkpoint can be proven', () => {

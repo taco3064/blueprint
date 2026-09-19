@@ -420,12 +420,13 @@ resolved plan.
   Restore it from version control; Blueprint never rebuilds lifecycle history from the installed
   package, and no command re-establishes it. The same stop applies when Git cannot show that
   history: outside a Git repository, or in a shallow clone.
-- A missing file that never entered Git history, on any ref, is not treated as lost, because
-  nothing proves a lifecycle ever existed. That is the state after Renovate, Dependabot, or
-  `npm update` moved a 4.0 adoption's package to 4.1 before `upgrade` ran. The repository gets its
-  checkpoint from provable facts, like one adopted before lifecycle state existed. Git cannot tell
-  this from a lifecycle-aware adoption that never committed the file and then lost it, so both take
-  the same path; commit `.blueprint-lifecycle.json` to keep its history authoritative.
+- A missing file that no commit reachable from any ref ever contained is not treated as lost,
+  because the history Git can still show does not prove a lifecycle ever existed. That is the
+  state after Renovate, Dependabot, or `npm update` moved a 4.0 adoption's package to 4.1 before
+  `upgrade` ran. The repository gets its checkpoint from provable facts, like one adopted before
+  lifecycle state existed. Git cannot tell this from a lifecycle-aware adoption that never
+  committed the file and then lost it, so both take the same path; commit
+  `.blueprint-lifecycle.json` so a later loss has history to restore from.
 - Records without a completed lifecycle — written by an adoption that failed part-way, deferred a
   required install with `--no-install`, or is still in its authoring handoff — are not a
   checkpoint. Finish the adoption with `npx blueprint init` first.

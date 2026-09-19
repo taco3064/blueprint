@@ -50,21 +50,22 @@ export function sourceCheckpoint(input: SourceCheckpointInput): SourceCheckpoint
 }
 
 function bootstrapCheckpoint(installed: string, input: SourceCheckpointInput): SourceCheckpoint {
-  const legacy = input.catalog.legacyConfigCheckpoint;
+  const aware = compareVersions(installed, LIFECYCLE_SINCE) >= 0;
+
+  // History outranks the legacy shape: lost or unprovable state is never rebuilt from config
+  if (aware && input.history !== 'never-recorded') {
+    return { kind: 'missing-state', installed };
+  }
 
   if (input.legacyShape) {
     return {
       kind: 'bootstrap',
-      version: [installed, legacy].sort(compareVersions)[0],
+      version: [installed, input.catalog.legacyConfigCheckpoint].sort(compareVersions)[0],
       evidence: 'legacy-config',
     };
   }
 
-  if (compareVersions(installed, LIFECYCLE_SINCE) < 0) {
-    return { kind: 'bootstrap', version: installed, evidence: 'installed-package' };
-  }
-
-  return input.history === 'never-recorded'
+  return aware
     ? { kind: 'bootstrap', version: installed, evidence: 'state-never-committed' }
-    : { kind: 'missing-state', installed };
+    : { kind: 'bootstrap', version: installed, evidence: 'installed-package' };
 }

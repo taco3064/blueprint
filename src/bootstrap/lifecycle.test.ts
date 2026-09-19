@@ -360,19 +360,37 @@ describe('adoption recorder', () => {
   }
 
   it('dates a pre-lifecycle adoption from its 3.2 config backup', () => {
+    git('init', '--quiet');
     adoptedBeside(`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`);
 
     expect(lifecycle()).toMatchObject({ blueprint: '3.2.0', provenance: 'partial' });
   });
 
-  it.each([
-    `old.blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`,
-    `blueprint.config.mjs.pre-v4-${'a'.repeat(64)}.bak`,
-  ])('refuses to rebuild lost state beside %s', (backup) => {
-    adoptedBeside(backup);
+  it('never rebuilds lost or unprovable state from a 3.2 config backup', () => {
+    adoptedBeside(`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`);
 
     expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
     expectLogged('a missing file is lost history, not a fresh adoption');
+
+    git('init', '--quiet');
+    fs.writeFileSync(path.join(root, '.blueprint-lifecycle.json'), '{}\n');
+    commit('record lifecycle state');
+    fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
+    lines = [];
+    adoptedBeside(`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`);
+
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
+    expectLogged('a missing file is lost history, not a fresh adoption');
+  });
+
+  it.each([
+    `old.blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`,
+    `blueprint.config.mjs.pre-v4-${'a'.repeat(64)}.bak`,
+  ])('does not date the source from %s', (backup) => {
+    git('init', '--quiet');
+    adoptedBeside(backup);
+
+    expect(lifecycle()).toMatchObject({ blueprint: '4.1.0', provenance: 'partial' });
   });
 
   it('diffs a later write to the same file against the earlier write', () => {
