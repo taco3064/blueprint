@@ -10,6 +10,7 @@ import {
   validateReportUrl,
 } from './field-convergence.mjs';
 import { validateCandidateRun } from './field-candidate.mjs';
+import { validateReleaseEvidence } from './release-field-gate.mjs';
 
 const sha = 'a'.repeat(40);
 
@@ -129,6 +130,92 @@ describe('field convergence authority', () => {
         conclusion: 'success',
         ...patch,
       })).toThrow();
+    }
+  });
+});
+
+describe('release field gate', () => {
+  const repository = 'taco3064/blueprint';
+  const linked = 'https://github.com/taco3064/blueprint/issues/521#issuecomment-123';
+
+  const status = (state = 'success', target = linked) => ({
+    statuses: [
+      { context: 'ci/other', state: 'success', target_url: 'https://example.test/ci' },
+      { context: 'blueprint/field-convergence', state, target_url: target },
+    ],
+  });
+
+  const comment = (body = renderEvidence(evidence, candidate), htmlUrl = linked) => ({
+    body,
+    html_url: htmlUrl,
+  });
+
+  const open = { state: 'open' };
+
+  const gate = (patch = {}) => validateReleaseEvidence({
+    repository,
+    sha,
+    combinedStatus: status(),
+    comment: comment(),
+    ticket: open,
+    ...patch,
+  });
+
+  it('accepts exact-SHA full convergence linked to its open ticket comment', () => {
+    expect(gate()).toMatchObject({
+      issue: 521,
+      comment: 123,
+      evidence: { candidateSha: sha, scope: 'full', matrixComplete: true, releaseBlockers: 0 },
+    });
+  });
+
+  it.each([
+    ['a missing status', { combinedStatus: { statuses: [] } }, /No blueprint\/field-convergence status/],
+    ['a pending status', { combinedStatus: status('pending') }, /is pending, not success/],
+    ['a failed status', { combinedStatus: status('failure') }, /is failure, not success/],
+    ['a non-comment link', { combinedStatus: status('success', 'https://example.test/report') }, /does not link/],
+    [
+      'a foreign repository comment',
+      { combinedStatus: status('success', 'https://github.com/someone/else/issues/521#issuecomment-123') },
+      /does not link/,
+    ],
+    ['a comment the status does not link to', { comment: comment(undefined, `${linked}9`) }, /not the one the status links to/],
+    ['a closed ticket', { ticket: { state: 'closed' } }, /#521 is not open/],
+  ])('rejects %s', (_name, patch, message) => {
+    expect(() => gate(patch)).toThrow(message);
+  });
+
+  it('never trusts a green status whose comment carries no valid evidence', () => {
+    expect(() => gate({ comment: comment('Field convergence passed.') }))
+      .toThrow(/no machine-readable evidence marker/);
+
+    expect(() => gate({ comment: comment('<!-- blueprint-field-convergence {"scope":"full"} -->') }))
+      .toThrow(/different candidate SHA/);
+  });
+
+  it.each([
+    ['a different candidate SHA', { candidateSha: 'c'.repeat(40) }, /different candidate SHA/],
+    ['an affected replay', { scope: 'affected' }, /successful complete full matrix/],
+    ['a failed full run', { result: 'failure' }, /successful complete full matrix/],
+    ['an incomplete matrix', { scenarios: ['pure-admin×codex'] }, /successful complete full matrix/],
+    [
+      'a release blocker',
+      { findings: [{ releaseBlocking: true, classification: 'Blueprint defect', summary: 'false green' }] },
+      /successful complete full matrix/,
+    ],
+  ])('rejects evidence from %s', (_name, patch, message) => {
+    expect(() => gate({ comment: comment(renderEvidence({ ...evidence, ...patch }, candidate)) }))
+      .toThrow(message);
+  });
+
+  it('rejects evidence without a durable HTTPS report', () => {
+    const marker = evidenceMarker(evidence);
+
+    for (const body of [
+      marker.replace(/,"reportUrl":"[^"]+"/, ''),
+      marker.replace('https://example.test/report', 'http://example.test/report'),
+    ]) {
+      expect(() => gate({ comment: comment(body) })).toThrow(/durable HTTPS report URL/);
     }
   });
 });
