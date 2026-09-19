@@ -9,6 +9,9 @@ permissions:
   # write: the publish step also cuts the GitHub Release for this tag
   contents: write
   id-token: write
+  # read: the field gate follows the exact tag commit's status to its ticket comment
+  statuses: read
+  issues: read
 
 jobs:
   publish:
@@ -62,6 +65,11 @@ jobs:
 
       - name: Validate Changesets release SHA
         run: node scripts/release-changeset-gate.mjs
+
+      - name: Require exact-SHA full field convergence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-field-gate.mjs
 
       # -------------------------
       # 🚀 Publish
