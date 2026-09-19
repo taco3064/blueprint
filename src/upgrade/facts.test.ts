@@ -50,7 +50,7 @@ describe('gatherUpgradeFacts', () => {
 
     const facts = await gatherUpgradeFacts(root, {
       git: git(' M a.ts\r\n?? docs/b.md\r\n'),
-      loadConfig: async (file) => file.includes('admin') ? LEGACY : CURRENT,
+      loadConfig: async (file) => path.basename(path.dirname(file)) === 'admin' ? LEGACY : CURRENT,
       catalog: UPGRADE_CATALOG,
     });
 
