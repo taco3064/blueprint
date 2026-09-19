@@ -5,10 +5,6 @@ import { afterEach, expect, it } from 'vitest';
 
 import { cli, configSource, makeRepo, reactBlueprint, read, rm, write } from './conformance';
 
-// Renovate, Dependabot, or `npm update` moves a 4.0 adoption's package to 4.1 before
-// `blueprint upgrade` runs, so lifecycle state never existed in Git. Refusing to "restore"
-// it locked every lifecycle command out of the repository.
-
 const roots: string[] = [];
 
 afterEach(() => {

@@ -287,9 +287,6 @@ function sourceResolution(context: Context): void {
   })));
 }
 
-// A later release's cancel or supersede can hide from the full window a failure that a route
-// stopping earlier still meets. Relations only reach older operations and completed work only
-// removes constraints, so every route's failure also shows on supportedFrom → its target.
 function routeResolution(context: Context): void {
   const { operations, supportedFrom: source } = context.catalog;
 
