@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parse } from '@typescript-eslint/parser';
 
 import { parseManifest } from './documents';
 import type { RemovalFacts } from './facts';
@@ -30,6 +31,17 @@ export function relativeDirectory(root: string, directory: string): string {
   return path.relative(root, directory).split(path.sep).join('/');
 }
 
+function withoutComments(text: string): string {
+  try {
+    return parse(text).comments.reduceRight(
+      (code, { range: [start, end] }) => `${code.slice(0, start)} ${code.slice(end)}`,
+      text,
+    );
+  } catch {
+    return text;
+  }
+}
+
 function scriptConflicts(
   root: string,
   directory: string,
@@ -55,11 +67,13 @@ function importConflicts(
   return fs.readdirSync(directory).filter((name) => TOOL_CONFIG.test(name))
     .flatMap((name): RemovalConflict[] => {
       const file = path.posix.join(prefix, name);
-      const text = remainingText(root, file, planned);
+      const remaining = remainingText(root, file, planned);
 
-      if (text === null) {
+      if (remaining === null) {
         return [];
       }
+
+      const text = withoutComments(remaining);
 
       if (owned && text.includes('@kekkai/blueprint')) {
         return [{ kind: 'reference', path: file, detail: 'import' }];

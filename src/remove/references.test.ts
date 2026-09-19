@@ -3,6 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { GitReader } from '../project';
+import { gatherRemovalFacts } from './facts';
 import type { RemovalApplication, RemovalFacts } from './facts';
 import { plannedFiles, referenceConflicts, TOOL_CONFIG } from './references';
 
@@ -114,6 +116,111 @@ describe('referenceConflicts · full removal', () => {
       { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
       { kind: 'reference', path: 'apps/package.json', detail: 'script', name: 'arch' },
     ]);
+  });
+});
+
+describe('referenceConflicts · comments', () => {
+  const COMMENTED = [
+    '// Moved off @kekkai/blueprint; blueprint.config.mjs is gone.',
+    '/* was: import blueprint from \'@kekkai/blueprint\'; */',
+    'export default [];',
+    '',
+  ].join('\n');
+
+  const conflicts = () => referenceConflicts(facts([application('.')]), plannedFiles([]));
+
+  it('ignores a mention inside a comment and still reports the same file once it imports', () => {
+    write('eslint.config.mjs', COMMENTED);
+    write('vite.config.ts', COMMENTED);
+
+    expect(conflicts()).toEqual([]);
+
+    write('eslint.config.mjs', `${COMMENTED}import blueprint from '@kekkai/blueprint';\n`);
+    write('vite.config.ts', `${COMMENTED}import config from './blueprint.config.mjs';\n`);
+
+    expect(conflicts()).toEqual([
+      { kind: 'reference', path: 'eslint.config.mjs', detail: 'import' },
+      { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
+    ]);
+  });
+
+  it('keeps an import that shares its line with a URL string', () => {
+    write(
+      'eslint.config.mjs',
+      'const docs = \'https://example.com\'; import blueprint from \'@kekkai/blueprint\';\n',
+    );
+
+    write(
+      'vite.config.ts',
+      'const docs = \'https://example.com\'; import config from \'./blueprint.config.mjs\';\n',
+    );
+
+    expect(conflicts()).toEqual([
+      { kind: 'reference', path: 'eslint.config.mjs', detail: 'import' },
+      { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
+    ]);
+  });
+
+  it('reads a file it cannot parse exactly as written', () => {
+    write('.eslintrc.yml', '# extends @kekkai/blueprint\nextends:\n  - base\n');
+    write('vite.config.ts', '// loads blueprint.config.mjs\nexport default {\n');
+
+    expect(conflicts()).toEqual([
+      { kind: 'reference', path: '.eslintrc.yml', detail: 'import' },
+      { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
+    ]);
+  });
+});
+
+describe('referenceConflicts · one directory under two spellings', () => {
+  let link: string;
+
+  beforeEach(() => {
+    link = `${root}-link`;
+    fs.symlinkSync(root, link, 'junction');
+  });
+
+  afterEach(() => {
+    fs.rmSync(link, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['a trailing separator', (directory: string) => `${directory}${path.sep}`],
+    ['a dot segment', (directory: string) => `${directory}${path.sep}.`],
+    ['forward slashes, as Git prints a Windows root', (directory: string) =>
+      directory.split(path.sep).join('/')],
+  ])('reports each conflict once when Git spells the root with %s', async (_, spell) => {
+    write('blueprint.config.mjs', 'export default {};\n');
+
+    write('package.json', JSON.stringify({
+      scripts: { arch: 'blueprint doctor' },
+      devDependencies: { '@kekkai/blueprint': '4.1.0' },
+    }));
+
+    write('eslint.config.mjs', IMPORT);
+    write('vite.config.ts', 'import config from \'./blueprint.config.mjs\';\n');
+
+    const git: GitReader = (args) => ({
+      status: 0, stdout: args[1] === '--show-toplevel' ? `${spell(root)}\n` : 'true\n', stderr: '',
+    });
+
+    for (const cwd of [root, link]) {
+      const gathered = await gatherRemovalFacts(cwd, {
+        git,
+        loadConfig: async () => ({
+          framework: 'react',
+          architecture: { alias: '~app', layers: [{ name: 'pages', does: 'x' }] },
+        }),
+      });
+
+      expect(gathered.scope.map((entry) => entry.key), cwd).toEqual(['.']);
+
+      expect(referenceConflicts(gathered, plannedFiles([])), cwd).toEqual([
+        { kind: 'reference', path: 'package.json', detail: 'script', name: 'arch' },
+        { kind: 'reference', path: 'eslint.config.mjs', detail: 'import' },
+        { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
+      ]);
+    }
   });
 });
 

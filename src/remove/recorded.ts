@@ -18,6 +18,7 @@ export interface RecordedContext {
   prefix: string;
   records: readonly ProvenanceRecord[];
   aliasInUse: (file: string) => string | null;
+  provenDeletions: ReadonlySet<string>;
 }
 
 type Edit = Extract<ProvenanceRecord, { kind: 'edit' }>;
@@ -225,7 +226,8 @@ export function recordedRemoval(context: RecordedContext): ApplicationRemoval {
   const deleted = createdFiles(context, removal, reversals);
 
   const parts = [
-    ...[...reversals].flatMap(([file, reversal]) => deleted.has(file) ? [] : [reversal]),
+    ...[...reversals].flatMap(([file, reversal]) =>
+      deleted.has(file) || context.provenDeletions.has(file) ? [] : [reversal]),
     ...[...byPath(recordsOf(context, 'script'))]
       .map(([file, scripts]) => restoreFile(context, file, scripts)),
   ];

@@ -27,8 +27,14 @@ function write(rel: string, content: string): void {
 
 type AliasProbe = (file: string) => string | null;
 
-function removal(records: ProvenanceRecord[], aliasInUse: AliasProbe = () => null) {
-  return recordedRemoval({ root, prefix: 'apps/web', records, aliasInUse });
+function removal(
+  records: ProvenanceRecord[],
+  aliasInUse: AliasProbe = () => null,
+  provenDeletions: string[] = [],
+) {
+  return recordedRemoval({
+    root, prefix: 'apps/web', records, aliasInUse, provenDeletions: new Set(provenDeletions),
+  });
 }
 
 describe('carriesBlueprintSignature', () => {
@@ -166,6 +172,52 @@ describe('recordedRemoval · composed ownership', () => {
         { kind: 'modified', path: 'apps/web/vite.config.ts' },
       ],
     });
+  });
+});
+
+describe('recordedRemoval · a proven deletion supersedes', () => {
+  it('drops the whole reversal of a file a proven deletion removes', () => {
+    write('blueprint.config.mjs', [
+      'import { defineBlueprint } from \'@kekkai/blueprint\';',
+      '  layout: \'folder\',',
+      '  layout: \'folder\',',
+      '  entry: \'main\',',
+      '',
+    ].join('\n'));
+
+    write('.gitignore', 'dist\n!docs\n');
+
+    const records: ProvenanceRecord[] = [
+      { kind: 'edit', path: 'blueprint.config.mjs', before: '', after: '  entry: \'main\',\n' },
+      { kind: 'edit', path: 'blueprint.config.mjs', before: '', after: '  layout: \'folder\',\n' },
+      { kind: 'edit', path: 'blueprint.config.mjs', before: '  module: {},\n', after: '' },
+      { kind: 'edit', path: '.gitignore', before: '', after: '!docs\n' },
+    ];
+
+    const gitignore = {
+      kind: 'write', path: 'apps/web/.gitignore', content: 'dist\n', reason: 'edit',
+    };
+
+    expect(removal(records)).toEqual({
+      actions: [
+        {
+          kind: 'write',
+          path: 'apps/web/blueprint.config.mjs',
+          content: 'import { defineBlueprint } from \'@kekkai/blueprint\';\n'
+            + '  layout: \'folder\',\n  layout: \'folder\',\n',
+          reason: 'edit',
+        },
+        gitignore,
+      ],
+      conflicts: [
+        { kind: 'irreversible-edit', path: 'apps/web/blueprint.config.mjs' },
+        { kind: 'ambiguous-edit', path: 'apps/web/blueprint.config.mjs', occurrences: 2 },
+      ],
+      residues: [],
+    });
+
+    expect(removal(records, () => null, ['blueprint.config.mjs']))
+      .toEqual({ actions: [gitignore], conflicts: [], residues: [] });
   });
 });
 

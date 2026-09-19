@@ -112,19 +112,21 @@ export function applicationRemoval(
   const prefix = application.key;
   const alias = usedAlias(application);
 
-  const recorded = recordedRemoval({
-    root: application.root,
-    prefix,
-    records: application.provenance,
-    aliasInUse: (file) => isAliasWiring(file) ? alias : null,
-  });
-
   const proven = provenRemoval({
     root: application.root,
     prefix,
     blueprint: application.blueprint,
     recordedIgnoreEdit: application.provenance.some((record) =>
       record.kind === 'edit' && record.path === '.gitignore'),
+  });
+
+  const recorded = recordedRemoval({
+    root: application.root,
+    prefix,
+    records: application.provenance,
+    aliasInUse: (file) => isAliasWiring(file) ? alias : null,
+    provenDeletions: new Set(proven.actions.filter((action) => action.kind === 'delete')
+      .map((action) => path.posix.relative(prefix, action.path))),
   });
 
   const actions = dedupe([...recorded.actions, ...proven.actions]);

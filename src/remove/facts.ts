@@ -16,6 +16,7 @@ import type {
   ProvenanceRecord,
 } from '../lifecycle';
 import {
+  canonicalPath,
   detect,
   findConfigFiles,
   resolveBlueprint,
@@ -92,10 +93,10 @@ export async function gatherRemovalFacts(
   cwd: string,
   effects: RemovalFactEffects,
 ): Promise<RemovalFacts> {
-  const repository = resolveRepositoryContext(path.resolve(cwd), effects.git);
-  const root = lifecycleRootFor(cwd, repository.root);
+  const target = canonicalPath(cwd);
+  const repository = resolveRepositoryContext(target, effects.git);
+  const root = lifecycleRootFor(target, repository.root);
   const state = readLifecycleState(root);
-  const target = path.resolve(cwd);
   const roots = applicationRoots(root, state);
 
   const below = roots.filter((applicationRoot) => contains(target, applicationRoot));

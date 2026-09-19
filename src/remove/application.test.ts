@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import { digest } from '../lifecycle';
+import { adoptionProvenance, digest } from '../lifecycle';
 import type { ProvenanceRecord } from '../lifecycle';
 import { renderAgentHeader, renderGitignoreArtifactComment } from '../operational-contract';
 import { GENERATED_ESLINT_BANNER } from '../project';
@@ -201,6 +201,80 @@ describe('applicationRemoval · combining recorded and proven evidence', () => {
     expect(applicationRemoval(application([], null), 'legacy').residues).toEqual([
       { kind: 'emptied', path: 'CLAUDE.md' },
       { kind: 'unrecorded-folder', path: 'src/pages' },
+    ]);
+  });
+});
+
+describe('applicationRemoval · a proven deletion supersedes a recorded reversal', () => {
+  const HEAD = [
+    '// Architecture for the demo app.',
+    'import { defineBlueprint, reactPreset } from \'@kekkai/blueprint\';',
+    '',
+    'export default defineBlueprint({',
+    '  ...reactPreset(),',
+    '  architecture: {',
+  ];
+
+  const TAIL = ['    ],', '  },', '});', ''];
+  const LAYOUT = '        layout: \'folder\',';
+
+  const LEGACY = [
+    ...HEAD,
+    '    module: { entry: \'main\', private: [\'hooks\'] },',
+    '    layers: [',
+    '      {', '        name: \'pages\',', '      },',
+    '      {', '        name: \'hooks\',', '      },',
+    '      {', '        name: \'services\',', '      },',
+    ...TAIL,
+  ].join('\n');
+
+  const MIGRATED = [
+    ...HEAD,
+    '    layers: [',
+    '      {', '        name: \'pages\',', LAYOUT, '      },',
+    '      {', '        name: \'hooks\',', LAYOUT, '        entry: \'main\',', '      },',
+    '      {', '        name: \'services\',', LAYOUT, '      },',
+    ...TAIL,
+  ].join('\n');
+
+  it('deletes a config whose legacy migration was recorded instead of restoring it', () => {
+    const provenance = adoptionProvenance([
+      { kind: 'write', path: 'blueprint.config.mjs', before: LEGACY, content: MIGRATED },
+    ]).records;
+
+    expect(provenance.map((record) => record.kind === 'edit' && record.after)).toEqual([
+      '',
+      `${LAYOUT}\n`,
+      `${LAYOUT}\n        entry: 'main',\n`,
+      `${LAYOUT}\n`,
+    ]);
+
+    write('apps/web/blueprint.config.mjs', MIGRATED);
+
+    expect(applicationRemoval({
+      key: 'apps/web',
+      root: path.join(root, 'apps/web'),
+      blueprint: BLUEPRINT,
+      installed: null,
+      manifest: null,
+      provenance,
+    }, 'provenance')).toEqual({
+      actions: [{ kind: 'delete', path: 'apps/web/blueprint.config.mjs', reason: 'config' }],
+      conflicts: [],
+      residues: [],
+    });
+  });
+
+  it('keeps the recorded reversal of a file the proven plan only rewrites', () => {
+    write('CLAUDE.md', '# Ours\n<!-- BLUEPRINT:START -->\npointer\n<!-- BLUEPRINT:END -->\n');
+
+    expect(applicationRemoval(application([{
+      kind: 'edit',
+      path: 'CLAUDE.md',
+      before: '',
+      after: '<!-- BLUEPRINT:START -->\npointer\n<!-- BLUEPRINT:END -->\n',
+    }]), 'provenance').actions).toEqual([
+      { kind: 'write', path: 'CLAUDE.md', content: '# Ours\n', reason: 'edit' },
     ]);
   });
 });
