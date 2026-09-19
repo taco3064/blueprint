@@ -43,6 +43,12 @@ interface Edit {
 interface Program {
   body: (Node & { declaration?: Node })[];
   comments: (Node & { type: 'Line' | 'Block' })[];
+  tokens: (Node & { value: string })[];
+}
+
+interface Scan {
+  source: string;
+  program: Program;
 }
 
 export function migrateLegacyConfigSource(
@@ -63,15 +69,18 @@ export function migrateLegacyConfigSource(
 }
 
 function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Edit[] | null {
-  let program: Program;
+  let scan: Scan;
 
   try {
-    program = parse(source, { range: true, sourceType: 'module' }) as unknown as Program;
+    scan = {
+      source,
+      program: parse(source, { range: true, sourceType: 'module' }) as unknown as Program,
+    };
   } catch {
     return null;
   }
 
-  const architecture = architectureLiteral(program);
+  const architecture = architectureLiteral(scan.program);
   const layers = architecture ? properties(architecture, 'layers') : [];
 
   const elements = layers.length === 1
@@ -86,7 +95,7 @@ function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Ed
   const objects = elements as ObjectLiteral[];
 
   const insertions = objects.map((layer, index) =>
-    layerInsertion(source, layer, declarations[index]));
+    layerInsertion(scan, layer, declarations[index]));
 
   const retired = [architecture!, ...objects]
     .flatMap((object) => properties(object, 'module'));
@@ -96,7 +105,7 @@ function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Ed
   }
 
   return [
-    ...retired.flatMap((property) => removal(source, property, program.comments)),
+    ...retired.flatMap((property) => removal(scan, property)),
     ...(insertions as Edit[][]).flat(),
   ];
 }
@@ -152,7 +161,7 @@ function properties(object: ObjectLiteral, name: string): Property[] {
 }
 
 function layerInsertion(
-  source: string,
+  scan: Scan,
   layer: ObjectLiteral,
   declaration: LegacyLayerDeclaration,
 ): Edit[] | null {
@@ -170,70 +179,78 @@ function layerInsertion(
     .filter((field) => declaration[field] !== undefined)
     .map((field) => `${field}: ${quote}${escape(declaration[field]!, quote)}${quote}`);
 
-  return fields.length ? [insertion(source, { name, layer }, fields)] : [];
+  return fields.length ? [insertion(scan, name, fields)] : [];
 }
 
 function escape(value: string, quote: string): string {
   return value.replace(/\\/g, '\\\\').replaceAll(quote, `\\${quote}`);
 }
 
-function insertion(
-  source: string,
-  at: { name: Property; layer: ObjectLiteral },
-  fields: string[],
-): Edit {
-  const [start, end] = at.name.range;
+function insertion({ source, program }: Scan, name: Property, fields: string[]): Edit {
+  const [start, end] = name.range;
   const lineStart = source.lastIndexOf('\n', start) + 1;
   const indent = source.slice(lineStart, start);
   const newline = source.indexOf('\n', end);
   const eol = source[newline - 1] === '\r' ? '\r\n' : '\n';
-  const comma = /^[ \t]*,/.test(source.slice(end));
+  const next = tokenFrom(program, end);
+  const nextOnLaterLine = source.slice(end, next.range[0]).includes('\n');
+  const inline = { at: end, end, text: fields.map((field) => `, ${field}`).join('') };
 
-  if (/\S/.test(indent) || (newline === -1 ? source.length : newline) >= at.layer.range[1]) {
-    return { at: end, end, text: fields.map((field) => `, ${field}`).join('') };
+  if (/\S/.test(indent)) {
+    return inline;
   }
 
-  return comma
+  if (next.value !== ',') {
+    return nextOnLaterLine
+      ? { at: end, end, text: fields.map((field) => `,${eol}${indent}${field}`).join('') }
+      : inline;
+  }
+
+  return !nextOnLaterLine && /^[ \t]*(?:\/\/.*)?\r?$/.test(source.slice(next.range[1], newline))
     ? { at: newline + 1, end: newline + 1, text: fields.map((field) => `${indent}${field},${eol}`).join('') }
-    : { at: end, end, text: fields.map((field) => `,${eol}${indent}${field}`).join('') };
+    : inline;
 }
 
-function removal(source: string, property: Property, comments: Program['comments']): Edit[] {
+function removal({ source, program }: Scan, property: Property): Edit[] {
   const [start, end] = property.range;
   const lineStart = source.lastIndexOf('\n', start) + 1;
+  const next = tokenFrom(program, end);
+  const separated = next.value === ',';
+  const to = separated ? next.range[1] : end;
   // Stryker disable next-line Regex: an empty-matching pattern always matches at index 0
-  const trailing = /^[ \t]*,?[ \t]*/.exec(source.slice(end))![0];
-  const after = end + trailing.length;
+  const after = to + /^[ \t]*/.exec(source.slice(to))![0].length;
   const lineBreak = /^\r?\n/.exec(source.slice(after));
-  const kept = keptComments(source, property, comments);
+  const kept = keptComments(source, [start, to], program.comments);
 
   if (!/\S/.test(source.slice(lineStart, start)) && lineBreak) {
     return [{ at: lineStart, end: after + lineBreak[0].length, text: kept.lines(lineBreak[0]) }];
   }
 
-  if (trailing.includes(',')) {
+  if (separated) {
     return [{ at: start, end: after, text: kept.inline }];
   }
 
-  const comma = source.lastIndexOf(',', start);
+  const comma = program.tokens.findLast((token) => token.range[1] <= start)!;
+  const inline = keptComments(source, [comma.range[0], end], program.comments).inline;
 
-  return !source.slice(comma + 1, start).trim()
-    ? [{ at: comma, end, text: kept.inline && ` ${kept.inline}` }]
-    : [{ at: comma, end: comma + 1, text: '' }, { at: start, end, text: kept.inline }];
+  return [{ at: comma.range[0], end, text: inline && ` ${inline}` }];
+}
+
+function tokenFrom(program: Program, position: number): Program['tokens'][number] {
+  return program.tokens.find((token) => token.range[0] >= position)!;
 }
 
 function keptComments(
   source: string,
-  property: Property,
+  [from, to]: [number, number],
   comments: Program['comments'],
 ): { lines: (lineBreak: string) => string; inline: string } {
-  const [start, end] = property.range;
-  const rest = source.slice(source.lastIndexOf('\n', start) + 1);
+  const rest = source.slice(source.lastIndexOf('\n', from) + 1);
   const indent = rest.slice(0, rest.length - rest.trimStart().length);
   const eol = source.includes('\r\n') ? '\r\n' : '\n';
 
-  // Stryker disable next-line EqualityOperator: no comment starts or ends on a property's edge
-  const inside = ({ range }: Node): boolean => range[0] > start && range[1] < end;
+  // Stryker disable next-line EqualityOperator: no comment starts or ends on a removed span's edge
+  const inside = ({ range }: Node): boolean => range[0] > from && range[1] < to;
 
   const kept = comments.filter(inside)
     .map(({ range, type }) => ({ text: source.slice(range[0], range[1]), line: type === 'Line' }));

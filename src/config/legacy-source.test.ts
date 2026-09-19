@@ -315,3 +315,91 @@ describe('migrateLegacyConfigSource · keys that are not literal properties', ()
     });
   });
 });
+
+describe('migrateLegacyConfigSource · separators and neighbouring properties', () => {
+  const config = (architecture: string) => `export default { architecture: { ${architecture} } };`;
+
+  it('removes a first property with a comment before its comma, leaving outer commas', () => {
+    const lines = (module: string[]) => [
+      'export default defineBlueprint({',
+      '  ...reactPreset({ name: \'sky\' }),',
+      '  architecture: {',
+      ...module,
+      '    layers: [{ name: \'pages\' }, { name: \'hooks\' }],',
+      '  },',
+      '});',
+      '',
+    ].join('\n');
+
+    expect(rewritten(
+      lines(['    module: { private: [] } /* retired */,']),
+      migrated(['pages', 'file', 'index'], ['hooks', 'file', 'index']),
+    )).toBe(lines(['    /* retired */']));
+  });
+
+  it('removes a property whose comma sits on the next line when no comma precedes it', () => {
+    expect(rewritten(
+      config('module: {} // retired\n  , layers: [{ name: \'pages\' }]'),
+      migrated(['pages', 'file', 'index']),
+    )).toBe(config('// retired\nlayers: [{ name: \'pages\' }]'));
+  });
+
+  it('removes a last property that follows its comma directly', () => {
+    expect(rewritten(
+      config('layers: [{ name: \'pages\' }],module: {}'),
+      migrated(['pages', 'file', 'index']),
+    )).toBe(config('layers: [{ name: \'pages\' }]'));
+  });
+
+  it('inserts beside a name that shares the opening brace\'s line and ends it with a comma', () => {
+    expect(rewritten(
+      config('module: {}, layers: [{ name: \'pages\',\n  does: \'x\' }]'),
+      migrated(['pages', 'folder', 'index']),
+    )).toBe(config('layers: [{ name: \'pages\', layout: \'folder\',\n  does: \'x\' }]'));
+  });
+
+  it('inserts beside a name whose object closes on the same line', () => {
+    expect(rewritten(
+      config('module: {}, layers: [{\n  name: \'pages\' }]'),
+      migrated(['pages', 'folder', 'index']),
+    )).toBe(config('layers: [{\n  name: \'pages\', layout: \'folder\' }]'));
+  });
+
+  const layer = (body: string[]) => [
+    'export default { architecture: {',
+    '  module: {},',
+    '  layers: [',
+    '    {',
+    ...body,
+    '    },',
+    '  ],',
+    '} };',
+    '',
+  ].join('\n');
+
+  it.each<[string, string[], string[]]>([
+    [
+      'a retired module that spans lines',
+      ['      name: \'pages\', does: \'x\', module: {', '        layout: \'folder\',', '      },'],
+      ['      name: \'pages\', layout: \'folder\', does: \'x\', '],
+    ],
+    [
+      'an array that spans lines',
+      ['      name: \'pages\', owns: [', '        \'x\',', '      ],'],
+      ['      name: \'pages\', layout: \'folder\', owns: [', '        \'x\',', '      ],'],
+    ],
+    [
+      'a template literal that spans lines',
+      ['      name: \'pages\', does: `Mounts', '        the shell.`,'],
+      ['      name: \'pages\', layout: \'folder\', does: `Mounts', '        the shell.`,'],
+    ],
+    [
+      'a comma that starts the next line',
+      ['      name: \'pages\'', '      , does: \'x\''],
+      ['      name: \'pages\', layout: \'folder\'', '      , does: \'x\''],
+    ],
+  ])('inserts beside the name when %s shares its line', (_case, body, expected) => {
+    expect(rewritten(layer(body), migrated(['pages', 'folder', 'index'])))
+      .toBe(layer(expected).replace('  module: {},\n', ''));
+  });
+});
