@@ -55,16 +55,16 @@ describe('withoutComments · YAML configs', () => {
   });
 
   it.each([
-    ['a single-quoted scalar', 'k: \'#v\''],
+    ['a single-quoted scalar', 'k: \'a #v\''],
     ['a doubled single quote', 'k: \'it\'\'s #v\''],
-    ['a double-quoted scalar', 'k: "#v"'],
+    ['a double-quoted scalar', 'k: "a #v"'],
     ['an escaped double quote', 'k: "a\\" #v"'],
-    ['a sequence entry', '- \'#v\''],
-    ['a flow sequence', '[a, \'#v\']'],
-    ['a flow mapping', '{k: \'#v\'}'],
-    ['an explicit key', '? \'#v\''],
+    ['a sequence entry', '- \'a #v\''],
+    ['a flow sequence', '[\'a #v\', \'b #w\']'],
+    ['a flow mapping', '{\'a #v\': x}'],
+    ['an explicit key', '? \'a #v\''],
     ['a quoted scalar that spans lines', 'k: \'a\n  #v\''],
-    ['a scalar that starts a line', '\'#v\''],
+    ['a scalar that starts a line', '\'a #v\''],
   ])('keeps # inside %s', (_case, source) => {
     expect(withoutComments('.eslintrc.yml', `${source} # c\n`)).toBe(`${source} ${blanked('# c')}\n`);
   });
@@ -74,9 +74,44 @@ describe('withoutComments · YAML configs', () => {
       .toBe(`k: v\n'a #b': x ${blanked('# c')}\n`);
   });
 
+  it('opens a quoted scalar on the line after a comment', () => {
+    expect(withoutComments('.eslintrc.yml', 'k: v # c\n\'a #b\': x\n'))
+      .toBe(`k: v ${blanked('# c')}\n'a #b': x\n`);
+  });
+
   it('reads a script config whose name only contains a YAML extension as a script', () => {
     expect(withoutComments('x.yaml.config.mjs', 'const a = \'#b\'; // c\n'))
       .toBe(`const a = '#b'; ${blanked('// c')}\n`);
+  });
+
+  it('starts a comment at # only when whitespace precedes it', () => {
+    expect(withoutComments('.eslintrc.yml', 'a: b #c\nd: e# f\n'))
+      .toBe(`a: b ${blanked('#c')}\nd: e# f\n`);
+  });
+
+  it('closes a block comment only after it opens', () => {
+    expect(withoutComments('.eslintrc.json', '{ "a": 1 */* c */ }'))
+      .toBe(`{ "a": 1 *${blanked('/* c */')} }`);
+
+    expect(withoutComments('.eslintrc.json', '{ /*/ c */ "a": 1 }'))
+      .toBe(`{ ${blanked('/*/ c */')} "a": 1 }`);
+  });
+
+  it('keeps a block comment open across lines and past a lone * or /', () => {
+    expect(withoutComments('.eslintrc.json', '{ /* a\n"b" */ "c": 1 }'))
+      .toBe(`{ ${blanked('/* a\n"b" */')} "c": 1 }`);
+
+    expect(withoutComments('.eslintrc.json', '{ /* a* b/c */ "d": 1 }'))
+      .toBe(`{ ${blanked('/* a* b/c */')} "d": 1 }`);
+  });
+
+  it('ends a line comment only at the line break', () => {
+    expect(withoutComments('.eslintrc.json', '{ // a */ b\n"c": 1 }'))
+      .toBe(`{ ${blanked('// a */ b')}\n"c": 1 }`);
+  });
+
+  it('reads only a .yml or .yaml extension as YAML', () => {
+    expect(withoutComments('config-yml', '# a')).toBe('# a');
   });
 
   it('blanks a comment on a last line that has no line break', () => {
@@ -98,5 +133,13 @@ describe('withoutComments · legacy .eslintrc', () => {
   it('blanks JSON comments first and then YAML comments, as ESLint reads the file', () => {
     expect(withoutComments('.eslintrc', '# a\n// b\nextends: "x//y" # c\n'))
       .toBe(`${blanked('# a')}\n${blanked('// b')}\nextends: "x//y" ${blanked('# c')}\n`);
+  });
+
+  it('keeps a lone / as text outside every quote and comment', () => {
+    expect(withoutComments('.eslintrc', 'extends: \'@kekkai/blueprint\' # c\n'))
+      .toBe(`extends: '@kekkai/blueprint' ${blanked('# c')}\n`);
+
+    expect(withoutComments('.eslintrc.json', '{ "a": 1 / 2 } // c'))
+      .toBe(`{ "a": 1 / 2 } ${blanked('// c')}`);
   });
 });
