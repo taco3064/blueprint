@@ -226,11 +226,13 @@ function removal({ source, program }: Scan, property: Property): Edit[] {
     return [{ at: lineStart, end: after + lineBreak[0].length, text: kept.lines(lineBreak[0]) }];
   }
 
-  if (separated) {
+  const comma = program.tokens.findLast((token) => token.range[1] <= start)!;
+
+  // A comma on an earlier line stays as a trailing comma, out of reach of the fields a name gains
+  if (separated || source.slice(comma.range[1], start).includes('\n')) {
     return [{ at: start, end: after, text: kept.inline }];
   }
 
-  const comma = program.tokens.findLast((token) => token.range[1] <= start)!;
   const inline = keptComments(source, [comma.range[0], end], program.comments).inline;
 
   return [{ at: comma.range[0], end, text: inline && ` ${inline}` }];

@@ -403,3 +403,33 @@ describe('migrateLegacyConfigSource · separators and neighbouring properties', 
       .toBe(layer(expected).replace('  module: {},\n', ''));
   });
 });
+
+describe('migrateLegacyConfigSource · a retired last property below a name', () => {
+  const layers = (lines: string[]) =>
+    ['export default { architecture: { layers: [{', ...lines].join('\n');
+
+  it.each<[string, string[], string[]]>([
+    [
+      'its line comment',
+      ['  name: \'pages\',', '  module: { layout: \'folder\' } // folders', '}] } };'],
+      ['  name: \'pages\',', '  layout: \'folder\',', '  // folders', '}] } };'],
+    ],
+    [
+      'its block comment',
+      ['  name: \'pages\',', '  module: { layout: \'folder\' } /* folders */', '}] } };'],
+      ['  name: \'pages\',', '  layout: \'folder\',', '  /* folders */', '}] } };'],
+    ],
+    [
+      'a comment on each line',
+      ['  name: \'pages\', // the shell', '  module: { layout: \'folder\' } // folders', '}] } };'],
+      ['  name: \'pages\', // the shell', '  layout: \'folder\',', '  // folders', '}] } };'],
+    ],
+    [
+      'the closing braces',
+      ['  name: \'pages\',', '  module: { layout: \'folder\' } }] } };'],
+      ['  name: \'pages\',', '  layout: \'folder\',', '  }] } };'],
+    ],
+  ])('keeps a name\'s comma before a retired module and %s', (_, before, after) => {
+    expect(rewritten(layers(before), migrated(['pages', 'folder', 'index']))).toBe(layers(after));
+  });
+});
