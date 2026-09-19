@@ -25,7 +25,6 @@ export function lifecycleStateHistory(
     return 'unknown';
   }
 
-  // Without --full-history, a merge that drops the file on one side hides the commits that had it
   const commits = git(['rev-list', '--all', '--full-history', '-1', '--', LIFECYCLE_FILE], root);
 
   if (commits.status !== 0 || commits.error) {

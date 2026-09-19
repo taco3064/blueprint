@@ -52,7 +52,6 @@ export function sourceCheckpoint(input: SourceCheckpointInput): SourceCheckpoint
 function bootstrapCheckpoint(installed: string, input: SourceCheckpointInput): SourceCheckpoint {
   const aware = compareVersions(installed, LIFECYCLE_SINCE) >= 0;
 
-  // History outranks the legacy shape: lost or unprovable state is never rebuilt from config
   if (aware && input.history !== 'never-recorded') {
     return { kind: 'missing-state', installed };
   }
