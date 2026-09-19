@@ -40,6 +40,11 @@ interface Edit {
   text: string;
 }
 
+interface Program {
+  body: (Node & { declaration?: Node })[];
+  comments: (Node & { type: 'Line' | 'Block' })[];
+}
+
 export function migrateLegacyConfigSource(
   source: string,
   migrated: Blueprint,
@@ -58,7 +63,15 @@ export function migrateLegacyConfigSource(
 }
 
 function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Edit[] | null {
-  const architecture = architectureLiteral(source);
+  let program: Program;
+
+  try {
+    program = parse(source, { range: true, sourceType: 'module' }) as unknown as Program;
+  } catch {
+    return null;
+  }
+
+  const architecture = architectureLiteral(program);
   const layers = architecture ? properties(architecture, 'layers') : [];
 
   const elements = layers.length === 1
@@ -83,24 +96,14 @@ function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Ed
   }
 
   return [
-    ...retired.flatMap((property) => removal(source, property)),
+    ...retired.flatMap((property) => removal(source, property, program.comments)),
     ...(insertions as Edit[][]).flat(),
   ];
 }
 
-function architectureLiteral(source: string): ObjectLiteral | null {
-  let body: (Node & { declaration?: Node })[];
-
-  try {
-    body = (parse(source, { range: true, sourceType: 'module' }) as unknown as {
-      body: typeof body;
-    }).body;
-  } catch {
-    return null;
-  }
-
-  const config = configLiteral(body.find((node) => node.type === 'ExportDefaultDeclaration')
-    ?.declaration);
+function architectureLiteral(program: Program): ObjectLiteral | null {
+  const config = configLiteral(program.body.find((node) =>
+    node.type === 'ExportDefaultDeclaration')?.declaration);
 
   if (!config) {
     return null;
@@ -195,27 +198,50 @@ function insertion(
     : { at: end, end, text: fields.map((field) => `,${eol}${indent}${field}`).join('') };
 }
 
-function removal(source: string, property: Property): Edit[] {
+function removal(source: string, property: Property, comments: Program['comments']): Edit[] {
   const [start, end] = property.range;
   const lineStart = source.lastIndexOf('\n', start) + 1;
   // Stryker disable next-line Regex: an empty-matching pattern always matches at index 0
   const trailing = /^[ \t]*,?[ \t]*/.exec(source.slice(end))![0];
   const after = end + trailing.length;
   const lineBreak = /^\r?\n/.exec(source.slice(after));
+  const kept = keptComments(source, property, comments);
 
   if (!/\S/.test(source.slice(lineStart, start)) && lineBreak) {
-    return [{ at: lineStart, end: after + lineBreak[0].length, text: '' }];
+    return [{ at: lineStart, end: after + lineBreak[0].length, text: kept.lines(lineBreak[0]) }];
   }
 
   if (trailing.includes(',')) {
-    return [{ at: start, end: after, text: '' }];
+    return [{ at: start, end: after, text: kept.inline }];
   }
 
   const comma = source.lastIndexOf(',', start);
 
   return !source.slice(comma + 1, start).trim()
-    ? [{ at: comma, end, text: '' }]
-    : [{ at: comma, end: comma + 1, text: '' }, { at: start, end, text: '' }];
+    ? [{ at: comma, end, text: kept.inline && ` ${kept.inline}` }]
+    : [{ at: comma, end: comma + 1, text: '' }, { at: start, end, text: kept.inline }];
+}
+
+function keptComments(
+  source: string,
+  property: Property,
+  comments: Program['comments'],
+): { lines: (lineBreak: string) => string; inline: string } {
+  const [start, end] = property.range;
+  const rest = source.slice(source.lastIndexOf('\n', start) + 1);
+  const indent = rest.slice(0, rest.length - rest.trimStart().length);
+  const eol = source.includes('\r\n') ? '\r\n' : '\n';
+
+  // Stryker disable next-line EqualityOperator: no comment starts or ends on a property's edge
+  const inside = ({ range }: Node): boolean => range[0] > start && range[1] < end;
+
+  const kept = comments.filter(inside)
+    .map(({ range, type }) => ({ text: source.slice(range[0], range[1]), line: type === 'Line' }));
+
+  return {
+    lines: (lineBreak) => kept.map(({ text }) => `${indent}${text}${lineBreak}`).join(''),
+    inline: kept.map(({ text, line }) => line ? `${text}${eol}${indent}` : `${text} `).join(''),
+  };
 }
 
 function applyEdits(source: string, edits: Edit[]): string {

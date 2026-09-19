@@ -209,6 +209,36 @@ describe('migrateLegacyConfigSource · retired key removal', () => {
       '{ \'module\': {}, layers: [{ name: \'pages\', module: {} }] }',
       '{ layers: [{ name: \'pages\' }] }',
     ],
+    [
+      '{\n  module: {\n    // why private\n    private: [\'hooks\'],\n  },\n'
+      + '  layers: [{ name: \'pages\' }],\n}',
+      '{\n  // why private\n  layers: [{ name: \'pages\' }],\n}',
+    ],
+    [
+      '{\r\n  module: {\r\n    /* a\r\n    b */\r\n    private: [],\r\n  },\r\n'
+      + '  layers: [{ name: \'pages\' }],\r\n}',
+      '{\r\n  /* a\r\n    b */\r\n  layers: [{ name: \'pages\' }],\r\n}',
+    ],
+    [
+      '{ module: { /* c */ layout: \'flat\' }, layers: [{ name: \'pages\' }] }',
+      '{ /* c */ layers: [{ name: \'pages\' }] }',
+    ],
+    [
+      '{ alias: \'~app\', module: { // c\n  layout: \'flat\' }, layers: [{ name: \'pages\' }] }',
+      '{ alias: \'~app\', // c\nlayers: [{ name: \'pages\' }] }',
+    ],
+    [
+      '{ alias: \'~app\', module: { // c\r\n  layout: \'flat\' }, layers: [{ name: \'pages\' }] }',
+      '{ alias: \'~app\', // c\r\nlayers: [{ name: \'pages\' }] }',
+    ],
+    [
+      '{ layers: [{ name: \'pages\' }], module: { /* c */ } }',
+      '{ layers: [{ name: \'pages\' }] /* c */  }',
+    ],
+    [
+      '{ layers: [{ name: \'pages\' }], /* x */ module: { /* c */ } }',
+      '{ layers: [{ name: \'pages\' }] /* x */ /* c */  }',
+    ],
   ])('removes %j', (architecture, expected) => {
     expect(rewritten(wrap(architecture), pages)).toBe(wrap(expected));
   });
