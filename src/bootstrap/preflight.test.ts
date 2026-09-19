@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { canonicalPath } from '../project';
 import { runTransformationPreflight } from './preflight';
 import type { GitReader, GitReadResult } from './preflight';
 
@@ -79,7 +80,7 @@ function initInspectableProject(): { head: string; repositoryRoot: string } {
 
   return {
     head: commitAll(),
-    repositoryRoot: git(root, 'rev-parse', '--show-toplevel'),
+    repositoryRoot: canonicalPath(git(root, 'rev-parse', '--show-toplevel')),
   };
 }
 
@@ -385,7 +386,7 @@ describe('runTransformationPreflight · real Git controls', () => {
     expect(plain.head.ok).toBe(false);
 
     initRepository();
-    const repositoryRoot = git(root, 'rev-parse', '--show-toplevel');
+    const repositoryRoot = canonicalPath(git(root, 'rev-parse', '--show-toplevel'));
 
     const unborn = await runTransformationPreflight(root, ['.'], { inspect: inspected });
 
@@ -431,7 +432,7 @@ describe('runTransformationPreflight · real Git controls', () => {
 
     expect(result.repository).toEqual({
       ok: true,
-      root: git(root, 'rev-parse', '--show-toplevel'),
+      root: canonicalPath(git(root, 'rev-parse', '--show-toplevel')),
     });
 
     expect(result.worktree).toEqual({ ok: true, changes: [] });

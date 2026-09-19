@@ -3,7 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { adoptionProvenance } from '../lifecycle';
 import { runRemove } from './remove';
+import type { RemoveOptions } from './remove';
 
 let root: string;
 let lines: string[];
@@ -155,5 +157,71 @@ describe('runRemove · pre-lifecycle adoption', () => {
     expect(output).toContain('Ownership evidence: lifecycle records started after adoption');
     expect(output).toContain('· jsconfig.json: Blueprint created it, but it changed since');
     expect(output).not.toContain('· jsconfig.json: may still carry');
+  });
+});
+
+describe('runRemove · after an upgrade that recorded the legacy migration', () => {
+  const HEAD = [
+    'import { defineBlueprint, reactPreset } from \'@kekkai/blueprint\';',
+    '',
+    'export default defineBlueprint({',
+    '  ...reactPreset(),',
+    '  architecture: {',
+  ];
+
+  const TAIL = ['    ],', '  },', '});', ''];
+  const LAYOUT = '        layout: \'folder\',';
+
+  const LEGACY = [
+    ...HEAD,
+    '    module: { entry: \'main\', private: [\'hooks\'] },',
+    '    layers: [',
+    '      {', '        name: \'pages\',', '      },',
+    '      {', '        name: \'hooks\',', '      },',
+    '      {', '        name: \'services\',', '      },',
+    ...TAIL,
+  ].join('\n');
+
+  const MIGRATED = [
+    ...HEAD,
+    '    layers: [',
+    '      {', '        name: \'pages\',', LAYOUT, '      },',
+    '      {', '        name: \'hooks\',', LAYOUT, '        entry: \'main\',', '      },',
+    '      {', '        name: \'services\',', LAYOUT, '      },',
+    ...TAIL,
+  ].join('\n');
+
+  it('plans and performs the deletion of the config the migration rewrote', async () => {
+    write('package.json', JSON.stringify({ devDependencies: { '@kekkai/blueprint': '4.1.0' } }));
+    write('blueprint.config.mjs', MIGRATED);
+    write(BACKUP, LEGACY);
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.1.0', provenance: 'partial', operations: [], pending: null,
+      applications: {
+        '.': {
+          provenance: adoptionProvenance([
+            { kind: 'write', path: 'blueprint.config.mjs', before: LEGACY, content: MIGRATED },
+          ]).records,
+        },
+      },
+    }));
+
+    const options: RemoveOptions = {
+      log: (line) => void lines.push(line),
+      loadConfig: async () => ({
+        framework: 'react',
+        architecture: { alias: '~app', layers: [{ name: 'pages', does: 'x' }] },
+      }),
+      exec: () => write('package.json', '{}'),
+    };
+
+    expect(await runRemove(root, { ...options, dryRun: true })).toBe(0);
+    expect(lines.join('\n')).toContain('− delete blueprint.config.mjs (');
+    expect(read('blueprint.config.mjs')).toBe(MIGRATED);
+
+    expect(await runRemove(root, options)).toBe(0);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists(BACKUP)).toBe(false);
   });
 });

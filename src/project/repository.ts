@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export interface GitReadResult {
   status: number | null;
@@ -13,6 +15,16 @@ export interface RepositoryContext {
   ok: boolean;
   root?: string;
   reason?: string;
+}
+
+export function canonicalPath(value: string): string {
+  const resolved = path.resolve(value);
+
+  try {
+    return fs.realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
 }
 
 export const defaultGitReader: GitReader = (args, cwd) => {
@@ -42,7 +54,7 @@ export function resolveRepositoryContext(
   const top = git(['rev-parse', '--show-toplevel'], applicationRoot);
 
   return succeeded(top) && top.stdout.trim()
-    ? { ok: true, root: top.stdout.trim() }
+    ? { ok: true, root: canonicalPath(top.stdout.trim()) }
     : unavailable(gitFailure(top, 'The Git worktree root could not be resolved.'));
 }
 

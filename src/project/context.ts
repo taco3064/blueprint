@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseJsonc } from './jsonc';
-import { resolveRepositoryContext } from './repository';
+import { canonicalPath, resolveRepositoryContext } from './repository';
 import type { PackageManager } from './types';
 
 export interface PackageMetadata {
@@ -131,14 +131,6 @@ export function sameFilesystemPath(left: string, right: string): boolean {
 
 export function relativeFilesystemPath(from: string, to: string): string {
   return path.relative(canonicalPath(from), canonicalPath(to));
-}
-
-function canonicalPath(value: string): string {
-  try {
-    return path.normalize(fs.realpathSync.native(value));
-  } catch {
-    return path.resolve(value);
-  }
 }
 
 function hasProjectTypescript(context: {

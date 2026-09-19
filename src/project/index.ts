@@ -32,7 +32,7 @@ export { relativeFilesystemPath, resolveProjectContext } from './context';
 export type { PackageMetadata, ProjectContext } from './context';
 export { assessLintEntrypoint } from './lint';
 export type { LintEntrypointAssessment } from './lint';
-export { defaultGitReader, resolveRepositoryContext } from './repository';
+export { canonicalPath, defaultGitReader, resolveRepositoryContext } from './repository';
 export type { GitReader, GitReadResult, RepositoryContext } from './repository';
 export { findConfigFiles, resolveRepositoryBlueprints } from './blueprints';
 export type { RepositoryBlueprint, RepositoryBlueprintOptions } from './blueprints';
