@@ -288,3 +288,22 @@ describe('catalogProblems · relations', () => {
     ]).map((problem) => problem.kind)).toEqual(['unresolvable-source']);
   });
 });
+
+describe('catalogProblems · requirement cycles the full window hides', () => {
+  it('rejects a cycle that a later supersession reroutes out of the full window', () => {
+    expect(problems([
+      op('a', '1.1.0', { requires: ['b'] }),
+      op('b', '1.1.0', { requires: ['a'] }),
+      op('d', '1.1.0', { requires: ['x', 'a'] }),
+      op('x', '1.1.0'),
+      op('s', '1.2.0', { supersedes: ['a'] }),
+    ])).toEqual([{ kind: 'requirement-cycle', ids: ['a', 'b', 'd'] }]);
+  });
+
+  it('orders a requirement listed after the operation that needs it', () => {
+    expect(problems([
+      op('later', '1.2.0', { requires: ['early'] }),
+      op('early', '1.1.0'),
+    ])).toEqual([]);
+  });
+});
