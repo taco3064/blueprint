@@ -411,6 +411,12 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   fs.writeFileSync(path.join(fixture, 'src', 'services', 'api.ts'), 'export const api = 1;\n');
 
+  // A packed release at or past LIFECYCLE_SINCE proves a missing lifecycle state lost unless Git
+  // shows it never existed, so the adopter repository this installs into is a Git repository
+  const repository = runCmd('git', ['init', '--quiet'], { cwd: fixture });
+
+  expect(repository.code === 0, `git init exited ${repository.code}\n${repository.output}`);
+
   const upgrade = runNpm(
     ['exec', '--', 'blueprint', 'init', '--no-install'], { cwd: fixture },
   );
@@ -421,6 +427,11 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   expect(upgrade.output.includes('migrated to valid 4.0 layer-first'),
     'installed defineBlueprint config did not enter legacy migration');
+
+  const lifecycle = JSON.parse(fs.readFileSync(path.join(fixture, '.blueprint-lifecycle.json')));
+
+  expect(lifecycle.blueprint === '3.2.0',
+    `installed legacy init dated the lifecycle ${lifecycle.blueprint}, expected 3.2.0`);
 
   expect(result.code === 1, `installed inspect exited ${result.code}, expected 1\n${result.output}`);
   expect(result.output.includes('canonical-alias'), 'installed inspect missed the alternate alias');
