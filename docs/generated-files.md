@@ -65,9 +65,13 @@ only after verification, and only while the file still records that pending upgr
 deletes it with the last adopted application. A repository adopted before lifecycle state existed
 gets a checkpoint from provable facts only; edits Blueprint made before that are reported by
 `remove` rather than reversed. If the file is unreadable, holds a path that leaves the repository,
-or is missing where the installed release always records it, every command that depends on it
-stops until it is restored from version control. Blueprint never rebuilds it from the installed
-package.
+or is missing after it once entered Git history while the installed release always records it,
+every command that depends on it stops until it is restored from version control; so does a missing
+file whose Git history cannot be read. Blueprint never rebuilds it from the installed package. A
+missing file that never entered Git history is not treated as lost, because nothing proves a
+lifecycle existed, so that repository is treated as adopted before lifecycle state. Git cannot tell
+a dependency update from a lifecycle-aware adoption that never committed the file, so commit it to
+keep its history authoritative.
 
 **Writes:** every command replaces the file atomically. It writes the complete new state to
 `.blueprint-lifecycle.json.tmp` first and renames that over the file, so an interrupted write

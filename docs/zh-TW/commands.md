@@ -420,7 +420,9 @@ Blueprint 的 lifecycle 是 repository-wide。所有已導入的應用程式都�
 
 如果還有未完成的架構編寫或拓樸轉換流程，必須先完成或明確處理，不能同時開始新的 upgrade lifecycle。
 
-如果 `.blueprint-lifecycle.json` 本來應該存在，卻遺失、損壞或包含無法驗證的內容，`upgrade` 會停止，不會依目前檔案或已安裝套件自行重建歷史。請先從版本控制或其他可信來源還原生命週期狀態；如果無法還原，應停止並交由 owner 決定後續處理方式。
+如果 `.blueprint-lifecycle.json` 損壞、包含無法驗證的內容，或曾經進過 Git 歷史卻不見了，`upgrade` 會停止，不會依目前檔案或已安裝套件自行重建歷史。不在 Git repository 裡、或是 shallow clone 看不到完整歷史時，也一樣會停止。請先從版本控制或其他可信來源還原生命週期狀態；如果無法還原，應停止並交由 owner 決定後續處理方式。
+
+如果這個檔案從來沒有進過 Git 歷史（任何分支都沒有），就不會被當成遺失，因為沒有任何證據能證明 lifecycle 曾經成立。常見的情況是 Renovate、Dependabot 或 `npm update` 在執行 `upgrade` 之前，就先把 4.0 專案的套件升到 4.1。這種 repository 會和 lifecycle 出現以前導入的專案一樣，從可證明的事實取得檢查點。Git 分不出這種情況和「用 4.1 以後的版本導入、卻從沒提交這個檔案，之後又把它弄丟」，所以兩者走同一條路；請把 `.blueprint-lifecycle.json` 提交進版本控制，讓它的歷史紀錄保持有效。
 
 ## `remove`
 
@@ -450,6 +452,7 @@ Blueprint 會先算出完整的 repository-wide 移除計畫，確認每一項�
 
 - **Blueprint 對共用檔案做過的修改**
   `.gitignore`、`package.json` scripts、TypeScript / JavaScript `paths`、Vite alias 等內容，只有在 lifecycle provenance 與目前檔案內容能共同證明「這一段就是 Blueprint 當初做的修改」時才會自動還原。
+  如果 Blueprint 插入的內容已經不在檔案裡，或 script 已經變回原本的值，就視為已經還原，不會擋下移除。
   如果應用程式原始碼仍需要某段一般性接線，例如 import alias，該接線會保留。
 
 - **Blueprint 建立的資料夾**
@@ -462,7 +465,7 @@ Blueprint 會先算出完整的 repository-wide 移除計畫，確認每一項�
 
 以下情況不能直接進行破壞性清理：
 
-- lifecycle 記錄的共用檔案修改已經與目前內容不一致；
+- `package.json` script 目前的值既不是 Blueprint 寫入的，也不是原本的值；
 - 同一段曾由 Blueprint 插入的內容現在出現多次，無法判斷哪一段才是原本的修改；
 - lifecycle 雖然記得 Blueprint 做過修改，但目前證據不足以精確還原；
 - Blueprint-managed section 的 marker 已損壞或不完整；

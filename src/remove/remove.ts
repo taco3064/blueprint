@@ -30,7 +30,7 @@ export interface RemoveOptions {
   exec?: Exec;
 }
 
-function refuseUnsafeFacts(facts: RemovalFacts): void {
+function refuseUnsafeFacts(facts: RemovalFacts, git: GitReader): void {
   if (facts.state.status === 'invalid') {
     throw new Error(renderLifecycleStateInvalid(LIFECYCLE_FILE, facts.state.reason));
   }
@@ -39,7 +39,7 @@ function refuseUnsafeFacts(facts: RemovalFacts): void {
     throw new Error(renderRemoveRefusal({ kind: 'not-adopted', root: facts.root }));
   }
 
-  const installed = missingStateInstall(facts);
+  const installed = missingStateInstall(facts, git);
 
   if (installed !== null) {
     throw new Error(renderRemoveRefusal({
@@ -87,7 +87,7 @@ export async function runRemove(cwd: string, options: RemoveOptions = {}): Promi
   const git = options.git ?? defaultGitReader;
   const facts = await gatherRemovalFacts(cwd, { git, loadConfig: options.loadConfig });
 
-  refuseUnsafeFacts(facts);
+  refuseUnsafeFacts(facts, git);
 
   const plan = planRemoval(facts, git);
 

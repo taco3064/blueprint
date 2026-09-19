@@ -85,8 +85,8 @@ function modeOf(state: LifecycleStateRead): RemovalMode {
   return state.state.provenance === 'complete' ? 'provenance' : 'partial';
 }
 
-export function missingStateInstall(facts: RemovalFacts): string | null {
-  return lostLifecycleState(facts.root);
+export function missingStateInstall(facts: RemovalFacts, git: GitReader): string | null {
+  return lostLifecycleState(facts.root, git);
 }
 
 export async function gatherRemovalFacts(

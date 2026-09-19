@@ -1,12 +1,15 @@
 import { LIFECYCLE_SINCE } from './catalog';
 import type { LifecycleStateRead } from './state';
+import type { LifecycleStateHistory } from './state-history';
 import type { LifecycleState, UpgradeCatalog } from './types';
 import { compareVersions } from './version';
+
+export type BootstrapEvidence = 'installed-package' | 'legacy-config' | 'state-never-committed';
 
 export type SourceCheckpoint
   = | { kind: 'state'; version: string; state: LifecycleState }
     | { kind: 'adoption-incomplete' }
-    | { kind: 'bootstrap'; version: string; evidence: 'installed-package' | 'legacy-config' }
+    | { kind: 'bootstrap'; version: string; evidence: BootstrapEvidence }
     | { kind: 'missing-state'; installed: string }
     | { kind: 'invalid-state'; reason: string }
     | { kind: 'not-installed' }
@@ -17,6 +20,7 @@ export interface SourceCheckpointInput {
   installed: readonly (string | null)[];
   legacyShape: boolean;
   catalog: UpgradeCatalog;
+  history: LifecycleStateHistory;
 }
 
 export function sourceCheckpoint(input: SourceCheckpointInput): SourceCheckpoint {
@@ -56,7 +60,11 @@ function bootstrapCheckpoint(installed: string, input: SourceCheckpointInput): S
     };
   }
 
-  return compareVersions(installed, LIFECYCLE_SINCE) >= 0
-    ? { kind: 'missing-state', installed }
-    : { kind: 'bootstrap', version: installed, evidence: 'installed-package' };
+  if (compareVersions(installed, LIFECYCLE_SINCE) < 0) {
+    return { kind: 'bootstrap', version: installed, evidence: 'installed-package' };
+  }
+
+  return input.history === 'never-recorded'
+    ? { kind: 'bootstrap', version: installed, evidence: 'state-never-committed' }
+    : { kind: 'missing-state', installed };
 }
