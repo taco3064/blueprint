@@ -47,13 +47,6 @@ export function isLegacyBlueprintMigration(blueprint: Blueprint): boolean {
   return (blueprint as Blueprint & { [legacyMigration]?: boolean })[legacyMigration] === true;
 }
 
-export function migratedConfigSource(blueprint: Blueprint): string {
-  return [
-    `export default ${JSON.stringify(blueprint, null, 2)};`,
-    '',
-  ].join('\n');
-}
-
 function isLegacyArchitecture(
   architecture: LegacyArchitecture | undefined,
 ): architecture is LegacyArchitecture {

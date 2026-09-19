@@ -6,29 +6,74 @@ export function renderAuthoringAgentPrompt(file: string): OperationalText {
   return message(`Read ${file} at the repository root and execute it end to end.`);
 }
 
+export interface LegacyManualRewriteFact {
+  config: string;
+  declarations: { layer: string; layout?: string; entry?: string }[];
+}
+
 export function renderLegacyUpgradeMessage(facts: {
   dryRun: boolean;
   topology?: 'layer-first' | 'module-first';
   repositoryConfigCount: number;
+  manual?: LegacyManualRewriteFact[];
 }): OperationalText {
-  const scope = facts.repositoryConfigCount > 1
-    ? `all ${facts.repositoryConfigCount} Blueprint configs in the repository`
-    : 'the config';
+  const manual = (facts.manual ?? []).map(renderManualRewrite);
+
+  return message([
+    ...(facts.repositoryConfigCount ? [renderLegacyMigration(facts, manual.length)] : []),
+    ...manual,
+  ].join(' '));
+}
+
+function renderManualRewrite(fact: LegacyManualRewriteFact): string {
+  const groups = new Map<string, string[]>();
+
+  for (const declaration of fact.declarations) {
+    for (const field of ['layout', 'entry'] as const) {
+      const value = declaration[field];
+
+      if (value !== undefined) {
+        const key = `${field}: '${value}'`;
+
+        groups.set(key, [...groups.get(key) ?? [], `\`${declaration.layer}\``]);
+      }
+    }
+  }
+
+  const declare = groups.size
+    ? `declare ${[...groups].map(([field, layers]) => `\`${field}\` on ${layers.join(', ')}`)
+      .join('; ')}`
+    : 'keep every layer on the 4.x defaults (`layout: \'file\'`, `entry: \'index\'`)';
+
+  return `${fact.config} is unchanged: its Blueprint 3.2 unit-shape keys are not literal `
+    + 'properties, so Blueprint cannot rewrite them without running the file. Rewrite them by '
+    + `hand: remove \`architecture.module\` and every layer's \`module\`, then ${declare}.`;
+}
+
+function renderLegacyMigration(
+  facts: Parameters<typeof renderLegacyUpgradeMessage>[0],
+  manual: number,
+): string {
+  const count = facts.repositoryConfigCount;
+
+  const scope = manual
+    ? `${count} of the repository's ${count + manual} Blueprint 3.2 configs`
+    : count > 1 ? `all ${count} Blueprint configs in the repository` : 'the config';
 
   if (facts.dryRun) {
-    return message(facts.topology === 'module-first'
+    return facts.topology === 'module-first'
       ? `Blueprint 3.2 phase 1 dry run: would migrate ${scope} to valid 4.0 layer-first. `
       + 'No files were changed; re-run without --dry-run to create the checkpoint before the '
       + 'guarded topology transformation.'
       : 'Blueprint 3.2 dry run: would migrate the config to valid 4.0 layer-first without '
-        + 'topology movement. No files were changed; re-run without --dry-run to apply it.');
+        + 'topology movement. No files were changed; re-run without --dry-run to apply it.';
   }
 
-  return message(facts.topology === 'module-first'
+  return facts.topology === 'module-first'
     ? `Blueprint 3.2 phase 1: migrated ${scope} to valid 4.0 layer-first. Verify and `
     + 'commit this state, then re-run `blueprint init --topology module-first` to start the '
     + 'guarded topology transformation.'
-    : 'Blueprint 3.2 config migrated to valid 4.0 layer-first without topology movement.');
+    : 'Blueprint 3.2 config migrated to valid 4.0 layer-first without topology movement.';
 }
 
 export type StaleContractCause = 'configured-policy' | 'agent-flag' | 'default-targets';

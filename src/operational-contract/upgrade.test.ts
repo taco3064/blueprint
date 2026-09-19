@@ -138,6 +138,20 @@ describe('upgrade instructions and playbook', () => {
     expect(renderUpgradeInstruction('toString')).toBeNull();
   });
 
+  it('branches the module.private review on where it was declared, not on a preset call', () => {
+    const text = renderUpgradeInstruction('review-retired-module-private')!;
+    const [restate, preset, cleanup] = text.split('\n- ').slice(1);
+
+    expect(text).toContain('not by whether the config calls a preset');
+
+    expect(restate.replace(/\s+/g, ' ')).toMatch(/^If the owner's own source declares `module\.private`.*restate the private-layer intent.*even when the config also calls a Blueprint preset/);
+
+    expect(preset.replace(/\s+/g, ' '))
+      .toMatch(/^If no owner source declares it, `module\.private` came from a Blueprint 3\.2 preset call/);
+
+    expect(cleanup).toContain('if one exists');
+  });
+
   it('describes machine and confirmation verification', () => {
     expect(renderUpgradeVerification({ kind: 'no-files', pattern: 'x*' }))
       .toBe('Blueprint verifies that no `x*` file remains in the listed applications.');

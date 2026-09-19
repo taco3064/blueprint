@@ -290,6 +290,7 @@ export {
   renderTopologyReason,
 } from './runtime-messages';
 export type {
+  LegacyManualRewriteFact,
   PreflightUnavailable,
   StaleContractCause,
   TopologyReason,

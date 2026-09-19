@@ -10,7 +10,7 @@ import {
 import {
   isLegacyBlueprintMigration,
   migrateLegacyBlueprint,
-  migratedConfigSource,
+  migrateLegacyConfigSource,
   resolveArchitecture,
   validateBlueprint,
 } from '../config';
@@ -23,7 +23,7 @@ export interface RepositoryBlueprint {
   architecture: ArchitectureDef;
   blueprint: Blueprint;
   legacyConfig?: boolean;
-  migratedConfigSource?: string | null;
+  legacySource?: ReturnType<typeof migrateLegacyConfigSource> | null;
   topology: 'layer-first' | 'module-first';
 }
 
@@ -50,7 +50,9 @@ export async function resolveRepositoryBlueprints(
       architecture,
       blueprint,
       legacyConfig,
-      migratedConfigSource: legacyConfig ? migratedConfigSource(blueprint) : null,
+      legacySource: legacyConfig
+        ? migrateLegacyConfigSource(fs.readFileSync(file, 'utf-8'), blueprint)
+        : null,
       topology: resolveArchitecture(architecture).topology,
     };
   }));

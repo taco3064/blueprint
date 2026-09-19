@@ -385,10 +385,10 @@ describe('init topology · 3.2 compatibility', () => {
     expect(repairResult.code, repairResult.output).toBe(0);
     expect(repairResult.output).not.toContain('transformation');
     expect(repairResult.output).toContain('migrated to valid 4.0 layer-first');
-    expect(migrated).not.toContain('"module"');
-    expect(migrated).toContain('"layout": "folder"');
-    expect(migrated).toContain('"layout": "file"');
-    expect(migrated).toContain('"entry": "component"');
+
+    expect(migrated).toBe('export default { framework: \'react\', architecture: {'
+      + ' alias: \'~app\', layers: [{ name: \'pages\', layout: \'folder\', does: \'routes\' },'
+      + ' { name: \'components\', entry: \'component\', does: \'UI\' }] } };\n');
 
     const positiveControl = await cli(repair.web, ['init', '--no-install']);
 
