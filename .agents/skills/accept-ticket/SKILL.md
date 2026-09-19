@@ -9,7 +9,7 @@ Read and follow [the shared autonomous delivery policy](../../docs/autonomous-de
 
 ## Reconstruct
 
-Obtain the issue text, the base commit, the candidate tree delivery staged, the complete `git diff <base> <tree>`, and delivery's focused check results. Do not ask the owner for retrievable information. Confirm the working tree still is that candidate: `git diff --quiet <tree>` passes and `git ls-files --others --exclude-standard` lists nothing. A missing tree or a working tree that differs from it yields `BLOCKED`.
+Obtain the issue text, the base commit, the candidate tree delivery staged, the complete `git diff <base> <tree>`, and delivery's focused check results. Do not ask the owner for retrievable information. Confirm the index and the working tree both still are that candidate: `git diff --cached --quiet <tree>` passes for the index, which the commit is built from; `git diff --quiet <tree>` passes for tracked working-tree content; and `git ls-files --others --exclude-standard` lists nothing. A missing tree, or an index or working tree that differs from it, yields `BLOCKED`.
 
 Full lint, typecheck, test, and mutation results for the candidate do not exist yet. The commit hook and PR CI produce them after acceptance, so their absence is not a blocker.
 
@@ -33,6 +33,6 @@ Return exactly one:
 - `CHANGES_REQUIRED`: at least one reproducible in-scope blocker remains.
 - `BLOCKED`: required authority, environment, or evidence is unavailable.
 
-Record the reviewed base commit and tree, and apply the shared candidate-staleness rule before returning: the working tree must still be the reviewed tree. Include a compact criterion-to-evidence table, commands actually run, blocking findings, and non-blocking observations.
+Record the reviewed base commit and tree, and apply the shared candidate-staleness rule before returning: the index and working tree must still be the reviewed tree. Include a compact criterion-to-evidence table, commands actually run, blocking findings, and non-blocking observations.
 
 Do not modify files, the index, branches, commits, issues, or pull requests. If the current request explicitly asks to post the verdict, use only the matching review mutation; it does not authorize repository-content writes.

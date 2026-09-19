@@ -6,7 +6,7 @@ This policy is shared by `shape-ticket`, `deliver-ticket`, `accept-ticket`, and 
 
 Shape reconstructs repository truth and keeps the complete decision model behind the concise ticket. Delivery iterates with focused checks and assembles an uncommitted candidate. Independent Acceptance reviews that candidate before it is committed, so its findings reach the change before hooks and PR CI spend a run on it. Delivery then commits the accepted candidate unchanged, pushes through repository hooks, and opens a draft pull request. Required PR CI is the deterministic authority for that exact head. Finally, Shape reviews the candidate against the original intent, decisions, tradeoffs, and scope boundaries before merge.
 
-An acceptance belongs only to the recorded base commit and candidate tree, and the commit that carries the candidate must have exactly that tree. A Shaper review belongs only to the recorded PR head. Any later change to the candidate makes its acceptance stale; any later head makes the Shaper review stale. A repair, whether Acceptance, CI, or Shape prompted it, is a new candidate: it returns through Acceptance before its commit, then through required CI and Shaper review. A draft pull request carries verification evidence. It is not a claim that delivery is complete.
+An acceptance belongs only to the recorded base commit and candidate tree. The index and the working tree must still represent that tree when Acceptance returns and again immediately before the commit, and the commit must carry exactly that tree. A Shaper review belongs only to the recorded PR head. Any later change to the candidate makes its acceptance stale; any later head makes the Shaper review stale. A repair, whether Acceptance, CI, or Shape prompted it, is a new candidate: it returns through Acceptance before its commit, then through required CI and Shaper review. A draft pull request carries verification evidence. It is not a claim that delivery is complete.
 
 ## Decide, ask, or stop
 
@@ -44,6 +44,8 @@ Do not block on preference, naming taste, commit-message quality, duplicated exp
 
 Git branches, commits, tests, and pull requests are the delivery record. Reuse existing ticket branches and pull requests, preserve unrelated work, and never rewrite pushed history.
 
+Before its commit, a candidate's recoverable identity is its base commit plus the staged candidate tree recorded with `git write-tree`. That tree object is a valid pre-commit artifact: a resume checks out the recorded base, restores the index and working tree with `git read-tree -u --reset <tree>`, and continues from there. It lives in the local repository's object store, so it resumes in the same clone. It is neither an accepted candidate nor a pull-request head.
+
 Do not create a parallel protocol state machine in issue comments. Fingerprints, hashes of requirement prose, per-stage audit comments, retry counters, movement counters, and recovery ledgers require an explicit external consumer and owner approval.
 
 When material shaping decisions are intentionally omitted from a concise ticket, one owner-approved Shaper-context comment on that issue is the durable input for the later Shaper review. It records only context needed to distinguish intended tradeoffs and boundaries from delivery drift, and links existing durable discussion instead of copying it when possible. It is not a stage ledger or approval state.
@@ -54,7 +56,7 @@ A release-convergence ticket is a human-readable ledger of candidate SHAs, scena
 
 Treat a remote build, survey, deployment, or other durable job as asynchronous work rather than a reason to keep an interactive turn open. Record its provider, run identifier, target ref and commit, expected artifact, and authoritative timeout. A later session must be able to recover from those remote facts without the original process or local workspace.
 
-Continue any useful work that does not depend on the result. When the result becomes the next real dependency, end the current turn with a self-contained resume prompt containing the durable identifiers, success path, failure path, and verification boundary. The handoff must not depend on an uncommitted local file or transient worktree.
+Continue any useful work that does not depend on the result. When the result becomes the next real dependency, end the current turn with a self-contained resume prompt containing the durable identifiers, success path, failure path, and verification boundary. The handoff must not depend on an uncommitted local file or transient worktree; before the candidate's first commit, it names the recorded base commit and candidate tree instead.
 
 On resume, verify that the job measured the intended commit and scope before using its result. Diagnose failure or timeout from the durable logs; do not report a queued or running job as passed, and never replace an authoritative check with a smaller one merely to avoid the handoff.
 

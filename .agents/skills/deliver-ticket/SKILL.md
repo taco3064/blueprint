@@ -31,7 +31,7 @@ For each step:
 4. inspect failures and generated output, then fix within the shared scope rule;
 5. continue directly to the next step.
 
-Keep the work uncommitted until the assembled candidate is accepted. Do not wait for confirmation after ordinary progress. Do not post one issue comment per step.
+Keep the work uncommitted until the assembled candidate is accepted. When a long-running dependency must be handed off before that, hand off the recorded candidate tree under the shared durable-state rule, not a commit. Do not wait for confirmation after ordinary progress. Do not post one issue comment per step.
 
 When a remote job will outlive the useful interactive work, follow the shared long-running-work policy. Continue independent steps first; when its result becomes the next dependency, leave a self-contained resume prompt and end the turn. Do not poll merely to keep the turn alive.
 
@@ -55,7 +55,7 @@ For `CHANGES_REQUIRED`, reproduce each blocker, fix confirmed in-scope defects, 
 
 ## Commit and open the pull request
 
-After `ACCEPTED`, commit the accepted candidate and push through the normal Husky hooks. Do not use `--no-verify`. Confirm the head's tree (`git rev-parse HEAD^{tree}`) equals the accepted tree; if a hook changed the content, the acceptance is stale. Open or update a draft pull request so authoritative CI can inspect the exact candidate.
+After `ACCEPTED`, confirm immediately before committing that `git write-tree` still prints the accepted tree; any other tree makes the acceptance stale. Then commit the accepted candidate and push through the normal Husky hooks. Do not use `--no-verify`. Confirm the head's tree (`git rev-parse HEAD^{tree}`) equals the accepted tree; if a hook changed the content, the acceptance is stale. Open or update a draft pull request so authoritative CI can inspect the exact candidate.
 
 Read preflight, deterministic CI, and mutation summaries and artifacts. A confirmed hook or CI failure is repaired as a new candidate: fix it, run focused regression checks, and return it through acceptance before its commit.
 
