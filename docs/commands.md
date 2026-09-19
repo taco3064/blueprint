@@ -415,9 +415,17 @@ resolved plan.
   source or its target; any other mix is refused.
 - An unfinished authoring playbook or topology transformation must finish first.
 - If `.blueprint-lifecycle.json` is unreadable, records upgrade history the running release could
-  not have produced, or is missing where any adopted application's installed release always records
-  it, every command that needs it stops. Restore it from version control; Blueprint never rebuilds
-  lifecycle history from the installed package, and no command re-establishes it.
+  not have produced, or is missing after it once entered the repository's Git history while an
+  adopted application's installed release always records it, every command that needs it stops.
+  Restore it from version control; Blueprint never rebuilds lifecycle history from the installed
+  package, and no command re-establishes it. The same stop applies when Git cannot show that
+  history: outside a Git repository, or in a shallow clone.
+- A missing file that never entered Git history, on any ref, is not treated as lost, because
+  nothing proves a lifecycle ever existed. That is the state after Renovate, Dependabot, or
+  `npm update` moved a 4.0 adoption's package to 4.1 before `upgrade` ran. The repository gets its
+  checkpoint from provable facts, like one adopted before lifecycle state existed. Git cannot tell
+  this from a lifecycle-aware adoption that never committed the file and then lost it, so both take
+  the same path; commit `.blueprint-lifecycle.json` to keep its history authoritative.
 - Records without a completed lifecycle — written by an adoption that failed part-way, deferred a
   required install with `--no-install`, or is still in its authoring handoff — are not a
   checkpoint. Finish the adoption with `npx blueprint init` first.
@@ -450,7 +458,9 @@ owns it:
   emptied is listed for you to review.
 - **Shared-file edits** — `.gitignore` exceptions, package scripts, TypeScript or JavaScript
   `paths`, and Vite aliases are reversed only when the lifecycle records the exact edit and the
-  current file still contains it. Alias wiring that application source still imports is kept.
+  current file still contains it. A recorded edit whose inserted text is gone, or a script already
+  back at its original value, counts as reversed. Alias wiring that application source still
+  imports is kept.
 - **Folders** — layer folders Blueprint created are removed only while they hold nothing but
   `.gitkeep`, and folders left empty by the removal are cleaned up.
 - **Dependencies** — `@kekkai/blueprint` is uninstalled last through the detected package manager.
@@ -461,8 +471,9 @@ owns it:
 
 `remove` refuses the whole removal, and changes nothing, when:
 
-- a recorded shared-file edit diverged, now appears more than once, or records text Blueprint
-  removed, which the record alone cannot put back;
+- a package script holds neither what Blueprint wrote nor what it replaced;
+- a recorded shared-file edit now appears more than once, or records only text Blueprint removed,
+  which the record alone cannot put back;
 - managed-section markers are broken;
 - a file that stays, such as a hand-written ESLint config or a package script, still imports
   `@kekkai/blueprint`, runs the Blueprint CLI, or loads a `blueprint.config.mjs` being deleted.

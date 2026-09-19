@@ -28,6 +28,12 @@ const git: GitReader = (args) => ({
   stderr: '',
 });
 
+const history = (commits: string): GitReader => (args, cwd) => args[0] === 'rev-list'
+  ? { status: 0, stdout: commits, stderr: '' }
+  : args[1] === '--is-shallow-repository'
+    ? { status: 0, stdout: 'false\n', stderr: '' }
+    : git(args, cwd);
+
 const LEGACY = {
   framework: 'react',
   architecture: {
@@ -84,19 +90,30 @@ describe('missingStateInstall', () => {
 
     const missing = await gatherRemovalFacts(root, { git, loadConfig: async () => LEGACY });
 
-    expect(missingStateInstall(missing)).toBe('4.1.0');
+    expect(missingStateInstall(missing, history('abc\n'))).toBe('4.1.0');
+    expect(missingStateInstall(missing, git)).toBe('4.1.0');
 
     lifecycle({});
 
     const present = await gatherRemovalFacts(root, { git, loadConfig: async () => LEGACY });
 
-    expect(missingStateInstall(present)).toBeNull();
+    expect(missingStateInstall(present, history('abc\n'))).toBeNull();
 
     install('.', '4.0.0');
     fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
 
     const legacy = await gatherRemovalFacts(root, { git, loadConfig: async () => LEGACY });
 
-    expect(missingStateInstall(legacy)).toBeNull();
+    expect(missingStateInstall(legacy, history('abc\n'))).toBeNull();
+  });
+
+  it('lets state that never entered Git history fall back to a pre-lifecycle removal', async () => {
+    write('blueprint.config.mjs', 'export default {};\n');
+    install('.', '4.1.0');
+
+    const facts = await gatherRemovalFacts(root, { git, loadConfig: async () => LEGACY });
+
+    expect(facts.mode).toBe('legacy');
+    expect(missingStateInstall(facts, history(''))).toBeNull();
   });
 });

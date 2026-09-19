@@ -208,3 +208,54 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
     expect(lines.at(-1)).toContain('Blueprint lifecycle 4.1.0 is current — nothing to upgrade.');
   });
 });
+
+describe('runUpgrade · a 4.0 adoption whose package was updated past lifecycle state', () => {
+  const CURRENT = { framework: 'vue', architecture: { alias: '~app', layers: [] } };
+
+  function history(commits: string): GitReader {
+    return (args, cwd) => args[0] === 'rev-list'
+      ? { status: 0, stdout: commits, stderr: '' }
+      : args[1] === '--is-shallow-repository'
+        ? { status: 0, stdout: 'false\n', stderr: '' }
+        : git()(args, cwd);
+  }
+
+  function adoptUpdated(): void {
+    write('package.json', JSON.stringify({ devDependencies: { '@kekkai/blueprint': '^4.0.0' } }));
+    write('package-lock.json', '{}');
+    write('blueprint.config.mjs', 'export default {};\n');
+    install('4.1.0');
+  }
+
+  it('dates the adoption from the installed package when state never entered Git', async () => {
+    adoptUpdated();
+
+    const dryRun = options({ dryRun: true, git: history(''), loadConfig: async () => CURRENT });
+
+    expect(await runUpgrade(root, dryRun)).toBe(0);
+
+    expect(output()).toContain('Source: 4.1.0 (installed @kekkai/blueprint; '
+      + '.blueprint-lifecycle.json never entered Git history, so no lifecycle is proven and this '
+      + 'run establishes it)');
+
+    expect(exists('.blueprint-lifecycle.json')).toBe(false);
+
+    lines = [];
+
+    const run = options({ git: history(''), loadConfig: async () => CURRENT });
+
+    expect(await runUpgrade(root, run)).toBe(0);
+    expect(state()).toMatchObject({ blueprint: '4.1.0', pending: null });
+  });
+
+  it('still refuses when the state file once entered Git history', async () => {
+    adoptUpdated();
+
+    const run = options({ git: history('abc\n'), loadConfig: async () => CURRENT });
+
+    await expect(runUpgrade(root, run)).rejects.toThrow('.blueprint-lifecycle.json is missing, '
+      + 'but @kekkai/blueprint 4.1.0 always records it');
+
+    expect(exists('.blueprint-lifecycle.json')).toBe(false);
+  });
+});

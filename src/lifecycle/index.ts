@@ -51,6 +51,8 @@ export {
   writeLifecycleText,
 } from './state';
 export type { LifecycleStateRead } from './state';
+export { lifecycleStateHistory } from './state-history';
+export type { LifecycleStateHistory } from './state-history';
 export type * from './types';
 export { catalogProblems } from './validate';
 export type { CatalogProblem, CatalogRelation } from './validate';

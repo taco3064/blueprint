@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { GitReader } from '../project';
 import { runningPackage } from './package';
 import {
   applicationKey,
@@ -15,6 +16,15 @@ import type { RecordAdoptionInput } from './record';
 import { LIFECYCLE_FILE, serializeLifecycleState } from './state';
 
 let root: string;
+
+const history = (commits: string): GitReader => (args) => ({
+  status: 0,
+  stdout: args[0] === 'rev-parse' ? 'false\n' : commits,
+  stderr: '',
+});
+
+const recorded = history('abc\n');
+const neverRecorded = history('');
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-lifecycle-record-'));
@@ -94,7 +104,17 @@ describe('recordAdoption · missing and unfinished checkpoints', () => {
   it('refuses to rebuild the state a lifecycle-aware release should have written', () => {
     install('4.2.0');
 
+    expect(record({ git: recorded })).toEqual({ status: 'skipped', reason: 'missing-state' });
     expect(record()).toEqual({ status: 'skipped', reason: 'missing-state' });
+  });
+
+  it('bootstraps from the installed package when state never entered Git history', () => {
+    install('4.2.0');
+
+    const outcome = record({ git: neverRecorded });
+
+    expect(outcome).toMatchObject({ established: 'bootstrap' });
+    expect(written(outcome)).toMatchObject({ blueprint: '4.2.0', provenance: 'partial' });
   });
 
   it('records what an unfinished first adoption wrote without claiming a checkpoint', () => {
@@ -172,6 +192,8 @@ describe('lostLifecycleState', () => {
     adopt('apps/d', null);
 
     expect(lostLifecycleState(root)).toBe('4.2.0');
+    expect(lostLifecycleState(root, recorded)).toBe('4.2.0');
+    expect(lostLifecycleState(root, neverRecorded)).toBeNull();
 
     fs.writeFileSync(path.join(root, LIFECYCLE_FILE), serializeLifecycleState({
       schema: 1, blueprint: '4.2.0', provenance: 'complete', operations: [], pending: null,
@@ -181,11 +203,19 @@ describe('lostLifecycleState', () => {
     expect(lostLifecycleState(root)).toBeNull();
   });
 
-  it('treats older installs alone as a pre-lifecycle repository', () => {
+  it('treats older installs alone as a pre-lifecycle repository without asking Git', () => {
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), 'export default {};\n');
     install('4.0.0');
 
-    expect(lostLifecycleState(root)).toBeNull();
+    const asked: string[][] = [];
+
+    expect(lostLifecycleState(root, (args) => {
+      asked.push(args);
+
+      return recorded(args, root);
+    })).toBeNull();
+
+    expect(asked).toEqual([]);
   });
 });
 

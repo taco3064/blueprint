@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { findConfigFiles } from '../project';
+import { defaultGitReader, findConfigFiles } from '../project';
+import type { GitReader } from '../project';
 import { adoptionProvenance } from './adoption';
 import type { AppliedAction } from './adoption';
 import { LIFECYCLE_SINCE, UPGRADE_CATALOG } from './catalog';
@@ -10,6 +11,7 @@ import { installedPackage, runningPackage } from './package';
 import { forgetPaths, mergeProvenance } from './provenance';
 import { readLifecycleState, serializeLifecycleState } from './state';
 import type { LifecycleStateRead } from './state';
+import { lifecycleStateHistory } from './state-history';
 import type { LifecycleState } from './types';
 import { compareVersions } from './version';
 
@@ -25,6 +27,7 @@ export interface RecordAdoptionInput {
   legacyShape: boolean;
   finished: boolean;
   runningVersion?: string | null;
+  git?: GitReader;
 }
 
 export type RecordAdoptionOutcome
@@ -41,7 +44,10 @@ export function lifecycleStateProblem(lifecycleRoot: string): string | null {
   return read.status === 'invalid' ? read.reason : null;
 }
 
-export function lostLifecycleState(lifecycleRoot: string): string | null {
+export function lostLifecycleState(
+  lifecycleRoot: string,
+  git: GitReader = defaultGitReader,
+): string | null {
   if (readLifecycleState(lifecycleRoot).status !== 'missing') {
     return null;
   }
@@ -52,7 +58,11 @@ export function lostLifecycleState(lifecycleRoot: string): string | null {
     .filter((version) => compareVersions(version, LIFECYCLE_SINCE) >= 0)
     .sort(compareVersions);
 
-  return aware.at(-1) ?? null;
+  const newest = aware.at(-1) ?? null;
+
+  return newest !== null && lifecycleStateHistory(lifecycleRoot, git) !== 'never-recorded'
+    ? newest
+    : null;
 }
 
 function runningVersion(input: RecordAdoptionInput): string | null {
@@ -82,6 +92,7 @@ function establishedState(
     installed: [installedPackage(input.applicationRoot)?.version ?? null],
     legacyShape: input.legacyShape,
     catalog: UPGRADE_CATALOG,
+    history: lifecycleStateHistory(input.lifecycleRoot, input.git),
   });
 
   if (checkpoint.kind === 'bootstrap') {

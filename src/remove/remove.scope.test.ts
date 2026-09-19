@@ -201,4 +201,24 @@ describe('runRemove · lifecycle state guards', () => {
     await expect(remove(root)).rejects.toThrow('.blueprint-lifecycle.json is missing, but '
       + '@kekkai/blueprint 4.1.0 always records it');
   });
+
+  it('removes only proven artifacts when the state file never entered Git history', async () => {
+    write('package.json', JSON.stringify({ devDependencies: { '@kekkai/blueprint': '4.1.0' } }));
+    write('blueprint.config.mjs', CONFIG);
+
+    write('node_modules/@kekkai/blueprint/package.json', JSON.stringify({
+      name: '@kekkai/blueprint', version: '4.1.0',
+    }));
+
+    const neverRecorded: GitReader = (args, cwd) => args[0] === 'rev-list'
+      ? { status: 0, stdout: '', stderr: '' }
+      : args[1] === '--is-shallow-repository'
+        ? { status: 0, stdout: 'false\n', stderr: '' }
+        : git(args, cwd);
+
+    await remove(root, { dryRun: true, git: neverRecorded });
+
+    expect(lines.join('\n')).toContain('no lifecycle records, so only name- or content-proven '
+      + 'Blueprint artifacts are removed');
+  });
 });

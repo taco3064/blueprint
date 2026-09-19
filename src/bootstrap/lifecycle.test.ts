@@ -24,6 +24,28 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+function git(...args: string[]): void {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf-8' });
+
+  expect(result.error).toBeUndefined();
+  expect(result.status, result.stderr).toBe(0);
+}
+
+function commit(message: string): void {
+  git('add', '.');
+
+  git(
+    '-c',
+    'user.name=Blueprint Test',
+    '-c',
+    'user.email=blueprint@example.invalid',
+    'commit',
+    '--quiet',
+    '-m',
+    message,
+  );
+}
+
 function writePkg(content: Record<string, unknown>): void {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(content));
 }
@@ -170,7 +192,10 @@ describe('init lifecycle recording · failures', () => {
   });
 
   it('refuses a pre-lifecycle application when a sibling proves lost state', async () => {
-    expect(spawnSync('git', ['init', '--quiet'], { cwd: root }).status).toBe(0);
+    git('init', '--quiet');
+    fs.writeFileSync(path.join(root, '.blueprint-lifecycle.json'), '{}\n');
+    commit('record lifecycle state');
+    fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
 
     for (const [app, version] of [['apps/old', '4.0.0'], ['apps/new', '4.1.0']]) {
       const dir = path.join(root, app);
@@ -197,7 +222,52 @@ describe('init lifecycle recording · failures', () => {
     expect(fs.existsSync(path.join(root, 'apps/old/docs'))).toBe(false);
   });
 
-  it('refuses to run when a lifecycle-aware adoption lost its state file', async () => {
+  it('dates a 4.0 adoption updated past lifecycle state from its installed package when the '
+    + 'state never entered Git', async () => {
+    git('init', '--quiet');
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
+    commit('adopt Blueprint 4.0');
+    fs.mkdirSync(path.join(root, 'node_modules/@kekkai/blueprint'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'node_modules/@kekkai/blueprint/package.json'),
+      JSON.stringify({ name: '@kekkai/blueprint', version: '4.1.0' }),
+    );
+
+    await runInit(root, { install: false, log });
+
+    expect(lifecycle()).toMatchObject({ blueprint: '4.1.0', provenance: 'partial' });
+    expectLogged('lifecycle checkpoint established from the installed package');
+  });
+
+  it('cannot tell never-committed lifecycle-aware state from a dependency update, so both '
+    + 'take the same bootstrap', async () => {
+    git('init', '--quiet');
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    commit('baseline');
+    fs.mkdirSync(path.join(root, 'node_modules/@kekkai/blueprint'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'node_modules/@kekkai/blueprint/package.json'),
+      JSON.stringify({ name: '@kekkai/blueprint', version: '4.1.0' }),
+    );
+
+    const loadConfig = async () => vuePreset({ name: 'demo' });
+
+    await runInit(root, { topology: 'layer-first', install: false, log, loadConfig });
+
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(true);
+    fs.rmSync(path.join(root, '.blueprint-lifecycle.json'));
+    lines = [];
+
+    await runInit(root, { install: false, log, loadConfig });
+
+    expect(lifecycle()).toMatchObject({ blueprint: '4.1.0', provenance: 'partial' });
+    expectLogged('lifecycle checkpoint established from the installed package');
+  });
+
+  it('refuses to run when a lifecycle-aware adoption outside Git lost its state file', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
     fs.mkdirSync(path.join(root, 'node_modules/@kekkai/blueprint'), { recursive: true });
