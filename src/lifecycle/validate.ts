@@ -27,7 +27,8 @@ export type CatalogProblem
     | { kind: 'conflicting-relations'; id: string; target: string }
     | { kind: 'malformed-applicability'; id: string }
     | { kind: 'malformed-verification'; id: string }
-    | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem };
+    | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem }
+    | { kind: 'unresolvable-route'; source: string; target: string; problem: ResolutionProblem };
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RELATIONS: CatalogRelation[] = ['requires', 'cancels', 'supersedes'];
@@ -59,6 +60,10 @@ export function catalogProblems(catalog: UpgradeCatalog, packageVersion: string)
 
   if (!context.problems.length) {
     sourceResolution(context);
+  }
+
+  if (!context.problems.length) {
+    routeResolution(context);
   }
 
   return context.problems;
@@ -254,10 +259,7 @@ function conflictingRelations(operation: UpgradeOperation, context: Context): vo
   }
 }
 
-function sourceResolution(context: Context): void {
-  const { catalog, packageVersion } = context;
-  const source = catalog.supportedFrom;
-
+function resolutionProblems(context: Context, target: string): ResolutionProblem[] {
   const facts: ApplicationFacts[] = [{
     root: '.',
     legacyShape: true,
@@ -266,17 +268,37 @@ function sourceResolution(context: Context): void {
   }];
 
   const resolution = resolveUpgrade({
-    catalog,
-    source,
-    target: packageVersion,
+    catalog: context.catalog,
+    source: context.catalog.supportedFrom,
+    target,
     // Stryker disable next-line ArrayDeclaration: an id no operation owns completes nothing.
     completed: [],
     facts,
   });
 
-  if (resolution.status === 'invalid') {
-    context.problems.push(...resolution.problems.map((problem) => ({
-      kind: 'unresolvable-source' as const, source, problem,
+  return resolution.status === 'invalid' ? resolution.problems : [];
+}
+
+function sourceResolution(context: Context): void {
+  const source = context.catalog.supportedFrom;
+
+  context.problems.push(...resolutionProblems(context, context.packageVersion).map((problem) => ({
+    kind: 'unresolvable-source' as const, source, problem,
+  })));
+}
+
+// A later release's cancel or supersede can hide from the full window a failure that a route
+// stopping earlier still meets. Relations only reach older operations and completed work only
+// removes constraints, so every route's failure also shows on supportedFrom → its target.
+function routeResolution(context: Context): void {
+  const { operations, supportedFrom: source } = context.catalog;
+
+  const releases = [...new Set(operations.map((operation) => operation.introducedIn))]
+    .sort(compareVersions);
+
+  for (const target of releases) {
+    context.problems.push(...resolutionProblems(context, target).map((problem) => ({
+      kind: 'unresolvable-route' as const, source, target, problem,
     })));
   }
 }
