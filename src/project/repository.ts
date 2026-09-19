@@ -23,7 +23,11 @@ export function canonicalPath(value: string): string {
   try {
     return fs.realpathSync.native(resolved);
   } catch {
-    return resolved;
+    const parent = path.dirname(resolved);
+
+    return parent === resolved
+      ? resolved
+      : path.join(canonicalPath(parent), path.basename(resolved));
   }
 }
 

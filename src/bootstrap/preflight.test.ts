@@ -11,7 +11,7 @@ import type { GitReader, GitReadResult } from './preflight';
 let root: string;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-preflight-'));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-preflight-')));
 });
 
 afterEach(() => {

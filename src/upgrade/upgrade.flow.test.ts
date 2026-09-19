@@ -14,7 +14,7 @@ const RUNNING = { root: '/runner/node_modules/@kekkai/blueprint', version: '4.1.
 const LEGACY = { architecture: { alias: '~app', module: { private: ['hooks'] }, layers: [] } };
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-flow-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-flow-')));
   lines = [];
 });
 
