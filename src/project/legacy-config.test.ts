@@ -140,7 +140,10 @@ describe('Blueprint 3.2 config source migration', () => {
     '      },',
     '      { name: \'hooks\', does: \'Adapts state.\' },',
     '    ],',
-    '    module: { layout: \'folder\', entry: \'index\', private: [\'hooks\'] },',
+    '    module: {',
+    '      // hooks stay private to each unit',
+    '      layout: \'folder\', entry: \'index\', private: [\'hooks\'], /* shared */',
+    '    },',
     '  },',
     '});',
     '',
@@ -182,7 +185,7 @@ describe('Blueprint 3.2 config source migration', () => {
     expect(source).toContain('export default defineBlueprint({');
     expect(source).toContain('...reactPreset({ name: \'sky\' }),');
 
-    for (const comment of original.match(/\/\*\*.*\*\/|\/\/.*/g)!) {
+    for (const comment of original.match(/\/\*.*?\*\/|\/\/.*/g)!) {
       expect(source).toContain(comment);
     }
 
