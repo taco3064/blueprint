@@ -14,7 +14,7 @@ let lines: string[];
 const RUNNING = { root: '/runner', version: '4.1.0' };
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-refusal-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-refusal-')));
   lines = [];
 });
 

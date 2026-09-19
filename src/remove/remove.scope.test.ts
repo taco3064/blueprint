@@ -12,7 +12,7 @@ let lines: string[];
 let gitCalls: string[][];
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-remove-scope-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-remove-scope-')));
   lines = [];
   gitCalls = [];
 });

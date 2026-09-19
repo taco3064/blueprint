@@ -10,7 +10,7 @@ import { gatherRemovalFacts, missingStateInstall } from './facts';
 let root: string;
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-remove-facts-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-remove-facts-')));
 });
 
 afterEach(() => {

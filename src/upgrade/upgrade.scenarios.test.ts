@@ -14,7 +14,7 @@ let root: string;
 let lines: string[];
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-scenario-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-upgrade-scenario-')));
   lines = [];
 });
 

@@ -43,7 +43,27 @@ describe('canonicalPath', () => {
     const missing = path.join(root, 'missing');
 
     expect(canonicalPath(`${missing}${path.sep}`)).toBe(missing);
-    expect(canonicalPath('missing')).toBe(path.resolve('missing'));
+    expect(canonicalPath('missing')).toBe(path.join(canonicalPath(process.cwd()), 'missing'));
+    expect(fs.existsSync(missing)).toBe(false);
+  });
+
+  it('spells a missing path through the physical path of its nearest existing ancestor', () => {
+    fs.symlinkSync(root, `${root}-link`, 'junction');
+
+    expect(canonicalPath(path.join(`${root}-link`, 'missing', 'child')))
+      .toBe(path.join(root, 'missing', 'child'));
+  });
+
+  it('stops at the filesystem root when no ancestor can be read', () => {
+    const unreadable = vi.spyOn(fs.realpathSync, 'native').mockImplementation(() => {
+      throw new Error('unreadable');
+    });
+
+    try {
+      expect(canonicalPath(path.join(root, 'a', 'b'))).toBe(path.join(root, 'a', 'b'));
+    } finally {
+      unreadable.mockRestore();
+    }
   });
 });
 
