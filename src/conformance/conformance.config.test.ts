@@ -69,7 +69,7 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
 
     expect(red.code).toBe(1);
     expect(red.output).toContain('⊘ import alias · bundler-runtime');
-    expect(red.output).toContain('could not be read statically');
+    expect(red.output).toContain('read vite.config.js, but not every alias is declared there');
 
     write(
       dir,

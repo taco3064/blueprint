@@ -96,3 +96,79 @@ describe('alias consumer static syntax', () => {
       { ...architecture, sourceRoot: 'src/extra' })).toBe('missing');
   });
 });
+
+function bundler(
+  text: string,
+  scope: { sourceRoot?: string; toolRoot?: string; file?: string } = {},
+) {
+  return aliasConsumerEvidence(root, { ...architecture, sourceRoot: scope.sourceRoot ?? 'src' }, {
+    root: scope.toolRoot ?? '',
+    tsconfigs: {},
+    viteConfig: { file: scope.file ?? 'vite.config.ts', text },
+  })[1];
+}
+
+describe('alias consumer expression values', () => {
+  it.each([
+    '\'#app\': fileURLToPath(new URL(\'./src\', import.meta.url))',
+    '"#app" : fileURLToPath( new  URL( "src/" ,\n import.meta.url ) )',
+    '`#app`: path.resolve(__dirname, `./src`)',
+    '\'#app\': resolve( __dirname , "src" )',
+    'alias.set(\'#app\', fileURLToPath(new URL(\'./src\', import.meta.url)))',
+    'alias.set("#app", path.resolve(__dirname, "src/"))',
+  ])('verifies a target resolved from the configuration directory: %s', (text) => {
+    expect(bundler(text).status).toBe('verified');
+  });
+
+  it.each([
+    '\'#app\': fileURLToPath(new URL(\'./lib\', import.meta.url))',
+    '\'#app\': path.resolve(__dirname, \'lib\')',
+    '\'#app\': path.resolve(__dirname, \'/src\')',
+    'alias.set(\'#app\', fileURLToPath(new URL(\'/src\', import.meta.url)))',
+  ])('reports a resolved target that does not match: %s', (text) => {
+    expect(bundler(text)).toMatchObject({ status: 'missing', aliases: ['#app'] });
+  });
+
+  it.each([
+    '\'#app\': path.join(__dirname, \'src\')',
+    '\'#app\': path.resolve(__dirname, \'src\', \'app\')',
+    '\'#app\': path.resolve(\'src\')',
+    '\'#app\': upath.resolve(__dirname, \'src\')',
+    '\'#app\': fileURLToPath(new URL(\'./src\', base))',
+    '\'#app\': new URL(\'./src\', import.meta.url).pathname',
+  ])('keeps any other expression unverified: %s', (text) => {
+    expect(bundler(text).status).toBe('unverified');
+  });
+
+  it.each([
+    ['src/app', '\'#app\': path.resolve(__dirname, \'src/app/\')'],
+    ['../src', '\'#app\': path.resolve(__dirname, \'../src\')'],
+    ['.', '\'#app\': fileURLToPath(new URL(\'.\', import.meta.url))'],
+    ['.', '\'#app\': fileURLToPath(new URL(\'./\', import.meta.url))'],
+  ])('normalizes a resolved target for sourceRoot %s', (sourceRoot, text) => {
+    expect(bundler(text, { sourceRoot }).status).toBe('verified');
+  });
+
+  it('resolves inside a nested toolchain rather than from the repository root', () => {
+    const nested = { sourceRoot: 'web/src', toolRoot: 'web', file: 'web/vite.config.ts' };
+
+    expect(bundler('\'#app\': path.resolve(__dirname, \'src\')', nested).status)
+      .toBe('verified');
+
+    expect(bundler('\'#app\': fileURLToPath(new URL(\'./src\', import.meta.url))', nested).status)
+      .toBe('verified');
+
+    expect(bundler('\'#app\': path.resolve(__dirname, \'web/src\')', nested).status)
+      .toBe('missing');
+  });
+
+  it('resolves from the configuration file directory, not the tool root', () => {
+    const scope = { file: 'config/vite.config.ts' };
+
+    expect(bundler('\'#app\': path.resolve(__dirname, \'../src\')', scope).status)
+      .toBe('verified');
+
+    expect(bundler('\'#app\': path.resolve(__dirname, \'src\')', scope).status).toBe('missing');
+    expect(bundler('\'#app\': \'src\'', scope).status).toBe('verified');
+  });
+});

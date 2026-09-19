@@ -17,6 +17,7 @@ export interface AliasConsumerEvidence {
   aliases: string[];
   files: string[];
   unreadable?: string[];
+  installed?: string[];
 }
 
 const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
@@ -27,6 +28,13 @@ const TEST_RUNNER_FILES = ['vitest.config', 'jest.config']
 
 const BUNDLER_PACKAGES = ['vite', 'webpack', 'next', '@rsbuild/core', '@vue/cli-service'];
 const TEST_RUNNER_PACKAGES = ['vitest', 'jest'];
+
+const STATIC_VALUE = [
+  '([\'"`])([^\'"`]*)\\2',
+  'fileURLToPath\\(\\s*new\\s+URL\\(\\s*([\'"`])([^\'"`]*)\\4\\s*,'
+  + '\\s*import\\.meta\\.url\\s*\\)\\s*\\)',
+  '(?:path\\.)?resolve\\(\\s*__dirname\\s*,\\s*([\'"`])([^\'"`]*)\\6\\s*\\)',
+].join('|');
 
 export function aliasConsumerEvidence(
   root: string,
@@ -40,12 +48,14 @@ export function aliasConsumerEvidence(
     typescriptEvidence(aliases, targets, toolchain),
     textConfigEvidence({
       root, toolRoot: toolchain.root, aliases, targets, consumer: 'bundler-runtime',
-      candidates: BUNDLER_FILES, packages: BUNDLER_PACKAGES, toolchain,
+      candidates: BUNDLER_FILES, packages: BUNDLER_PACKAGES,
+      viteConfig: toolchain.viteConfig, tsconfigs: toolchain.tsconfigs,
     }),
     packageSubpathEvidence({ root, toolRoot: toolchain.root, aliases, targets }),
     textConfigEvidence({
       root, toolRoot: toolchain.root, aliases, targets, consumer: 'test-runner',
       candidates: TEST_RUNNER_FILES, packages: TEST_RUNNER_PACKAGES,
+      viteConfig: toolchain.viteConfig,
     }),
   ];
 }
@@ -90,18 +100,16 @@ function textConfigEvidence(scope: {
   consumer: 'bundler-runtime' | 'test-runner';
   candidates: string[];
   packages: string[];
-  toolchain?: ProjectToolchain;
+  viteConfig?: ProjectToolchain['viteConfig'];
+  tsconfigs?: ProjectToolchain['tsconfigs'];
 }): AliasConsumerEvidence {
-  const { aliases, targets, consumer } = scope;
+  const { root, toolRoot, aliases, targets, consumer } = scope;
   const { entries, packageFile, installed } = configRecognition(scope);
 
   if (!entries.length) {
-    return {
-      consumer,
-      status: installed ? 'unverified' : 'absent',
-      aliases,
-      files: installed ? [packageFile] : [],
-    };
+    return installed.length
+      ? { consumer, status: 'unverified', aliases, files: [packageFile], installed }
+      : { consumer, status: 'absent', aliases, files: [] };
   }
 
   const unreadable = entries.filter((entry) => entry.text === null).map((entry) => entry.file);
@@ -113,10 +121,12 @@ function textConfigEvidence(scope: {
     };
   }
 
-  const typescriptAliases = detectAliases(scope.toolchain?.tsconfigs ?? {});
+  const typescriptAliases = detectAliases(scope.tsconfigs ?? {});
 
   const readings = entries.flatMap((entry) => aliases.map((alias) => {
-    const reading = readStaticAlias(entry.text as string, alias, targets[alias]);
+    const reading = readStaticAlias(entry.text as string, alias, {
+      expected: targets[alias], base: configDirectory(root, toolRoot, entry.file),
+    });
 
     // Stryker disable next-line ConditionalExpression: empty runner aliases reject bridges
     const bridged = consumer === 'bundler-runtime'
@@ -148,35 +158,45 @@ function textConfigEvidence(scope: {
   };
 }
 
+function configDirectory(root: string, toolRoot: string, file: string): string {
+  return path.relative(path.resolve(root, toolRoot), path.resolve(root, path.dirname(file)))
+    .split(path.sep).join('/');
+}
+
 function configRecognition(scope: {
   root: string;
   toolRoot: string;
   consumer: 'bundler-runtime' | 'test-runner';
   candidates: string[];
   packages: string[];
-  toolchain?: ProjectToolchain;
+  viteConfig?: ProjectToolchain['viteConfig'];
 }): {
   entries: { file: string; text: string | null }[];
   packageFile: string;
-  installed: boolean;
+  installed: string[];
 } {
-  const { root, toolRoot, consumer, candidates, packages, toolchain } = scope;
-  const configured = candidates.map((file) => toolRoot ? `${toolRoot}/${file}` : file);
-  const fromToolchain = toolchain?.viteConfig ? [toolchain.viteConfig] : [];
-
-  const fromDisk = configured
-    .filter((file) => fromToolchain.every((entry) => entry.file !== file))
-    .filter((file) => fs.existsSync(path.join(root, file)))
-    .map((file) => ({ file, text: read(path.join(root, file)) }));
-
-  const packageFile = toolRoot ? `${toolRoot}/package.json` : 'package.json';
+  const { root, toolRoot, consumer, candidates, packages, viteConfig } = scope;
+  const qualify = (file: string) => toolRoot ? `${toolRoot}/${file}` : file;
+  const present = candidates.map(qualify).filter((file) => fs.existsSync(path.join(root, file)));
+  const packageFile = qualify('package.json');
   const packageValue = packageRecord(read(path.join(root, packageFile)));
+  const dependencies = packageDependencies(packageValue);
+
+  const readsVite = consumer === 'bundler-runtime'
+    || (dependencies.has('vitest')
+      && !present.some((file) => path.posix.basename(file).startsWith('vitest.config.')));
+
+  const fromToolchain = viteConfig && readsVite ? [viteConfig] : [];
+
+  const fromDisk = present
+    .filter((file) => fromToolchain.every((entry) => entry.file !== file))
+    .map((file) => ({ file, text: read(path.join(root, file)) }));
 
   const embeddedJest = consumer === 'test-runner' && isRecord(packageValue?.jest)
     ? [{ file: `${packageFile}#jest`, text: JSON.stringify(packageValue.jest) }]
     : [];
 
-  const installed = packages.some((name) => packageDependencies(packageValue).has(name));
+  const installed = packages.filter((name) => dependencies.has(name));
 
   return { entries: [...fromToolchain, ...fromDisk, ...embeddedJest], packageFile, installed };
 }
@@ -270,20 +290,16 @@ function packageDependencies(pkg: Record<string, unknown> | null): Set<string> {
 function readStaticAlias(
   text: string,
   alias: string,
-  expected: string,
+  scope: { expected: string; base: string },
 ): 'verified' | 'mismatch' | 'unknown' | 'absent' {
   const source = withoutComments(text);
   const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const direct = new RegExp(`(['"\`])${escaped}\\1\\s*:\\s*(['"\`])([^'"\`]*)\\2`);
-
-  const chained = new RegExp(
-    `\\.set\\(\\s*(['"\`])${escaped}\\1\\s*,\\s*(['"\`])([^'"\`]*)\\2`,
-  );
-
+  const direct = new RegExp(`(['"\`])${escaped}\\1\\s*:\\s*(?:${STATIC_VALUE})`);
+  const chained = new RegExp(`\\.set\\(\\s*(['"\`])${escaped}\\1\\s*,\\s*(?:${STATIC_VALUE})`);
   const found = direct.exec(source) ?? chained.exec(source);
 
   if (found) {
-    return normalizeTarget(found[3]) === expected ? 'verified' : 'mismatch';
+    return declaredTarget(found, scope.base) === scope.expected ? 'verified' : 'mismatch';
   }
 
   const json = packageRecord(source);
@@ -297,10 +313,22 @@ function readStaticAlias(
   if (typeof mapped === 'string') {
     const target = mapped.replace(/^<rootDir>\//, '').replace(/\/\$1$/, '');
 
-    return normalizeTarget(target) === expected ? 'verified' : 'mismatch';
+    return normalizeTarget(target) === scope.expected ? 'verified' : 'mismatch';
   }
 
   return new RegExp(`(['"\`])${escaped}\\1`).test(source) ? 'unknown' : 'absent';
+}
+
+function declaredTarget(found: RegExpExecArray, base: string): string | null {
+  if (found[3] !== undefined) {
+    return normalizeTarget(found[3]);
+  }
+
+  const relative = found[5] ?? found[7];
+
+  return path.posix.isAbsolute(relative)
+    ? null
+    : normalizeTarget(path.posix.join(base, relative).replace(/\/$/, ''));
 }
 
 function hasTsconfigPathsBridge(text: string): boolean {

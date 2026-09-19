@@ -21,7 +21,7 @@ import {
 } from './index';
 
 describe('operational diagnostic prose', () => {
-  it('describes an unreadable alias consumer without a named configuration file', () => {
+  it('says no configuration file was found when unverified alias evidence names none', () => {
     const check = renderDoctorCheck({
       kind: 'alias-consumer',
       evidence: {
@@ -30,7 +30,9 @@ describe('operational diagnostic prose', () => {
       sourceRoot: 'src',
     });
 
-    expect(check.skipped).toBe('the configuration could not be read statically');
+    expect(check.skipped).toMatch(
+      /^no test-runner configuration file was found — this check proves only /,
+    );
   });
 
   it('keeps failed, skipped, and passing doctor facts distinct', () => {

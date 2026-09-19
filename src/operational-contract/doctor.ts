@@ -7,14 +7,8 @@ import type { GlobReachFact } from './lint';
 import { CURRENT_CONFIG_ADOPTION_SCOPE } from './inspect';
 import { renderObligationFailure } from './transformation';
 import type { TransformationObligationFailure } from './transformation';
-
-type AliasConsumerEvidence = {
-  consumer: 'typescript' | 'bundler-runtime' | 'package-subpath' | 'test-runner';
-  status: 'verified' | 'missing' | 'absent' | 'not-applicable' | 'unverified';
-  aliases: string[];
-  files: string[];
-  unreadable?: string[];
-};
+import { renderAliasConsumer } from './doctor-alias';
+import type { AliasConsumerEvidence } from './doctor-alias';
 
 export interface DoctorCheckView {
   label: string;
@@ -331,45 +325,6 @@ function renderSuppressions(
         detail: `${SUPPRESSIONS_FILE} is empty — nothing is suppressed, so the file is ceremony; delete it (zero lint debt needs no ledger)`,
       };
   }
-}
-
-function renderAliasConsumer(
-  fact: Extract<DoctorCheckFact, { kind: 'alias-consumer' }>,
-): DoctorCheckView {
-  const { evidence } = fact;
-  const names = evidence.aliases.map((name) => `"${name}"`).join(', ');
-  const label = `import alias · ${evidence.consumer}`;
-
-  const structural = {
-    consumer: evidence.consumer,
-    status: evidence.status,
-    aliases: evidence.aliases,
-    files: evidence.files,
-  };
-
-  if (evidence.status === 'verified') {
-    return { label, ok: true, ...structural };
-  }
-
-  if (evidence.status === 'missing') {
-    const dir = fact.sourceRoot === '.' ? '.' : `./${fact.sourceRoot}`;
-
-    const remedy = evidence.consumer === 'typescript'
-      ? `declare compilerOptions.paths ("${evidence.aliases[0]}/*": ["${dir}/*"])`
-      : `declare ${names} in the recognised ${evidence.consumer} configuration`;
-
-    return { label, ok: false, detail: `${names} is missing — ${remedy}`, ...structural };
-  }
-
-  const reason = evidence.status === 'not-applicable'
-    ? 'the configured aliases are not package # subpaths'
-    : evidence.status === 'absent'
-      ? `no recognised ${evidence.consumer} configuration is present`
-      : `${evidence.unreadable?.join(', ') ?? 'the configuration'} could not be read statically`;
-
-  return evidence.status === 'unverified'
-    ? { label, ok: true, skipped: reason, ...structural }
-    : { label, ok: true, detail: reason, ...structural };
 }
 
 function renderLeftovers(
