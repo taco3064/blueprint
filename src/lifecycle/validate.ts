@@ -27,7 +27,8 @@ export type CatalogProblem
     | { kind: 'conflicting-relations'; id: string; target: string }
     | { kind: 'malformed-applicability'; id: string }
     | { kind: 'malformed-verification'; id: string }
-    | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem };
+    | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem }
+    | { kind: 'requirement-cycle'; ids: string[] };
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RELATIONS: CatalogRelation[] = ['requires', 'cancels', 'supersedes'];
@@ -59,6 +60,10 @@ export function catalogProblems(catalog: UpgradeCatalog, packageVersion: string)
 
   if (!context.problems.length) {
     sourceResolution(context);
+  }
+
+  if (!context.problems.length) {
+    requirementCycles(context);
   }
 
   return context.problems;
@@ -278,5 +283,22 @@ function sourceResolution(context: Context): void {
     context.problems.push(...resolution.problems.map((problem) => ({
       kind: 'unresolvable-source' as const, source, problem,
     })));
+  }
+}
+
+// The full window can hide a cycle: a later release that supersedes one member reroutes its
+// requirements there. A route that stops at the cycle's own release still has to order both.
+function requirementCycles(context: Context): void {
+  const { operations } = context.catalog;
+  const ordered = new Set<string>();
+
+  operations.forEach(() => operations
+    .filter((operation) => operation.requires.every((id) => ordered.has(id)))
+    .forEach((operation) => ordered.add(operation.id)));
+
+  const ids = operations.map((operation) => operation.id).filter((id) => !ordered.has(id));
+
+  if (ids.length) {
+    context.problems.push({ kind: 'requirement-cycle', ids });
   }
 }
