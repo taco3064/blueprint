@@ -1,7 +1,14 @@
 import path from 'node:path';
 import { parse } from '@typescript-eslint/parser';
 
-const SCALAR_START = '\n:-[{,?';
+const SCALAR_START = new Set(['\n', ':', '-', '[', '{', ',', '?']);
+
+interface ScanState {
+  mode: 'plain' | 'quoted' | 'escaped' | 'line' | 'block';
+  previous: string;
+  quote?: string;
+  opened?: number;
+}
 
 export function withoutComments(file: string, text: string): string {
   const name = path.posix.basename(file);
@@ -31,87 +38,84 @@ function withoutScriptComments(text: string): string {
   }
 }
 
-function withoutSlashComments(text: string, quotes: string): string {
-  let result = '';
-  let index = 0;
+function scan(text: string, step: (state: ScanState, index: number) => string): string {
+  const state: ScanState = { mode: 'plain', previous: '\n' };
 
-  while (index < text.length) {
-    const end = slashTokenEnd(text, index, quotes);
-    const token = text.slice(index, end);
-
-    result += /^\/[/*]/.test(token) ? blank(token) : token;
-    index = end;
-  }
-
-  return result;
+  return text.split('').map((_, index) => step(state, index)).join('');
 }
 
-function slashTokenEnd(text: string, index: number, quotes: string): number {
-  if (quotes.includes(text[index])) {
-    return quotedEnd(text, index);
-  }
+function withoutSlashComments(text: string, quotes: string): string {
+  return scan(text, (state, index) => {
+    const char = text[index];
+    const next = text[index + 1];
 
-  if (text.startsWith('//', index)) {
-    return lineEnd(text, index);
-  }
+    if (state.mode !== 'plain') {
+      return state.mode === 'quoted' || state.mode === 'escaped'
+        ? quotedStep(state, char, char === '\\')
+        : commentStep(state, text, index);
+    }
 
-  if (text.startsWith('/*', index)) {
-    const close = text.indexOf('*/', index + 2);
+    if (quotes.includes(char)) {
+      Object.assign(state, { mode: 'quoted', quote: char });
+    } else if (char === '/' && (next === '/' || next === '*')) {
+      Object.assign(state, { mode: next === '/' ? 'line' : 'block', opened: index });
 
-    return close === -1 ? text.length : close + 2;
-  }
+      return ' ';
+    }
 
-  return index + 1;
+    return char;
+  });
 }
 
 function withoutHashComments(text: string): string {
-  let result = '';
-  let index = 0;
-  let previous = '\n';
-
-  while (index < text.length) {
+  return scan(text, (state, index) => {
     const char = text[index];
-    const comment = char === '#' && (index === 0 || /\s/.test(text[index - 1]));
 
-    const end = comment
-      ? lineEnd(text, index)
-      : /['"]/.test(char) && SCALAR_START.includes(previous)
-        ? quotedEnd(text, index, char === '\'')
-        : index + 1;
-
-    result += comment ? blank(text.slice(index, end)) : text.slice(index, end);
-    previous = char === '\n' || !/\s/.test(char) ? char : previous;
-    index = end;
-  }
-
-  return result;
-}
-
-function quotedEnd(text: string, index: number, doubled = false): number {
-  const quote = text[index];
-  let cursor = index + 1;
-
-  while (cursor < text.length) {
-    const escaped = doubled
-      ? text.startsWith(quote + quote, cursor)
-      : text[cursor] === '\\';
-
-    if (escaped) {
-      cursor += 2;
-    } else if (text[cursor] === quote) {
-      return cursor + 1;
-    } else {
-      cursor += 1;
+    if (state.mode !== 'plain') {
+      return state.mode === 'quoted' || state.mode === 'escaped'
+        ? quotedStep(state, char, state.quote === '"'
+            ? char === '\\'
+            : text.startsWith('\'\'', index))
+        : commentStep(state, text, index);
     }
-  }
 
-  return text.length;
+    if (char === '#' && (index === 0 || /\s/.test(text[index - 1]))) {
+      state.mode = 'line';
+
+      return ' ';
+    }
+
+    if (/['"]/.test(char) && SCALAR_START.has(state.previous)) {
+      Object.assign(state, { mode: 'quoted', quote: char });
+    }
+
+    state.previous = char === '\n' || !/\s/.test(char) ? char : state.previous;
+
+    return char;
+  });
 }
 
-function lineEnd(text: string, index: number): number {
-  const end = text.indexOf('\n', index);
+function commentStep(state: ScanState, text: string, index: number): string {
+  const char = text[index];
+  const closes = char === '/' && text[index - 1] === '*' && index > state.opened! + 2;
 
-  return end === -1 ? text.length : end;
+  if (char === '\n' ? state.mode === 'line' : state.mode === 'block' && closes) {
+    Object.assign(state, { mode: 'plain', previous: '\n' });
+  }
+
+  return char === '\n' ? char : ' ';
+}
+
+function quotedStep(state: ScanState, char: string, escape: boolean): string {
+  if (state.mode === 'escaped') {
+    state.mode = 'quoted';
+  } else if (escape) {
+    state.mode = 'escaped';
+  } else if (char === state.quote) {
+    state.mode = 'plain';
+  }
+
+  return char;
 }
 
 function blank(text: string): string {

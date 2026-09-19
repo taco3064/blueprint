@@ -183,6 +183,11 @@ describe('referenceConflicts · comments', () => {
       'extends: "@kekkai/blueprint"\n',
     ],
     [
+      '.eslintrc',
+      '# was @kekkai/blueprint\nextends: base\n',
+      'extends: \'@kekkai/blueprint\'\n',
+    ],
+    [
       'vite.config.ts',
       '// was @kekkai/blueprint\nexport default {\n',
       'import \'@kekkai/blueprint\';\nexport default {\n',
