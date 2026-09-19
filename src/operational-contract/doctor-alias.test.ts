@@ -100,6 +100,11 @@ describe('renderAliasConsumer', () => {
     });
 
     expect(missing).toMatchObject({ ok: false, status: 'missing' });
+
+    expect(missing.detail).toBe(
+      '"~app" is missing — declare "~app" in the recognised bundler-runtime configuration',
+    );
+
     expect(unknown).toMatchObject({ ok: true, status: 'unverified' });
     expect(unknown.skipped).toContain('could not be read statically');
   });
