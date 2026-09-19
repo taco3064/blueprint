@@ -54,11 +54,11 @@ A release-convergence ticket is a human-readable ledger of candidate SHAs, scena
 
 ## Long-running external work
 
-Treat a remote build, survey, deployment, or other durable job as asynchronous work rather than a reason to keep an interactive turn open. Record its provider, run identifier, target ref and commit, expected artifact, and authoritative timeout. A later session must be able to recover from those remote facts without the original process or local workspace.
+Treat a remote build, survey, deployment, or other durable job as asynchronous work rather than a reason to keep an interactive turn open. Record its provider, run identifier, expected artifact, authoritative timeout, and the candidate it measures: the target ref and commit once the candidate is committed, or the recorded base commit and candidate tree before its first commit. A later session must be able to recover from those facts without the original process; a committed candidate recovers without the local workspace, while a pre-commit candidate tree resumes in the same clone under the durable-state rule.
 
-Continue any useful work that does not depend on the result. When the result becomes the next real dependency, end the current turn with a self-contained resume prompt containing the durable identifiers, success path, failure path, and verification boundary. The handoff must not depend on an uncommitted local file or transient worktree; before the candidate's first commit, it names the recorded base commit and candidate tree instead.
+Continue any useful work that does not depend on the result. When the result becomes the next real dependency, end the current turn with a self-contained resume prompt containing the durable identifiers, success path, failure path, and verification boundary. The handoff must not depend on an uncommitted local file or transient worktree; a pre-commit candidate is handed off by its recorded base commit and candidate tree.
 
-On resume, verify that the job measured the intended commit and scope before using its result. Diagnose failure or timeout from the durable logs; do not report a queued or running job as passed, and never replace an authoritative check with a smaller one merely to avoid the handoff.
+On resume, verify that the job measured the intended candidate (the recorded commit, or the recorded base commit and candidate tree) and scope before using its result. Diagnose failure or timeout from the durable logs; do not report a queued or running job as passed, and never replace an authoritative check with a smaller one merely to avoid the handoff.
 
 ## Progress and verification
 
