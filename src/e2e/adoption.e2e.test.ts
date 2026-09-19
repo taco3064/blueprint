@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInit } from '../bootstrap';
-import { runInspect } from '../inspect';
+import { runDoctor, runInspect } from '../inspect';
 import { reactPreset } from '../presets';
 
 const runLayerFirstInit: typeof runInit = (root, options = {}) =>
@@ -76,6 +76,20 @@ describe('e2e · vite-react-ts (greenfield preset + alias surgery)', () => {
 
     expect(read('vite.config.ts')).toBe(vite);
     expect(read('tsconfig.app.json')).toBe(tsconfig);
+  });
+
+  it('lets doctor verify the Vite alias init wrote', async () => {
+    useFixture('vite-react-ts');
+
+    await runLayerFirstInit(root, { install: false, log: silent });
+
+    const { checks } = await runDoctor(root, {
+      log: silent, loadConfig: async () => reactPreset(),
+    });
+
+    expect(checks.find((check) => check.consumer === 'bundler-runtime')).toMatchObject({
+      ok: true, status: 'verified', aliases: ['~app'], files: ['vite.config.ts'],
+    });
   });
 });
 

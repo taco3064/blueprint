@@ -161,15 +161,21 @@ export const OPERATIONAL_SURFACES = [
   {
     id: 'doctor-diagnostics', owner: 'doctor.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
-    factProviders: [
-      'doctor checks', 'repository state', 'effective lint integration', 'alias consumer evidence',
-    ],
+    factProviders: ['doctor checks', 'repository state', 'effective lint integration'],
     consumers: [
       'src/inspect/doctor-lint.ts', 'src/inspect/doctor.ts',
       'src/inspect/wiring.ts',
     ],
     targets: ['doctor text and JSON'],
-    verification: ['doctor contrast tests', 'alias consumer contrast tests'],
+    verification: ['doctor contrast tests'],
+  },
+  {
+    id: 'doctor-alias', owner: 'doctor-alias.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
+    factProviders: ['alias consumer evidence', 'resolved source root'],
+    consumers: ['src/inspect/doctor.ts'],
+    targets: ['doctor import alias checks in text and JSON'],
+    verification: ['alias consumer contrast tests'],
   },
   {
     id: 'doctor-report', owner: 'doctor-report.ts', channel: 'cli',

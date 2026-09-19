@@ -50,6 +50,7 @@ describe('alias consumer evidence completeness', () => {
     expect(evidence(architecture, { root: 'apps/web', tsconfigs: {} })
       .find((entry) => entry.consumer === consumer)).toEqual({
       consumer, status: 'unverified', aliases: ['#app'], files: ['apps/web/package.json'],
+      installed: [name],
     });
   });
 
@@ -170,7 +171,7 @@ describe('alias consumer mixed configurations', () => {
 describe('delegated JavaScript alias configurations', () => {
   it.each([
     'import { alias } from \'./build/utils\'; export default { resolve: { alias } };',
-    'module.exports = { resolve: { alias: { \'#app\': path.resolve(__dirname, \'src\') } } };',
+    'module.exports = { resolve: { alias: { \'#app\': path.join(__dirname, \'src\') } } };',
     'module.exports = { moduleNameMapper: { \'^#app/(.*)$\': \'<rootDir>/src/$1\' } };',
   ])('keeps unsupported expressions unverified: %s', (text) => {
     write('jest.config.js', text);
@@ -191,5 +192,61 @@ describe('delegated JavaScript alias configurations', () => {
 
     expect(evidence({ ...architecture, additionalAliases: { '#other': 'other' } })[3])
       .toMatchObject({ status: 'missing', aliases: ['#other'] });
+  });
+});
+
+describe('test-runner reading of the Vite configuration', () => {
+  const vite = (target: string) => ({
+    file: 'vite.config.ts',
+    text: 'export default { test: {}, resolve: { alias: { '
+      + `'#app': fileURLToPath(new URL('${target}', import.meta.url)) } } };`,
+  });
+
+  it.each([
+    ['./src', 'verified'],
+    ['./lib', 'missing'],
+  ])('reads vite.config when Vitest has no configuration of its own: %s', (target, status) => {
+    write('package.json', JSON.stringify({ devDependencies: { vitest: '*' } }));
+
+    expect(evidence(architecture, { ...toolchain, viteConfig: vite(target) })[3]).toEqual({
+      consumer: 'test-runner', status, aliases: ['#app'], files: ['vite.config.ts'],
+    });
+  });
+
+  it.each(['js', 'cjs', 'mjs', 'ts', 'mts', 'cts'])(
+    'keeps an existing vitest.config.%s authoritative over vite.config',
+    (extension) => {
+      write('package.json', JSON.stringify({ dependencies: { vitest: '*' } }));
+      write(`vitest.config.${extension}`, 'export default { alias: { \'#app\': \'/lib\' } };');
+
+      expect(evidence(architecture, { ...toolchain, viteConfig: vite('./src') })[3]).toEqual({
+        consumer: 'test-runner', status: 'missing', aliases: ['#app'],
+        files: [`vitest.config.${extension}`],
+      });
+    },
+  );
+
+  it('leaves vite.config to the bundler when Vitest is not installed', () => {
+    write('package.json', JSON.stringify({ devDependencies: { vite: '*' } }));
+
+    const [, bundler, , runner] = evidence(architecture, {
+      ...toolchain, viteConfig: vite('./src'),
+    });
+
+    expect(bundler.status).toBe('verified');
+
+    expect(runner).toEqual({
+      consumer: 'test-runner', status: 'absent', aliases: ['#app'], files: [],
+    });
+  });
+
+  it('reads vite.config beside a Jest configuration when Vitest is installed too', () => {
+    write('package.json', JSON.stringify({ devDependencies: { vitest: '*', jest: '*' } }));
+    write('jest.config.js', 'module.exports = { alias: { \'#app\': \'src\' } };');
+
+    expect(evidence(architecture, { ...toolchain, viteConfig: vite('./src') })[3]).toEqual({
+      consumer: 'test-runner', status: 'verified', aliases: ['#app'],
+      files: ['vite.config.ts', 'jest.config.js'],
+    });
   });
 });
