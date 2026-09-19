@@ -287,4 +287,29 @@ describe('catalogProblems · relations', () => {
       op('drop', '2.0.0', { cancels: ['base'] }),
     ]).map((problem) => problem.kind)).toEqual(['unresolvable-source']);
   });
+  it('rejects an intermediate dependency cycle even when a later release supersedes it', () => {
+    expect(problems([
+      op('a', '1.1.0', { requires: ['b'] }),
+      op('b', '1.1.0', { requires: ['a'] }),
+      op('replacement', '1.2.0', { supersedes: ['a', 'b'] }),
+    ])).toEqual([{
+      kind: 'unresolvable-source',
+      source: '1.0.0',
+      problem: { kind: 'dependency-cycle', ids: ['a', 'b'] },
+    }]);
+  });
+
+  it('rejects an intermediate canceled requirement even when a later release supersedes it', () => {
+    expect(problems([
+      op('base', '1.1.0'),
+      op('needs', '1.2.0', { requires: ['base'] }),
+      op('drop', '1.3.0', { cancels: ['base'] }),
+      op('replacement', '1.4.0', { supersedes: ['needs'] }),
+    ])).toEqual([{
+      kind: 'unresolvable-source',
+      source: '1.0.0',
+      problem: { kind: 'requires-canceled', id: 'needs', target: 'base', by: 'drop' },
+    }]);
+  });
+
 });

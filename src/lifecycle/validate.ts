@@ -265,18 +265,33 @@ function sourceResolution(context: Context): void {
     legacyKeys: Object.fromEntries(LEGACY_CONFIG_KEYS.map((key) => [key, []])),
   }];
 
-  const resolution = resolveUpgrade({
-    catalog,
-    source,
-    target: packageVersion,
-    // Stryker disable next-line ArrayDeclaration: an id no operation owns completes nothing.
-    completed: [],
-    facts,
-  });
+  const checkpoints = [...new Set([
+    ...catalog.migrations.map((entry) => entry.introducedIn),
+    ...catalog.operations.map((entry) => entry.introducedIn),
+    packageVersion,
+  ])]
+    .filter((target) => compareVersions(source, target) < 0
+      && compareVersions(target, packageVersion) <= 0)
+    .sort(compareVersions);
 
-  if (resolution.status === 'invalid') {
+  for (const target of checkpoints) {
+    const resolution = resolveUpgrade({
+      catalog,
+      source,
+      target,
+      // Stryker disable next-line ArrayDeclaration: an id no operation owns completes nothing.
+      completed: [],
+      facts,
+    });
+
+    if (resolution.status !== 'invalid') {
+      continue;
+    }
+
     context.problems.push(...resolution.problems.map((problem) => ({
       kind: 'unresolvable-source' as const, source, problem,
     })));
+
+    return;
   }
 }
