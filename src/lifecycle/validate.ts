@@ -28,7 +28,7 @@ export type CatalogProblem
     | { kind: 'malformed-applicability'; id: string }
     | { kind: 'malformed-verification'; id: string }
     | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem }
-    | { kind: 'requirement-cycle'; ids: string[] };
+    | { kind: 'unresolvable-route'; source: string; target: string; problem: ResolutionProblem };
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RELATIONS: CatalogRelation[] = ['requires', 'cancels', 'supersedes'];
@@ -63,7 +63,7 @@ export function catalogProblems(catalog: UpgradeCatalog, packageVersion: string)
   }
 
   if (!context.problems.length) {
-    requirementCycles(context);
+    routeResolution(context);
   }
 
   return context.problems;
@@ -259,10 +259,7 @@ function conflictingRelations(operation: UpgradeOperation, context: Context): vo
   }
 }
 
-function sourceResolution(context: Context): void {
-  const { catalog, packageVersion } = context;
-  const source = catalog.supportedFrom;
-
+function resolutionProblems(context: Context, target: string): ResolutionProblem[] {
   const facts: ApplicationFacts[] = [{
     root: '.',
     legacyShape: true,
@@ -271,34 +268,37 @@ function sourceResolution(context: Context): void {
   }];
 
   const resolution = resolveUpgrade({
-    catalog,
-    source,
-    target: packageVersion,
+    catalog: context.catalog,
+    source: context.catalog.supportedFrom,
+    target,
     // Stryker disable next-line ArrayDeclaration: an id no operation owns completes nothing.
     completed: [],
     facts,
   });
 
-  if (resolution.status === 'invalid') {
-    context.problems.push(...resolution.problems.map((problem) => ({
-      kind: 'unresolvable-source' as const, source, problem,
-    })));
-  }
+  return resolution.status === 'invalid' ? resolution.problems : [];
 }
 
-// The full window can hide a cycle: a later release that supersedes one member reroutes its
-// requirements there. A route that stops at the cycle's own release still has to order both.
-function requirementCycles(context: Context): void {
-  const { operations } = context.catalog;
-  const ordered = new Set<string>();
+function sourceResolution(context: Context): void {
+  const source = context.catalog.supportedFrom;
 
-  operations.forEach(() => operations
-    .filter((operation) => operation.requires.every((id) => ordered.has(id)))
-    .forEach((operation) => ordered.add(operation.id)));
+  context.problems.push(...resolutionProblems(context, context.packageVersion).map((problem) => ({
+    kind: 'unresolvable-source' as const, source, problem,
+  })));
+}
 
-  const ids = operations.map((operation) => operation.id).filter((id) => !ordered.has(id));
+// A later release's cancel or supersede can hide from the full window a failure that a route
+// stopping earlier still meets. Relations only reach older operations and completed work only
+// removes constraints, so every route's failure also shows on supportedFrom → its target.
+function routeResolution(context: Context): void {
+  const { operations, supportedFrom: source } = context.catalog;
 
-  if (ids.length) {
-    context.problems.push({ kind: 'requirement-cycle', ids });
+  const releases = [...new Set(operations.map((operation) => operation.introducedIn))]
+    .sort(compareVersions);
+
+  for (const target of releases) {
+    context.problems.push(...resolutionProblems(context, target).map((problem) => ({
+      kind: 'unresolvable-route' as const, source, target, problem,
+    })));
   }
 }

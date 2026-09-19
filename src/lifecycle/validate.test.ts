@@ -289,7 +289,11 @@ describe('catalogProblems · relations', () => {
   });
 });
 
-describe('catalogProblems · requirement cycles the full window hides', () => {
+describe('catalogProblems · routes the full window hides', () => {
+  const route = (target: string, problem: Record<string, unknown>) => ({
+    kind: 'unresolvable-route', source: '1.0.0', target, problem,
+  });
+
   it('rejects a cycle that a later supersession reroutes out of the full window', () => {
     expect(problems([
       op('a', '1.1.0', { requires: ['b'] }),
@@ -297,7 +301,53 @@ describe('catalogProblems · requirement cycles the full window hides', () => {
       op('d', '1.1.0', { requires: ['x', 'a'] }),
       op('x', '1.1.0'),
       op('s', '1.2.0', { supersedes: ['a'] }),
-    ])).toEqual([{ kind: 'requirement-cycle', ids: ['a', 'b', 'd'] }]);
+    ])).toEqual([route('1.1.0', { kind: 'dependency-cycle', ids: ['a', 'b', 'd'] })]);
+  });
+
+  it('rejects a cycle that only supersession rerouting creates on a shorter route', () => {
+    expect(problems([
+      op('a', '1.1.0', { requires: ['b'] }),
+      op('b', '1.1.0'),
+      op('c', '1.2.0', { supersedes: ['b'], requires: ['a'] }),
+      op('d', '1.3.0', { cancels: ['a'] }),
+      op('e', '1.3.0', { supersedes: ['c'] }),
+    ])).toEqual([route('1.2.0', { kind: 'dependency-cycle', ids: ['a', 'c'] })]);
+  });
+
+  it('rejects a requirement canceled on a route a later supersession no longer needs', () => {
+    expect(problems([
+      op('a', '1.1.0'),
+      op('b', '1.2.0', { cancels: ['a'] }),
+      op('c', '1.2.0', { requires: ['a'] }),
+      op('d', '1.3.0', { supersedes: ['c'] }),
+    ])).toEqual([route('1.2.0', { kind: 'requires-canceled', id: 'c', target: 'a', by: 'b' })]);
+  });
+
+  it('reports every failing route in release order, whatever order the catalog lists', () => {
+    expect(problems([
+      op('c', '1.2.0', { requires: ['p'] }),
+      op('q', '1.2.0', { cancels: ['p'] }),
+      op('r', '1.3.0', { supersedes: ['c'] }),
+      op('a', '1.1.0', { requires: ['b'] }),
+      op('b', '1.1.0', { requires: ['a'] }),
+      op('s', '1.3.0', { supersedes: ['a'] }),
+      op('p', '1.1.0'),
+    ])).toEqual([
+      route('1.1.0', { kind: 'dependency-cycle', ids: ['a', 'b'] }),
+      route('1.2.0', { kind: 'requires-canceled', id: 'c', target: 'p', by: 'q' }),
+    ]);
+  });
+
+  it('rejects the counterexample that the route property found on main', () => {
+    expect(problems([
+      op('op-0', '1.1.0', { requires: ['op-1'] }),
+      op('op-1', '1.1.0', { requires: ['op-0'] }),
+      op('op-2', '1.1.0'),
+      op('op-3', '1.2.0', { supersedes: ['op-0'] }),
+      op('op-4', '1.2.0'),
+      op('op-5', '1.2.0'),
+      op('op-6', '1.2.0'),
+    ])).toEqual([route('1.1.0', { kind: 'dependency-cycle', ids: ['op-0', 'op-1'] })]);
   });
 
   it('orders a requirement listed after the operation that needs it', () => {
