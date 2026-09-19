@@ -3,13 +3,15 @@ import type { GitReader } from '../project';
 import { LIFECYCLE_FILE } from './state';
 
 /**
- * Whether lifecycle state ever entered the repository's Git history, on any ref.
+ * Whether any commit reachable from a ref of the repository contains lifecycle state.
+ * `never-recorded` rules out only reachable history, not a commit Git no longer shows.
  *
  * Only `recorded` state carries history authority: missing, it is lost and must be restored.
  * `never-recorded` cannot tell a pre-lifecycle adoption whose package was updated past
  * `LIFECYCLE_SINCE` from a lifecycle-aware adoption that never committed the file and then
  * deleted it; neither proves a lifecycle ever existed, so both fall back to the pre-lifecycle
- * bootstrap from provable facts. `unknown` proves nothing and fails closed like `recorded`.
+ * bootstrap from provable facts. `unknown` proves nothing and fails closed like `recorded`, and
+ * neither `recorded` nor `unknown` lets a legacy config shape date the source instead.
  */
 export type LifecycleStateHistory = 'recorded' | 'never-recorded' | 'unknown';
 

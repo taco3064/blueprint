@@ -32,8 +32,8 @@ const EVIDENCE: Record<UpgradeSourceEvidence, string> = {
   'installed-package': 'installed @kekkai/blueprint; no lifecycle state yet, so this run '
     + 'establishes it',
   'legacy-config': 'a Blueprint 3.2 config shape proves the adoption predates 4.0',
-  'state-never-committed': 'installed @kekkai/blueprint; .blueprint-lifecycle.json never entered '
-    + 'Git history, so no lifecycle is proven and this run establishes it',
+  'state-never-committed': 'installed @kekkai/blueprint; no commit reachable from any ref holds '
+    + '.blueprint-lifecycle.json, so no lifecycle is proven and this run establishes it',
 };
 
 const scope = (applications: string[]) => applications.map((key) => `\`${key}\``).join(', ');

@@ -420,9 +420,9 @@ Blueprint 的 lifecycle 是 repository-wide。所有已導入的應用程式都�
 
 如果還有未完成的架構編寫或拓樸轉換流程，必須先完成或明確處理，不能同時開始新的 upgrade lifecycle。
 
-如果 `.blueprint-lifecycle.json` 損壞、包含無法驗證的內容，或曾經進過 Git 歷史卻不見了，`upgrade` 會停止，不會依目前檔案或已安裝套件自行重建歷史。不在 Git repository 裡、或是 shallow clone 看不到完整歷史時，也一樣會停止。請先從版本控制或其他可信來源還原生命週期狀態；如果無法還原，應停止並交由 owner 決定後續處理方式。
+如果 `.blueprint-lifecycle.json` 損壞、內容無法驗證，或 Git 歷史能證明它曾經存在但目前檔案已遺失，`upgrade` 會停止，不會依目前的設定或已安裝套件自行重建 lifecycle history。若不在 Git repository 內，或 shallow clone 無法提供完整歷史，也同樣停止。請先從版本控制或其他可信來源還原 lifecycle state；無法還原時，交由 owner 決定後續處理。
 
-如果這個檔案從來沒有進過 Git 歷史（任何分支都沒有），就不會被當成遺失，因為沒有任何證據能證明 lifecycle 曾經成立。常見的情況是 Renovate、Dependabot 或 `npm update` 在執行 `upgrade` 之前，就先把 4.0 專案的套件升到 4.1。這種 repository 會和 lifecycle 出現以前導入的專案一樣，從可證明的事實取得檢查點。Git 分不出這種情況和「用 4.1 以後的版本導入、卻從沒提交這個檔案，之後又把它弄丟」，所以兩者走同一條路；請把 `.blueprint-lifecycle.json` 提交進版本控制，讓它的歷史紀錄保持有效。
+如果 `.blueprint-lifecycle.json` 目前不存在，而且完整 Git 歷史中所有目前可追溯的 ref 都找不到曾包含這個檔案的 commit，Blueprint 不會把它視為「遺失的 lifecycle state」，因為現有版本控制證據無法證明 lifecycle 曾經成立。常見情況是 Renovate、Dependabot 或 `npm update` 在執行 `upgrade` 之前，就先把 4.0 專案的套件升到 4.1。這種 repository 會和 lifecycle 功能出現以前就已導入 Blueprint 的專案一樣，從目前可證明的套件與設定事實建立起始檢查點。Git 無法區分這種情況，和「使用 4.1 之後的版本導入、但從未提交 lifecycle state，之後又把檔案刪掉」；兩者會走同一條 bootstrap 路徑。請把 `.blueprint-lifecycle.json` 提交進版本控制，讓後續遺失時有可恢復的歷史依據。
 
 ## `remove`
 

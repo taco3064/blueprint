@@ -234,9 +234,9 @@ describe('runUpgrade · a 4.0 adoption whose package was updated past lifecycle 
 
     expect(await runUpgrade(root, dryRun)).toBe(0);
 
-    expect(output()).toContain('Source: 4.1.0 (installed @kekkai/blueprint; '
-      + '.blueprint-lifecycle.json never entered Git history, so no lifecycle is proven and this '
-      + 'run establishes it)');
+    expect(output()).toContain('Source: 4.1.0 (installed @kekkai/blueprint; no commit reachable '
+      + 'from any ref holds .blueprint-lifecycle.json, so no lifecycle is proven and this run '
+      + 'establishes it)');
 
     expect(exists('.blueprint-lifecycle.json')).toBe(false);
 
