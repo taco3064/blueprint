@@ -55,7 +55,7 @@ For `CHANGES_REQUIRED`, reproduce each blocker, fix confirmed in-scope defects, 
 
 ## Commit and open the pull request
 
-After `ACCEPTED`, confirm immediately before committing that `git write-tree` still prints the accepted tree; any other tree makes the acceptance stale. Then commit the accepted candidate and push through the normal Husky hooks. Do not use `--no-verify`. Confirm the head's tree (`git rev-parse HEAD^{tree}`) equals the accepted tree; if a hook changed the content, the acceptance is stale. Open or update a draft pull request so authoritative CI can inspect the exact candidate.
+After `ACCEPTED`, confirm immediately before committing that `git write-tree` still prints the accepted tree; any other tree makes the acceptance stale. Then commit the accepted candidate as one commit, without splitting it after Acceptance, and push through the normal Husky hooks. Do not use `--no-verify`. Confirm the head's tree (`git rev-parse HEAD^{tree}`) equals the accepted tree; if a hook changed the content, the acceptance is stale. Open or update a draft pull request so authoritative CI can inspect the exact candidate.
 
 Read preflight, deterministic CI, and mutation summaries and artifacts. A confirmed hook or CI failure is repaired as a new candidate: fix it, run focused regression checks, and return it through acceptance before its commit.
 
