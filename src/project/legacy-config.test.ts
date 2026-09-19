@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   isLegacyBlueprintMigration,
   migrateLegacyBlueprint,
-  migratedConfigSource,
+  migrateLegacyConfigSource,
+  resolveArchitecture,
 } from '../config';
 import type { Blueprint } from '../config';
 import { defineBlueprint, validateBlueprint } from '../operational-contract';
+import { reactPreset } from '../presets';
+import { versionedModuleUrl } from './load';
 
 function legacyBlueprint(): Blueprint {
   return {
@@ -113,13 +119,90 @@ describe('Blueprint 3.2 config migration', () => {
     expect(isLegacyBlueprintMigration(migrated)).toBe(true);
     expect(migrated.architecture).not.toHaveProperty('module');
   });
+});
 
-  it('writes a dependency-free config module without retired fields', () => {
-    const { blueprint } = migrateLegacyBlueprint(legacyBlueprint());
-    const source = migratedConfigSource(blueprint);
+describe('Blueprint 3.2 config source migration', () => {
+  const original = [
+    'import { defineBlueprint, reactPreset } from \'@kekkai/blueprint\';',
+    '',
+    '/** The preset is spread in unchanged; only the architecture is replaced. */',
+    'export default defineBlueprint({',
+    '  ...reactPreset({ name: \'sky\' }),',
+    '  architecture: {',
+    '    alias: \'~app\',',
+    '    layers: [',
+    '      { name: \'pages\', does: \'Mounts the shell.\' },',
+    '      {',
+    '        name: \'components\',',
+    '        does: \'Presentational only.\',',
+    '        // components stay flat files',
+    '        module: { layout: \'flat\', entry: \'component\' },',
+    '      },',
+    '      { name: \'hooks\', does: \'Adapts state.\' },',
+    '    ],',
+    '    module: { layout: \'folder\', entry: \'index\', private: [\'hooks\'] },',
+    '  },',
+    '});',
+    '',
+  ].join('\n');
 
-    expect(source).toContain('export default {');
-    expect(source).not.toContain('"module"');
-    expect(source).toContain('"layout": "file"');
+  let directory: string;
+
+  beforeAll(() => {
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-legacy-source-'));
+
+    const stub = path.join(directory, 'node_modules/@kekkai/blueprint');
+    const preset = JSON.stringify(reactPreset());
+
+    fs.mkdirSync(stub, { recursive: true });
+    fs.writeFileSync(path.join(stub, 'package.json'), '{"type":"module","exports":"./index.mjs"}');
+
+    fs.writeFileSync(path.join(stub, 'index.mjs'), [
+      'export const defineBlueprint = (config) => config;',
+      `export const reactPreset = (options) => ({ ...${preset}, ...options });`,
+      '',
+    ].join('\n'));
+  });
+
+  afterAll(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  async function evaluate(name: string, source: string): Promise<Blueprint> {
+    const file = path.join(directory, name);
+
+    fs.writeFileSync(file, source);
+
+    return (await import(versionedModuleUrl(file))).default as Blueprint;
+  }
+
+  it('keeps both calls and every comment and drops every retired key', async () => {
+    const expected = migrateLegacyBlueprint(await evaluate('a.mjs', original)).blueprint;
+    const result = migrateLegacyConfigSource(original, expected);
+    const source = result.kind === 'rewritten' ? result.source : '';
+
+    expect(source).toContain('export default defineBlueprint({');
+    expect(source).toContain('...reactPreset({ name: \'sky\' }),');
+
+    for (const comment of original.match(/\/\*\*.*\*\/|\/\/.*/g)!) {
+      expect(source).toContain(comment);
+    }
+
+    expect(source).not.toMatch(/\bmodule\s*:/);
+  });
+
+  it('runs and resolves to the same architecture as the in-memory migration', async () => {
+    const expected = migrateLegacyBlueprint(await evaluate('b.mjs', original)).blueprint;
+    const result = migrateLegacyConfigSource(original, expected);
+    const current = await evaluate('c.mjs', result.kind === 'rewritten' ? result.source : '');
+
+    expect(migrateLegacyBlueprint(current).migrated).toBe(false);
+    expect(validateBlueprint(current)).toBe(current);
+    expect(current.name).toBe('sky');
+
+    const resolved = (architecture: Blueprint['architecture']) => JSON.parse(JSON.stringify(
+      resolveArchitecture(architecture),
+      (key, value) => key === 'definition' ? undefined : value,
+    ));
+
+    expect(resolved(current.architecture)).toEqual(resolved(expected.architecture));
   });
 });

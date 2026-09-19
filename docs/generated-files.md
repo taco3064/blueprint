@@ -33,10 +33,15 @@ but an authored config is never silently replaced by a preset or by folder infer
 application. An authoring playbook instructs the Agent to create it.
 Later `init` runs load and validate it before refreshing outputs. A Blueprint 3.2 config is first
 normalized to the supported 4.0 layer-first shape as a recoverable checkpoint; an opposite-topology
-request requires a later guarded transformation run from that checkpoint. Before rewriting, init
+request requires a later guarded transformation run from that checkpoint. The normalization edits
+the config's own source: it removes `architecture.module` and each layer's `module`, and adds
+`layout` / `entry` only where the migrated value differs from the 4.x default. Preset calls,
+`defineBlueprint`, comments, and every other byte stay as written. Before rewriting, init
 saves the complete original beside it as `blueprint.config.mjs.pre-v4-<sha256>` (including comments).
 The write notice warns that `architecture.module.private` has no 4.0 replacement: review the
 original policy before claiming equivalent governance. The backup is owner evidence, not a loaded config.
+When those keys are not literal properties of the config (built in a helper, spread in, or
+computed), init leaves the file byte-identical, writes no backup, and names the keys to rewrite by hand.
 
 ### `.blueprint-lifecycle.json`
 

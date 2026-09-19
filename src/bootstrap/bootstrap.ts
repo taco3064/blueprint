@@ -102,7 +102,7 @@ async function runPreparedTopology(
   prepared: Awaited<ReturnType<typeof prepareTopology>>,
 ): Promise<Action[]> {
   const { root, state, options, pristine, log } = input;
-  const { resolved, survey, topology, blueprints, legacyCount, architecture } = prepared;
+  const { resolved, survey, topology, blueprints, legacy, architecture } = prepared;
 
   const retirement = transformationRetirement({
     root, state, blueprint: resolved?.blueprint ?? null, authoring: options.authoring,
@@ -148,8 +148,8 @@ async function runPreparedTopology(
   return runScaffold(root, state, {
     options,
     log,
-    forkNote: legacyCount
-      ? legacyUpgrade.legacyUpgradeNote(options, legacyCount)
+    forkNote: legacy
+      ? legacyUpgrade.legacyUpgradeNote(options, legacy)
       : survey ? freshScaffoldNote(survey, topology.target!) : null,
     resolved,
     topology: topology.target!,
@@ -196,16 +196,16 @@ async function prepareTopology(input: InitTopologyInput) {
     moduleRunway: !input.state.hasNext,
   });
 
-  const legacyCount = checkpoint.length
-    ? repository.blueprints.filter((entry) => entry.legacyConfig).length
-    : Number(resolved?.legacyConfig);
+  const legacy = legacyUpgrade.legacyOutcome(input, {
+    resolved, blueprints: repository.blueprints,
+  });
 
   return {
     resolved: afterLegacyCheckpoint(resolved, checkpoint.length > 0),
     survey,
     topology,
     blueprints: repository.blueprints,
-    legacyCount,
+    legacy,
     architecture: localAuthority?.blueprint.architecture,
   };
 }
@@ -313,7 +313,7 @@ async function runScaffold(
     existingAgentFiles: readTexts(root, contractPaths(blueprint, agentTarget)),
   });
 
-  if (legacyConfig) {
+  if (legacyConfig && configSource !== null) {
     actions.unshift(legacyUpgrade.legacyConfigBackup(root, 'blueprint.config.mjs'));
   }
 

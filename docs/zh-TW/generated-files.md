@@ -32,7 +32,10 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 **生命週期：** 預設設定流程會建立此檔，包含沒有原始碼時的 module-first 起點；<br>
 架構編寫指南則要求 Agent 建立。後續 `init` 會先
 載入並驗證，再更新其他產出。Blueprint 3.2 設定會先正規化成受支援的 4.0 layer-first
-格式，作為可復原檢查點；若要改成相反拓樸，必須在後續另一次執行啟動受保護轉換。
+格式，作為可復原檢查點；若要改成相反拓樸，必須在後續另一次執行啟動受保護轉換。<br>
+正規化直接修改設定檔本身的原始碼：移除 `architecture.module` 與每一層的 `module`，<br>
+只在遷移後的值和 4.x 預設不同時補上 `layout` / `entry`。<br>
+預設設定的呼叫、`defineBlueprint`、註解以及其他所有內容都維持原樣。
 
 ### `.blueprint-lifecycle.json`
 
@@ -296,7 +299,9 @@ npx @kekkai/blueprint doctor --json
 
 3.2 設定改寫前，`init` 會將包含註解的完整原文保存在旁邊的
 `blueprint.config.mjs.pre-v4-<sha256>`。寫入訊息會提示 `architecture.module.private`
-沒有 4.0 替代宣告；宣告治理語意等價前，必須檢視原始政策。備份是專案證據，不會被當作設定載入。
+沒有 4.0 替代宣告；宣告治理語意等價前，必須檢視原始政策。備份是專案證據，不會被當作設定載入。<br>
+如果這些鍵不是設定檔裡直接寫出的屬性（由輔助函式組出、用展開帶入，或是計算出來的），<br>
+`init` 不會動這個檔案的任何一個位元組，也不寫備份，而是點名需要手動改寫的鍵。
 
 `target.decisions.destinations` 必須恰好列出每個 `members` 的目的**檔案**路徑，
 例如 `["src/app/Game.tsx"]`，不能填 `["src/app"]` 等模組或單元目錄。

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { nextPreset, reactPreset, vuePreset } from '../presets';
@@ -5,7 +6,7 @@ import type { NextRouter } from '../presets';
 import {
   isLegacyBlueprintMigration,
   migrateLegacyBlueprint,
-  migratedConfigSource,
+  migrateLegacyConfigSource,
   validateBlueprint,
 } from '../config';
 import type { AgentTarget, Blueprint } from '../config';
@@ -40,11 +41,18 @@ const defaultLoadConfig = (file: string): Promise<Blueprint> =>
   import(versionedModuleUrl(file)).then((module) => module.default as Blueprint);
 /* v8 ignore stop */
 
+export interface ResolvedBlueprint {
+  blueprint: Blueprint;
+  configSource: string | null;
+  legacyConfig: boolean;
+  legacySource?: ReturnType<typeof migrateLegacyConfigSource>;
+}
+
 export async function resolveBlueprint(
   root: string,
   state: ProjectState,
   options: ResolveOptions,
-): Promise<{ blueprint: Blueprint; configSource: string | null; legacyConfig: boolean }> {
+): Promise<ResolvedBlueprint> {
   if (state.hasConfig) {
     return loadAuthored(root, options);
   }
@@ -87,10 +95,11 @@ export async function resolveBlueprint(
 async function loadAuthored(
   root: string,
   options: ResolveOptions,
-): Promise<{ blueprint: Blueprint; configSource: string | null; legacyConfig: boolean }> {
+): Promise<ResolvedBlueprint> {
   /* v8 ignore next -- the default falls back to a real import; tests inject loadConfig */
   const load = options.loadConfig ?? defaultLoadConfig;
-  const loaded = await load(path.resolve(root, CONFIG_FILE));
+  const file = path.resolve(root, CONFIG_FILE);
+  const loaded = await load(file);
 
   try {
     if (!loaded) {
@@ -110,12 +119,25 @@ async function loadAuthored(
 
     return {
       blueprint,
-      configSource: migrated ? migratedConfigSource(blueprint) : null,
+      configSource: null,
       legacyConfig: migrated,
+      ...(migrated ? legacyRewrite(file, blueprint) : {}),
     };
   } catch (error) {
     throw new Error(renderConfigReadFailure(CONFIG_FILE, renderValidationErrorCause(error)));
   }
+}
+
+function legacyRewrite(
+  file: string,
+  blueprint: Blueprint,
+): Pick<ResolvedBlueprint, 'configSource' | 'legacySource'> {
+  const legacySource = migrateLegacyConfigSource(fs.readFileSync(file, 'utf-8'), blueprint);
+
+  return {
+    configSource: legacySource.kind === 'rewritten' ? legacySource.source : null,
+    legacySource,
+  };
 }
 
 function nextScaffold(

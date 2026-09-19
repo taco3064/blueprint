@@ -72,7 +72,7 @@ describe('resolveRepositoryBlueprints', () => {
       ]);
 
       expect(result.every((entry) => entry.legacyConfig === false)).toBe(true);
-      expect(result.every((entry) => entry.migratedConfigSource === null)).toBe(true);
+      expect(result.every((entry) => entry.legacySource === null)).toBe(true);
 
       expect(loadConfig).toHaveBeenCalledTimes(2);
     });
@@ -180,7 +180,54 @@ describe('resolveRepositoryBlueprints · legacy topology authority', () => {
 
     expect(legacy.topology).toBe('layer-first');
     expect(legacy.legacyConfig).toBe(true);
-    expect(legacy.migratedConfigSource).toContain('"layout": "folder"');
     expect(legacy.architecture).not.toHaveProperty('module');
+
+    expect(legacy.legacySource).toEqual({
+      kind: 'manual',
+      declarations: [{ layer: 'pages', layout: 'folder' }, { layer: 'components' }],
+    });
+  });
+
+  it('rewrites the literal 3.2 source it loaded instead of serializing the value', async () => {
+    const file = config('apps/web');
+
+    fs.writeFileSync(file, [
+      '// owner policy',
+      'export default {',
+      '  framework: \'react\',',
+      '  architecture: {',
+      '    alias: \'~app\',',
+      '    module: { layout: \'folder\', entry: \'index\' },',
+      '    layers: [',
+      '      { name: \'pages\', does: \'routes\' },',
+      '      { name: \'components\', does: \'UI\', module: { layout: \'flat\' } },',
+      '    ],',
+      '  },',
+      '};',
+      '',
+    ].join('\n'));
+
+    const [legacy] = await resolveRepositoryBlueprints(root, {
+      loadConfig: async () => legacyBlueprint(),
+      migrateLegacyConfig: true,
+    });
+
+    expect(legacy.legacySource).toEqual({
+      kind: 'rewritten',
+      source: [
+        '// owner policy',
+        'export default {',
+        '  framework: \'react\',',
+        '  architecture: {',
+        '    alias: \'~app\',',
+        '    layers: [',
+        '      { name: \'pages\', layout: \'folder\', does: \'routes\' },',
+        '      { name: \'components\', does: \'UI\' },',
+        '    ],',
+        '  },',
+        '};',
+        '',
+      ].join('\n'),
+    });
   });
 });

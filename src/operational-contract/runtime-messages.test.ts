@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderAuthoringFlowBanner, renderFreshScaffoldNote } from './runtime-messages';
+import {
+  renderAuthoringFlowBanner,
+  renderFreshScaffoldNote,
+  renderLegacyUpgradeMessage,
+} from './runtime-messages';
 
 describe('renderFreshScaffoldNote', () => {
   const layerFirst = 'Fresh scaffold (3 source files < 10) — scaffolding the framework preset '
@@ -48,5 +52,12 @@ describe('renderAuthoringFlowBanner', () => {
       .toBe('blueprint init --dry-run · without a config → authoring flow (2 source files '
         + 'surveyed) — a proven-empty module-first application, forced by --authoring; the '
         + 'playbook\'s own verdict will be the canonical module-first runway');
+  });
+});
+
+describe('renderLegacyUpgradeMessage', () => {
+  it('keeps rendering the migration alone for a caller that passes no manual rewrites', () => {
+    expect(renderLegacyUpgradeMessage({ dryRun: false, repositoryConfigCount: 1 }))
+      .toBe('Blueprint 3.2 config migrated to valid 4.0 layer-first without topology movement.');
   });
 });
