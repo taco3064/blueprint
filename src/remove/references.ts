@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parse } from '@typescript-eslint/parser';
 
+import { withoutComments } from './comments';
 import { parseManifest } from './documents';
 import type { RemovalFacts } from './facts';
 import type { FileAction, RemovalConflict } from './types';
@@ -29,17 +29,6 @@ export function remainingText(root: string, file: string, planned: PlannedFiles)
 
 export function relativeDirectory(root: string, directory: string): string {
   return path.relative(root, directory).split(path.sep).join('/');
-}
-
-function withoutComments(text: string): string {
-  try {
-    return parse(text).comments.reduceRight(
-      (code, { range: [start, end] }) => `${code.slice(0, start)} ${code.slice(end)}`,
-      text,
-    );
-  } catch {
-    return text;
-  }
 }
 
 function scriptConflicts(
@@ -73,7 +62,7 @@ function importConflicts(
         return [];
       }
 
-      const text = withoutComments(remaining);
+      const text = withoutComments(file, remaining);
 
       if (owned && text.includes('@kekkai/blueprint')) {
         return [{ kind: 'reference', path: file, detail: 'import' }];

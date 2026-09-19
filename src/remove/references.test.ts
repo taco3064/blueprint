@@ -161,14 +161,40 @@ describe('referenceConflicts · comments', () => {
     ]);
   });
 
-  it('reads a file it cannot parse exactly as written', () => {
-    write('.eslintrc.yml', '# extends @kekkai/blueprint\nextends:\n  - base\n');
-    write('vite.config.ts', '// loads blueprint.config.mjs\nexport default {\n');
+  it.each([
+    [
+      '.eslintrc.yml',
+      '# extends @kekkai/blueprint\nextends: base\n',
+      'extends: \'@kekkai/blueprint\'\n',
+    ],
+    [
+      '.eslintrc.yaml',
+      'extends: base # was @kekkai/blueprint\n',
+      'extends: "@kekkai/blueprint"\n',
+    ],
+    [
+      '.eslintrc.json',
+      '{ // was @kekkai/blueprint\n  "extends": "base" }',
+      '{ "extends": "@kekkai/blueprint" }',
+    ],
+    [
+      '.eslintrc',
+      '# was @kekkai/blueprint\n// and before that too\nextends: base\n',
+      'extends: "@kekkai/blueprint"\n',
+    ],
+    [
+      'vite.config.ts',
+      '// was @kekkai/blueprint\nexport default {\n',
+      'import \'@kekkai/blueprint\';\nexport default {\n',
+    ],
+  ])('ignores a comment-only mention in %s and still reports a real one', (file, comment, real) => {
+    write(file, comment);
 
-    expect(conflicts()).toEqual([
-      { kind: 'reference', path: '.eslintrc.yml', detail: 'import' },
-      { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
-    ]);
+    expect(conflicts()).toEqual([]);
+
+    write(file, real);
+
+    expect(conflicts()).toEqual([{ kind: 'reference', path: file, detail: 'import' }]);
   });
 });
 
