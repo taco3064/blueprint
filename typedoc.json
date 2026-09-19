@@ -12,7 +12,7 @@
   "intentionallyNotExported": [
     "src/markdown/validation.ts:MarkdownValidationFact",
     "src/operational-contract/bootstrap-actions.ts:EslintWiringFacts",
-    "src/operational-contract/doctor.ts:AliasConsumerEvidence",
+    "src/operational-contract/doctor-alias.ts:AliasConsumerEvidence",
     "src/operational-contract/transformation.ts:LayerToModuleCandidateFact",
     "src/operational-contract/transformation.ts:RelativeImportFact",
     "src/operational-contract/transformation.ts:TransformationCheckFact",
