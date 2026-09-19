@@ -127,6 +127,10 @@ describe('migrateLegacyConfigSource · layer edits', () => {
       '{\n  name: \'pages\', layout: \'folder\', entry: \'page\', does: \'x\' }',
     ],
     [
+      '{\n  name: \'pages\', does: \'x\' }\n',
+      '{\n  name: \'pages\', layout: \'folder\', entry: \'page\', does: \'x\' }\n',
+    ],
+    [
       '{\n  name: \'pages\', // shell\n  does: \'x\',\n}',
       '{\n  name: \'pages\', // shell\n  layout: \'folder\',\n'
       + '  entry: \'page\',\n  does: \'x\',\n}',
@@ -134,6 +138,14 @@ describe('migrateLegacyConfigSource · layer edits', () => {
   ])('inserts after the name: %j', (body, expected) => {
     expect(layer(body, migrated(['pages', 'folder', 'page'])))
       .toBe(`export default { architecture: { layers: [${expected}] } };`);
+  });
+
+  it('adds the comma a last name lacks even when another layer follows', () => {
+    expect(layer(
+      '{\n  name: \'pages\'\n}, { name: \'hooks\' }',
+      migrated(['pages', 'folder', 'index'], ['hooks', 'file', 'index']),
+    )).toBe('export default { architecture: { layers: [{\n  name: \'pages\',\n'
+      + '  layout: \'folder\'\n}, { name: \'hooks\' }] } };');
   });
 
   it('declares only the fields that differ from the 4.x defaults', () => {
@@ -216,6 +228,14 @@ describe('migrateLegacyConfigSource · retired key removal', () => {
       pages,
     )).toBe('export default { ...base, architecture: { layers: [{ name: \'pages\' }] } };');
   });
+
+  it('keeps the properties that follow the architecture', () => {
+    expect(rewritten(
+      'export default { architecture: { module: {}, layers: [{ name: \'pages\' }] }, '
+      + 'name: \'x\' };',
+      pages,
+    )).toBe('export default { architecture: { layers: [{ name: \'pages\' }] }, name: \'x\' };');
+  });
 });
 
 describe('migrateLegacyConfigSource · keys that are not literal properties', () => {
@@ -225,8 +245,10 @@ describe('migrateLegacyConfigSource · keys that are not literal properties', ()
     ['unparseable source', 'export default {'],
     ['no default export', 'export const config = {};'],
     ['a default export that is an identifier', 'const config = {};\nexport default config;'],
-    ['another call', 'export default reactPreset({ architecture: { module: {}, layers: [] } });'],
+    ['another call', 'export default reactPreset({ architecture: { module: {}, '
+    + 'layers: [{ name: \'pages\' }, { name: \'hooks\' }] } });'],
     ['defineBlueprint of a variable', 'export default defineBlueprint(config);'],
+    ['defineBlueprint without an argument', 'export default defineBlueprint();'],
     ['no architecture', 'export default { name: \'x\' };'],
     ['a spread after the architecture', 'export default { architecture: { module: {}, '
     + 'layers: [{ name: \'pages\' }, { name: \'hooks\' }] }, ...override };'],

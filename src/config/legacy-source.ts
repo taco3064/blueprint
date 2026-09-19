@@ -61,9 +61,9 @@ function sourceEdits(source: string, declarations: LegacyLayerDeclaration[]): Ed
   const architecture = architectureLiteral(source);
   const layers = architecture ? properties(architecture, 'layers') : [];
 
-  const elements = layers.length === 1 && layers[0].value.type === 'ArrayExpression'
-    ? (layers[0].value as Node & { elements: (Node | null)[] }).elements
-    : null;
+  const elements = layers.length === 1
+    ? (layers[0].value as Node & { elements?: (Node | null)[] }).elements
+    : undefined;
 
   if (!elements || elements.length !== declarations.length
     || !elements.every((element) => element !== null && isPlainObject(element))) {
@@ -160,6 +160,7 @@ function layerInsertion(
     return null;
   }
 
+  // Stryker disable next-line MethodExpression: a string literal opens and closes with one quote
   const quote = literal!.raw?.startsWith('"') ? '"' : '\'';
 
   const fields = (['layout', 'entry'] as const)
@@ -179,13 +180,13 @@ function insertion(
   fields: string[],
 ): Edit {
   const [start, end] = at.name.range;
-  const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+  const lineStart = source.lastIndexOf('\n', start) + 1;
   const indent = source.slice(lineStart, start);
   const newline = source.indexOf('\n', end);
   const eol = source[newline - 1] === '\r' ? '\r\n' : '\n';
   const comma = /^[ \t]*,/.test(source.slice(end));
 
-  if (/\S/.test(indent) || (newline < 0 ? source.length : newline) > at.layer.range[1]) {
+  if (/\S/.test(indent) || (newline === -1 ? source.length : newline) >= at.layer.range[1]) {
     return { at: end, end, text: fields.map((field) => `, ${field}`).join('') };
   }
 
@@ -196,7 +197,8 @@ function insertion(
 
 function removal(source: string, property: Property): Edit[] {
   const [start, end] = property.range;
-  const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+  const lineStart = source.lastIndexOf('\n', start) + 1;
+  // Stryker disable next-line Regex: an empty-matching pattern always matches at index 0
   const trailing = /^[ \t]*,?[ \t]*/.exec(source.slice(end))![0];
   const after = end + trailing.length;
   const lineBreak = /^\r?\n/.exec(source.slice(after));
@@ -211,13 +213,13 @@ function removal(source: string, property: Property): Edit[] {
 
   const comma = source.lastIndexOf(',', start);
 
-  return /^,\s*$/.test(source.slice(comma, start))
+  return !source.slice(comma + 1, start).trim()
     ? [{ at: comma, end, text: '' }]
     : [{ at: comma, end: comma + 1, text: '' }, { at: start, end, text: '' }];
 }
 
 function applyEdits(source: string, edits: Edit[]): string {
   return [...edits]
-    .sort((left, right) => right.at - left.at || right.end - left.end)
+    .sort((left, right) => right.at - left.at)
     .reduce((text, edit) => text.slice(0, edit.at) + edit.text + text.slice(edit.end), source);
 }
