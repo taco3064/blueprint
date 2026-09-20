@@ -126,6 +126,7 @@ export {
   renderCodeStyleNote,
   renderDefaultAgentContractsNote,
   renderDependencyInstallNote,
+  renderGeneratedFormattingNote,
   renderEslintConfigNote,
   renderEslintWiringNote,
   renderFirstAliasNote,

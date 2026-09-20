@@ -60,6 +60,18 @@ export function renderOptionalToolingNote(
       + 'pointing importFrom at your token source file.');
 }
 
+export function renderGeneratedFormattingNote(
+  formatter: string,
+  documents: string[],
+): OperationalText {
+  return operationalText(`Generated text vs ${formatter} (optional): Blueprint rewrites `
+    + `${documents.join(', ')} on every init. A formatter that reformats them — through `
+    + 'lint-staged, a format script, or format-on-save — makes the two take turns, and the same '
+    + 'lines flip on every commit that touches either file. Add them to its ignore list. '
+    + 'Prettier honours one --ignore-path, so a new .prettierignore needs its own flag beside '
+    + 'any existing one.');
+}
+
 export function renderAgentContractNote(path: string): OperationalText {
   return operationalText(`${path} (agent contract)`);
 }
