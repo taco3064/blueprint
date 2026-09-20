@@ -21,7 +21,7 @@ const scan: ScanResult = {
 };
 
 function undeclared(modules?: ModuleDef[]) {
-  return folderFindings(scan, architecture(modules))
+  return folderFindings(scan, architecture(modules), 'react')
     .filter((finding) => finding.rule === 'undeclared-folder');
 }
 
@@ -53,7 +53,7 @@ describe('folderFindings · undeclared top-level folders by topology', () => {
   });
 
   it('reports no missing-module note for an empty runway', () => {
-    const findings = folderFindings(scan, architecture([]));
+    const findings = folderFindings(scan, architecture([]), 'react');
 
     expect(findings.filter((finding) => finding.rule === 'missing-module')).toEqual([]);
   });

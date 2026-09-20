@@ -41,7 +41,7 @@ export function analyze(
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
-    ...folderFindings(scan, architecture),
+    ...folderFindings(scan, architecture, blueprint.framework),
     ...ownsFindings(architecture, dependencies),
     ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
