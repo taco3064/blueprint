@@ -1,9 +1,14 @@
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef } from '../config';
+import type { ArchitectureDef, Blueprint } from '../config';
+import { globToRegExp } from './filter';
 import type { Finding, ScanResult, ScannedFile } from './types';
 import { renderFindingMessage } from '../operational-contract';
 
-export function folderFindings(scan: ScanResult, architecture: ArchitectureDef): Finding[] {
+export function folderFindings(
+  scan: ScanResult,
+  architecture: ArchitectureDef,
+  framework: Blueprint['framework'],
+): Finding[] {
   const resolved = resolveArchitecture(architecture);
   const prefix = resolved.sourceRoot === '.' ? '' : `${resolved.sourceRoot}/`;
 
@@ -16,7 +21,7 @@ export function folderFindings(scan: ScanResult, architecture: ArchitectureDef):
 
   return [
     ...undeclaredFindings(scan, scope),
-    ...undeclaredInnerLayerFindings(scan, architecture, prefix),
+    ...undeclaredInnerLayerFindings(scan, architecture, { framework, prefix }),
     ...missingFindings(scan, { ...scope, topology: resolved.topology }),
     ...selfOnlyFindings(scan, architecture),
     ...noEntryFindings(scan, architecture, prefix),
@@ -48,17 +53,24 @@ function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {
 function undeclaredInnerLayerFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
-  prefix: string,
+  scope: { framework: Blueprint['framework']; prefix: string },
 ): Finding[] {
+  const { framework, prefix } = scope;
   const resolved = resolveArchitecture(architecture);
 
   const modules = new Set(resolved.modules.map((module) => module.name));
+
+  const governed = resolved.layers
+    .flatMap((layer) => resolved.layerFiles(layer.name, framework))
+    .map(globToRegExp);
 
   const positions = scan.files.flatMap((file) => {
     const [module, layer] = file.segments;
     const position = resolved.classify(file.segments);
 
-    return modules.has(module) && position === null
+    return modules.has(module)
+      && position === null
+      && !governed.some((glob) => glob.test(file.path))
       ? [`${module}/${layer}`]
       : [];
   });

@@ -106,6 +106,29 @@ describe('inspect consumers · module-first topology', () => {
     ]));
   });
 
+  it('leaves a folder declared when a configured layer glob governs its files', () => {
+    const nested = [file(['auth', 'history', 'services', 'api.ts'])];
+
+    expect(analyze(scan(nested), blueprint)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/history' }),
+    ]));
+
+    const governed = analyze(scan(nested), defineBlueprint({
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        layerFiles: [
+          'src/{module}/{layer}/**/*.{ts,tsx}',
+          'src/{module}/*/{layer}/**/*.{ts,tsx}',
+        ],
+      },
+    }));
+
+    expect(governed).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/history' }),
+    ]));
+  });
+
   it('reports undeclared inner layers without mistaking direct container files for layers', () => {
     const findings = analyze(scan([
       file(['auth', 'random', 'x.ts']),
