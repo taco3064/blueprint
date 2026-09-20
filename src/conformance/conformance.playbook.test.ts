@@ -49,7 +49,16 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
     expect(prose).toContain('a `⊘` is not green');
-    expect(prose).toContain('passes with no `⊘`');
+
+    for (const needle of [
+      'reports no `✗`',
+      'name the reason behind every `⊘`',
+      'properties of the repository no adoption can remove',
+      'Clear the ones your adoption caused; name the rest in the report',
+    ]) {
+      expect(prose).toContain(needle);
+    }
+
     expect(prose).toContain('never counts it as');
     expect(prose).toContain('an exit-code gate cannot see one');
 

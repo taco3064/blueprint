@@ -137,6 +137,8 @@ describe('detect · incomplete eslint evidence', () => {
     'import \'@kekkai/blueprint\'; const root = new URL(\'./apps/web/\', import.meta.url);',
     'import \'@kekkai/blueprint\'; const root = \'./apps/web/\'; '
     + 'const x = {basePath: applicationRoot};',
+    'import \'@kekkai/blueprint\'; const root = \'./apps/web/\'; '
+    + 'const x = {basePath: root};',
   ])('requires the complete ancestor basePath expression: %s', (text) => {
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-incomplete-'));
     const app = path.join(workspace, 'apps/web');
@@ -148,5 +150,25 @@ describe('detect · incomplete eslint evidence', () => {
     fs.writeFileSync(path.join(app, 'package.json'), '{}');
     fs.writeFileSync(path.join(workspace, 'eslint.config.js'), text);
     expect(detect(app).wiredEslintConfig).toBe(false);
+  });
+
+  it.each([
+    'import \'@kekkai/blueprint\'; '
+    + 'const applicationRoot = fileURLToPath(new URL(\'./apps/web/\', import.meta.url)); '
+    + 'export default [...emitLint(b, { basePath: applicationRoot })];',
+    'import \'@kekkai/blueprint\'; '
+    + 'const webRoot = fileURLToPath(new URL(\'apps/web/\', import.meta.url)); '
+    + 'export default [...emitLint(b, { basePath: webRoot })];',
+  ])('accepts any ancestor wiring scoped to this application: %s', (text) => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-scoped-'));
+    const app = path.join(workspace, 'apps/web');
+
+    roots.push(workspace);
+    spawnSync('git', ['init'], { cwd: workspace });
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'package.json'), '{}');
+    fs.writeFileSync(path.join(app, 'package.json'), '{}');
+    fs.writeFileSync(path.join(workspace, 'eslint.config.js'), text);
+    expect(detect(app).wiredEslintConfig).toBe(true);
   });
 });

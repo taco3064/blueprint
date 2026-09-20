@@ -226,8 +226,10 @@ export function renderMethod(
     '   Test plumbing (`test/`, `__tests__/`) belongs in `testFiles`, not in `layers`.',
     '   A folder that exists but holds no source files usually signals declared intent — '
     + 'check the documents from step 1 before dropping it.',
-    '4. **Infer the one-way flow.** Order layers so the *majority* direction of the import matrix '
-    + 'points downward.',
+    '4. **Author the one-way flow.** Decide what each layer is responsible for, then order them '
+    + 'so nothing lower depends on something higher. The import matrix is evidence for that '
+    + 'decision and can falsify it; it does not define it — never choose a responsibility or an '
+    + 'order because it minimises counter-edges.',
     '   Counter-edges are debt to surface, not intent to encode — '
     + 'never contort the order to make findings zero.',
     '5. **Choose unit shape per layer.** High `index`-coverage child folders → '

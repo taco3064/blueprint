@@ -196,9 +196,9 @@ function wiredConfig(text: string | null | undefined, basePath?: string): boolea
   // Stryker disable next-line ConditionalExpression: absent owners cannot be wired by text
   const nestedWiring = basePath === undefined
     || basePath === '.'
-    || (text?.includes('basePath: applicationRoot') === true
+    || (text?.includes('basePath:') === true
       && text.includes('new URL(')
-      && quotedIn(text, `./${basePath}/`));
+      && (quotedIn(text, `./${basePath}/`) || quotedIn(text, `${basePath}/`)));
 
   return text?.includes('@kekkai/blueprint') === true && nestedWiring;
 }
