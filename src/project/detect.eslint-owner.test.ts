@@ -139,6 +139,8 @@ describe('detect · incomplete eslint evidence', () => {
     + 'const x = {basePath: applicationRoot};',
     'import \'@kekkai/blueprint\'; const root = \'./apps/web/\'; '
     + 'const x = {basePath: root};',
+    'import \'@kekkai/blueprint\'; const other = new URL(\'./apps/other/\', import.meta.url); '
+    + 'const x = {basePath: other}; const mention = \'./apps/web/\';',
   ])('requires the complete ancestor basePath expression: %s', (text) => {
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-incomplete-'));
     const app = path.join(workspace, 'apps/web');

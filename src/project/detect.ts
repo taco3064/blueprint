@@ -196,11 +196,21 @@ function wiredConfig(text: string | null | undefined, basePath?: string): boolea
   // Stryker disable next-line ConditionalExpression: absent owners cannot be wired by text
   const nestedWiring = basePath === undefined
     || basePath === '.'
-    || (text?.includes('basePath:') === true
-      && text.includes('new URL(')
-      && (quotedIn(text, `./${basePath}/`) || quotedIn(text, `${basePath}/`)));
+    || (text !== null && text !== undefined && scopedWiring(text, basePath));
 
   return text?.includes('@kekkai/blueprint') === true && nestedWiring;
+}
+
+function scopedWiring(text: string, basePath: string): boolean {
+  const escaped = basePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const origin = `new URL\\(\\s*['"\`]\\.?/?${escaped}/['"\`]`;
+
+  if (new RegExp(`basePath:[^,;}\\n]*${origin}`).test(text)) {
+    return true;
+  }
+
+  return [...text.matchAll(/basePath:\s*([A-Za-z_$][\w$]*)/g)].some((match) =>
+    new RegExp(`(?:const|let|var)\\s+${match[1]}\\s*=[^;]*${origin}`).test(text));
 }
 
 function configShape(

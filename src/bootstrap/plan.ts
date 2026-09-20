@@ -22,6 +22,7 @@ import {
   renderInstallSkippedForPlan,
   renderIntegratedContractInstruction,
   renderLayerDirectoryNote,
+  renderGeneratedFormattingNote,
   renderOptionalToolingNote,
   renderReferenceContractInstruction,
   renderReferenceContractNote,
@@ -107,9 +108,31 @@ export function plan(
     ...TOOLING_NOTES,
   ];
 
+  actions.push(...generatedFormattingNote(state, actions));
+
   assertContained(actions);
 
   return actions;
+}
+
+const FORMATTERS = ['prettier', '@biomejs/biome', 'oxfmt', 'dprint'];
+
+function generatedFormattingNote(state: ProjectState, actions: Action[]): Action[] {
+  const installed = [state.localPackage, state.toolchainPackage]
+    .flatMap((metadata) => metadata.dependencies);
+
+  const formatter = FORMATTERS.find((name) => installed.includes(name));
+
+  const documents = actions.flatMap((action) =>
+    action.kind === 'write'
+    && action.ownership === 'generated'
+    && /\.(?:md|json)$/.test(action.path)
+      ? [action.path]
+      : []);
+
+  return formatter === undefined || documents.length === 0
+    ? []
+    : [{ kind: 'instruct', note: renderGeneratedFormattingNote(formatter, documents) }];
 }
 
 function lintIntegrationOf(

@@ -387,3 +387,26 @@ describe('plan · containment', () => {
     expect(write(actions, '.claude/CLAUDE.md')).toBeDefined();
   });
 });
+
+describe('plan · generated documents and an installed formatter', () => {
+  it('warns that the two will fight, and stays quiet without a formatter', () => {
+    const withFormatter = plan(
+      state({ localPackage: { root: '/x', scripts: {}, dependencies: ['prettier'] } }),
+      bp,
+    );
+
+    const note = withFormatter.find(
+      (action) => action.kind === 'instruct' && action.note.includes('Generated text vs prettier'),
+    )?.note ?? '';
+
+    expect(note).toContain('CLAUDE.md');
+    expect(note).toContain('the same lines flip on every commit that touches either file');
+    expect(note).toContain('Prettier honours one --ignore-path');
+
+    expect(
+      plan(state(), bp).some(
+        (action) => action.kind === 'instruct' && action.note.includes('Generated text vs'),
+      ),
+    ).toBe(false);
+  });
+});
