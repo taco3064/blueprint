@@ -22,6 +22,7 @@ const LOGIN = [
 const tree: Record<string, string> = {
   'features/auth/components/Login/index.tsx': `${LOGIN}\n`,
   'app/router.ts': 'export const router = 1;\n',
+  'app/README.md': '# app\n',
   'config/env.ts': 'export const env = 1;\n',
   'docs/guide/example.ts': 'export const example = 1;\n',
   'reports/coverage/bundle.ts': 'export const bundle = 1;\n',
