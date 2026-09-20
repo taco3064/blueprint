@@ -113,10 +113,38 @@ describe('module-first to layer-first mapping · recorded origin', () => {
       .toEqual([{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }]);
   });
 
+  it('reads a record whose source root was the application root', () => {
+    expect(destinationFor({
+      ...obligation,
+      origin: {
+        ...obligation.origin,
+        sourceRoot: '.',
+        sources: [{
+          role: 'container-seed',
+          unit: 'containers/AuthScreen',
+          members: ['containers/AuthScreen/AuthRoot.ts'],
+        }],
+      },
+      target: {
+        ...obligation.target,
+        decisions: [{
+          source: 'containers/AuthScreen',
+          destinations: ['auth/AuthRoot.ts'],
+          members: [{
+            source: 'containers/AuthScreen/AuthRoot.ts',
+            destination: 'auth/AuthRoot.ts',
+          }],
+        }],
+      },
+    })).toBe('src/containers/AuthScreen/AuthRoot.ts');
+  });
+
   it('falls back to the deterministic destination without a recorded origin', () => {
     expect(destinationFor()).toBe('src/containers/auth/AuthRoot.ts');
   });
+});
 
+describe('module-first to layer-first mapping · superseded identities', () => {
   it('leaves a split decision to the deterministic fallback', () => {
     expect(destinationFor({
       ...obligation,
@@ -191,5 +219,71 @@ describe('module-first to layer-first mapping · recorded origin', () => {
         ],
       },
     })).toBe('src/containers/auth/AuthRoot.ts');
+  });
+});
+
+describe('module-first to layer-first mapping · records that name no container move', () => {
+  it('reads no identity from a decision whose source is not a container seed', () => {
+    expect(destinationFor({
+      ...obligation,
+      origin: {
+        ...obligation.origin,
+        sources: [{
+          role: 'route-composition',
+          unit: 'containers/AuthScreen',
+          members: ['src/containers/AuthScreen/AuthRoot.ts'],
+        }],
+      },
+    })).toBe('src/containers/auth/AuthRoot.ts');
+  });
+
+  it('reads no identity when every member landed outside the recorded source root', () => {
+    expect(destinationFor({
+      ...obligation,
+      target: {
+        ...obligation.target,
+        decisions: [{
+          source: 'containers/AuthScreen',
+          destinations: ['pkg/auth/AuthRoot.ts'],
+          members: [{
+            source: 'src/containers/AuthScreen/AuthRoot.ts',
+            destination: 'pkg/auth/AuthRoot.ts',
+          }],
+        }],
+      },
+    })).toBe('src/containers/auth/AuthRoot.ts');
+  });
+
+  it('resolves by the members that stayed inside the recorded source root', () => {
+    expect(destinationFor({
+      ...obligation,
+      origin: {
+        ...obligation.origin,
+        sources: [{
+          role: 'container-seed',
+          unit: 'containers/AuthScreen',
+          members: [
+            'src/containers/AuthScreen/AuthRoot.ts',
+            'src/containers/AuthScreen/Other.ts',
+            'src/containers/AuthScreen/Root.ts',
+          ],
+        }],
+      },
+      target: {
+        ...obligation.target,
+        decisions: [{
+          source: 'containers/AuthScreen',
+          destinations: ['src/auth/AuthRoot.ts', 'pkg/auth/Other.ts', 'src/Root.ts'],
+          members: [
+            {
+              source: 'src/containers/AuthScreen/AuthRoot.ts',
+              destination: 'src/auth/AuthRoot.ts',
+            },
+            { source: 'src/containers/AuthScreen/Other.ts', destination: 'pkg/auth/Other.ts' },
+            { source: 'src/containers/AuthScreen/Root.ts', destination: 'src/Root.ts' },
+          ],
+        }],
+      },
+    })).toBe('src/containers/AuthScreen/AuthRoot.ts');
   });
 });

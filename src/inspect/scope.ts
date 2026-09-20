@@ -10,13 +10,12 @@ export function applicationScopeFindings(
   architecture: ArchitectureDef,
 ): Finding[] {
   const resolved = resolveArchitecture(architecture);
-  const outside = new Set(scan.outsideDirs ?? []);
 
-  if (resolved.topology !== 'module-first' || outside.size === 0) {
+  if (resolved.topology !== 'module-first') {
     return [];
   }
 
-  const reached = reachedDirectories(scan, resolved.aliasMappings, outside);
+  const reached = reachedDirectories(scan, resolved.aliasMappings, new Set(scan.outsideDirs));
 
   return reached.length === 0
     ? []
@@ -38,30 +37,28 @@ function reachedDirectories(
   aliases: [string, string][],
   outside: Set<string>,
 ): string[] {
-  const reached = scan.files.flatMap((file) => file.imports.flatMap((ref) => {
-    const directory = importedDirectory(ref.specifier, file.path, aliases);
-
-    return directory !== null && outside.has(directory) ? [directory] : [];
-  }));
+  const reached = scan.files.flatMap((file) => file.imports.flatMap((ref) =>
+    importedDirectories(ref.specifier, file.path, aliases)
+      .filter((directory) => outside.has(directory))));
 
   return [...new Set(reached)].sort();
 }
 
-function importedDirectory(
+function importedDirectories(
   specifier: string,
   from: string,
   aliases: [string, string][],
-): string | null {
+): string[] {
   const alias = aliases.find(([name]) =>
     specifier === name || specifier.startsWith(`${name}/`));
 
   if (alias) {
-    return firstSegment(path.posix.join(alias[1], specifier.slice(alias[0].length)));
+    return [firstSegment(path.posix.join(alias[1], specifier.slice(alias[0].length)))];
   }
 
   return specifier.startsWith('.')
-    ? firstSegment(path.posix.join(path.posix.dirname(from), specifier))
-    : null;
+    ? [firstSegment(path.posix.join(path.posix.dirname(from), specifier))]
+    : [];
 }
 
 function firstSegment(target: string): string {

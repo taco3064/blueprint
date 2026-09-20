@@ -279,3 +279,39 @@ describe('collectTransformationEvidence ordering', () => {
     ]);
   });
 });
+
+describe('collectTransformationEvidence recorded source policy', () => {
+  const files = { 'src/pages/Home.ts': 'export const home = 1;\n' };
+
+  it('records the configured layer declarations as the source policy', () => {
+    const root = repo(files);
+
+    const architecture: ArchitectureDef = {
+      alias: '~app',
+      layers: [
+        { name: 'pages', does: 'route composition', mustNot: ['hold data access'] },
+        { name: 'services', does: 'data' },
+      ],
+    };
+
+    const { sourcePolicy } = collectTransformationEvidence(
+      root,
+      runSurvey(root, { log: () => {} }),
+      architecture,
+    );
+
+    expect(sourcePolicy.map((layer) => layer.name)).toEqual(['pages', 'services']);
+
+    expect(sourcePolicy[0]).toEqual(expect.objectContaining({
+      does: 'route composition',
+      mustNot: ['hold data access'],
+    }));
+  });
+
+  it('records no source policy when no configuration declared one', () => {
+    const root = repo(files);
+
+    expect(collectTransformationEvidence(root, runSurvey(root, { log: () => {} })).sourcePolicy)
+      .toEqual([]);
+  });
+});
