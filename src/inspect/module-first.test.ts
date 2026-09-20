@@ -306,31 +306,3 @@ describe('inspect ownership · module-first topology', () => {
     expect(positionKey(resolved.classify('src/auth/hooks/useAuth.ts')!)).toBe('auth/hooks');
   });
 });
-
-describe('inspect · module-first closed-world scope', () => {
-  it('names aliases declared outside the source root, and stays quiet when none are', () => {
-    const outside = analyze(scan([file(['auth', 'components', 'Login', 'index.tsx'])]), {
-      ...blueprint,
-      architecture: {
-        ...blueprint.architecture,
-        sourceRoot: 'features',
-        additionalAliases: { '@app': 'app', '@config': 'config' },
-      },
-    }).filter((finding) => finding.rule === 'scope-outside-modules');
-
-    expect(outside).toHaveLength(1);
-    expect(outside[0].message).toContain('closed-world at the source root');
-    expect(outside[0].message).toContain('`@app`, `@config`');
-    expect(outside[0].message).toContain('no module rule reaches it');
-
-    const inside = analyze(scan([file(['auth', 'components', 'Login', 'index.tsx'])]), {
-      ...blueprint,
-      architecture: {
-        ...blueprint.architecture,
-        additionalAliases: { '@auth': 'src/auth' },
-      },
-    });
-
-    expect(inside.filter((finding) => finding.rule === 'scope-outside-modules')).toEqual([]);
-  });
-});

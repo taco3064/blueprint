@@ -44,6 +44,8 @@ export interface ScanResult {
 
   topDirs: string[];
   files: ScannedFile[];
+
+  outsideDirs?: string[];
 }
 
 /** One adoption-completeness check — the unit of the doctor report. */
