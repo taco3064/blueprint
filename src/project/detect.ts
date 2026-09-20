@@ -193,12 +193,12 @@ function ownedConfig(root: string, config?: EslintConfig): string | undefined {
 }
 
 function wiredConfig(text: string | null | undefined, basePath?: string): boolean {
-  // Stryker disable next-line ConditionalExpression: absent owners cannot be wired by text
-  const nestedWiring = basePath === undefined
-    || basePath === '.'
-    || (text !== null && text !== undefined && scopedWiring(text, basePath));
+  if (text === null || text === undefined || !text.includes('@kekkai/blueprint')) {
+    return false;
+  }
 
-  return text?.includes('@kekkai/blueprint') === true && nestedWiring;
+  // Stryker disable next-line ConditionalExpression: absent owners cannot be wired by text
+  return basePath === undefined || basePath === '.' || scopedWiring(text, basePath);
 }
 
 function scopedWiring(text: string, basePath: string): boolean {

@@ -74,6 +74,7 @@ it.each([
   ]),
   ...[undefined, null, [], {}, { ...obligation.origin, topology: 'module-first' },
     { ...obligation.origin, router: 'unsupported' },
+    { ...obligation.origin, layers: 'containers' },
     { ...obligation.origin, sources: null },
     { ...obligation.origin, sources: [obligation.origin.sources[0], {}] },
     ...[null, [], {}, { role: 'unknown', unit: 'pages/Home', members: ['src/pages/Home.ts'] },
