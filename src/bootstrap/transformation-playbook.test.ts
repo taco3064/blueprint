@@ -47,6 +47,7 @@ function evidence(overrides: Partial<TransformationEvidence> = {}): Transformati
     resolutionBasis: 'blueprint-config',
     rootWiring: [],
     sourceLayers: [],
+    sourcePolicy: [],
     seedSource: 'none',
     candidates: [],
     routerCandidates: [],

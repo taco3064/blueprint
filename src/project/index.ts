@@ -56,6 +56,7 @@ export type {
 
 export {
   assertTransformationAuthority, writeTransformationAuthority,
-  recoverTransformationObligation, writeTransformationAuthorities,
+  recoverTransformationObligation, retainedTransformationOrigin,
+  writeTransformationAuthorities,
 } from './transformation-authority';
 export type { AuthorityGit } from './transformation-authority';

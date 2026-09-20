@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { LayerDef } from '../config';
 import { renderTransformationObligationError } from '../operational-contract';
 
 export const TRANSFORMATION_OBLIGATION_FILE = 'blueprint-transformation.json';
@@ -28,6 +29,7 @@ export interface LayerToModuleObligation {
     sourceRoot: string;
     framework: string;
     router: 'app' | 'both' | 'pages' | null;
+    layers?: LayerDef[];
     sources: TransformationSource[];
   };
   target: {
@@ -84,6 +86,7 @@ function validOrigin(origin: unknown): boolean {
     && origin.topology === 'layer-first'
     && strings(origin, ['head', 'applicationRoot', 'selectedScope', 'sourceRoot', 'framework'])
     && (origin.router === null || ['app', 'both', 'pages'].includes(String(origin.router)))
+    && (origin.layers === undefined || Array.isArray(origin.layers))
     && Array.isArray(origin.sources)
     && origin.sources.every((source) => record(source)
       && (source.role === 'route-composition' || source.role === 'container-seed')

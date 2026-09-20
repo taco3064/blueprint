@@ -11,7 +11,7 @@ import {
   renderTransformationReady,
   renderTransformationWriteNote,
 } from '../operational-contract';
-import { AUTHORING_FILE, claudeDirState } from '../project';
+import { AUTHORING_FILE, claudeDirState, retainedTransformationOrigin } from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
 import { collectModuleToLayerEvidence, runSurvey } from '../survey';
 import type { ModuleToLayerEvidence, SurveyResult } from '../survey';
@@ -109,6 +109,7 @@ export async function runModuleToLayerTransformation(
     survey,
     architecture,
     nextAppRouter: input.state.hasNext,
+    origin: retainedTransformationOrigin(input.root),
   });
 
   const actions = moduleToLayerActions({

@@ -42,6 +42,7 @@ const evidence: TransformationEvidence = {
   resolutionBasis: 'blueprint-config',
   rootWiring: [],
   sourceLayers: [],
+  sourcePolicy: [],
   seedSource: 'none',
   candidates: [],
   routerCandidates: [],

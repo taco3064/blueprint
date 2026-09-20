@@ -1,9 +1,10 @@
 import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef } from '../config';
+import type { ArchitectureDef, LayerDef } from '../config';
 import { dropTestFiles, importAnalysis, scan } from '../inspect';
 import { renderModuleToLayerEvidenceTopologyError } from '../operational-contract';
+import type { LayerToModuleObligation } from '../project';
 import type { SurveyResult } from './survey';
 import { collectTransformationEvidence } from './candidates';
 import type {
@@ -51,6 +52,20 @@ export interface ModuleToLayerEvidenceInput {
   survey: SurveyResult;
   architecture: ArchitectureDef;
   nextAppRouter: boolean;
+  origin?: LayerToModuleObligation | null;
+}
+
+export function originContainerUnits(
+  origin: LayerToModuleObligation | null | undefined,
+): Map<string, string> {
+  const seeds = new Map(
+    (origin?.origin.sources ?? []).map((source) => [source.unit, source.role]),
+  );
+
+  return new Map((origin?.target.decisions ?? []).flatMap((decision) =>
+    decision.destinations.length === 1 && seeds.get(decision.source) === 'container-seed'
+      ? [[decision.destinations[0], decision.source] as const]
+      : []));
 }
 
 export function collectModuleToLayerEvidence(
@@ -65,6 +80,7 @@ export function collectModuleToLayerEvidence(
 
   const scanned = dropTestFiles(scan(root, resolved.sourceRoot), architecture.testFiles);
   const shared = collectTransformationEvidence(root, survey, architecture);
+  const recorded = originContainerUnits(input.origin);
 
   const mappings = scanned.files.flatMap((file) => {
     const relative = sourceRelative(file.path, resolved.sourceRoot);
@@ -84,7 +100,10 @@ export function collectModuleToLayerEvidence(
         source: sourcePath(resolved.sourceRoot, relative),
         destination: sourcePath(
           resolved.sourceRoot,
-          ['containers', position.module.name, ...relative.slice(1)].join('/'),
+          [
+            recorded.get(position.module.name) ?? `containers/${position.module.name}`,
+            ...relative.slice(1),
+          ].join('/'),
         ),
         module: position.module.name,
         layer: 'containers',
@@ -123,7 +142,7 @@ export function collectModuleToLayerEvidence(
       layout: layer.unit.layout,
       entry: layer.unit.entry,
     })),
-    architectureBasis: withoutModules(architecture, aliasCutovers),
+    architectureBasis: withoutModules(architecture, aliasCutovers, input.origin?.origin.layers),
     aliasCutovers,
     mappings,
     collisions: destinationCollisions(mappings, scanned.files.map((file) => file.path)),
@@ -161,8 +180,11 @@ function routerMapping(
 function withoutModules(
   architecture: ArchitectureDef,
   aliasCutovers: AliasCutoverEvidence[],
+  recordedLayers: LayerDef[] | undefined,
 ): Omit<ArchitectureDef, 'modules'> {
-  const result = { ...architecture };
+  const result = recordedLayers?.length
+    ? { ...architecture, layers: recordedLayers }
+    : { ...architecture };
 
   const affected = new Set(aliasCutovers
     .filter((entry) => entry.disposition === 'rewrite-or-remove')
