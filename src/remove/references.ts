@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { emitLint } from '../emit/lint';
 import { withoutComments } from './comments';
 import { parseManifest } from './documents';
 import type { RemovalFacts } from './facts';
-import type { FileAction, RemovalConflict } from './types';
+import type { EmittedRuleInventory, FileAction, RemovalConflict } from './types';
 
 export const TOOL_CONFIG = /^(?:\.eslintrc(?:\.(?:c?js|json|ya?ml))?|[\w.-]+\.config\.[cm]?[jt]s)$/;
 
@@ -45,8 +46,34 @@ function scriptConflicts(
     .map(([name]) => ({ kind: 'reference', path: file, detail: 'script', name }));
 }
 
+export function emittedRuleInventory(facts: RemovalFacts): EmittedRuleInventory | undefined {
+  const ids = new Set<string>();
+
+  facts.scope.forEach((application) => {
+    if (application.blueprint === null) {
+      return;
+    }
+
+    emitLint(application.blueprint).forEach((entry) => {
+      Object.keys(entry.rules ?? {}).forEach((id) => ids.add(id));
+    });
+  });
+
+  return ids.size === 0
+    ? undefined
+    : {
+        total: ids.size,
+        exclusive: [...ids].filter((id) => id.startsWith('blueprint/')).length,
+      };
+}
+
 function importConflicts(
-  context: { root: string; directory: string; planned: PlannedFiles },
+  context: {
+    root: string;
+    directory: string;
+    planned: PlannedFiles;
+    rules: EmittedRuleInventory | undefined;
+  },
   owned: boolean,
   configs: string[],
 ): RemovalConflict[] {
@@ -65,7 +92,7 @@ function importConflicts(
       const text = withoutComments(file, remaining);
 
       if (owned && text.includes('@kekkai/blueprint')) {
-        return [{ kind: 'reference', path: file, detail: 'import' }];
+        return [{ kind: 'reference', path: file, detail: 'import', rules: context.rules }];
       }
 
       return configs.some((config) => text.includes(config))
@@ -85,6 +112,8 @@ export function referenceConflicts(facts: RemovalFacts, planned: PlannedFiles): 
       application.manifest ? [application.manifest.root] : []),
   ])];
 
+  const rules = emittedRuleInventory(facts);
+
   return directories.flatMap((directory) => {
     const owned = full || applicationRoots.includes(directory);
 
@@ -94,7 +123,7 @@ export function referenceConflicts(facts: RemovalFacts, planned: PlannedFiles): 
 
     return [
       ...(owned ? scriptConflicts(facts.root, directory, planned) : []),
-      ...importConflicts({ root: facts.root, directory, planned }, owned, configs),
+      ...importConflicts({ root: facts.root, directory, planned, rules }, owned, configs),
     ];
   });
 }

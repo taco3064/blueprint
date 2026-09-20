@@ -18,6 +18,7 @@ export type RemoveConflictFact
       path: string;
       detail: 'import' | 'config-path' | 'script';
       name?: string;
+      rules?: { total: number; exclusive: number };
     };
 
 export type RemoveRefusalFact
@@ -54,10 +55,18 @@ function referenceLine(fact: Extract<RemoveConflictFact, { kind: 'reference' }>)
     return `${fact.path}: script "${fact.name}" still runs Blueprint — remove or replace it first`;
   }
 
-  return fact.detail === 'import'
-    ? `${fact.path}: still imports @kekkai/blueprint — remove its Blueprint wiring (for example `
-    + 'the emitLint entries) before the package is uninstalled'
-    : `${fact.path}: still loads a blueprint.config.mjs that removal deletes — remove that wiring first`;
+  if (fact.detail !== 'import') {
+    return `${fact.path}: still loads a blueprint.config.mjs that removal deletes — remove that wiring first`;
+  }
+
+  const cost = fact.rules === undefined
+    ? ''
+    : ` That wiring is emitting ${fact.rules.total} rule(s) today, ${fact.rules.exclusive} of them `
+      + 'Blueprint\'s own and unrebuildable once the package is gone; lint stays green after you '
+      + 'remove it, because the rules left with it.';
+
+  return `${fact.path}: still imports @kekkai/blueprint — remove its Blueprint wiring (for example `
+    + `the emitLint entries) before the package is uninstalled.${cost}`;
 }
 
 export function renderRemoveConflicts(conflicts: readonly RemoveConflictFact[]): OperationalText {

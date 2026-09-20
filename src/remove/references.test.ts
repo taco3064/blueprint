@@ -248,7 +248,12 @@ describe('referenceConflicts · one directory under two spellings', () => {
 
       expect(referenceConflicts(gathered, plannedFiles([])), cwd).toEqual([
         { kind: 'reference', path: 'package.json', detail: 'script', name: 'arch' },
-        { kind: 'reference', path: 'eslint.config.mjs', detail: 'import' },
+        {
+          kind: 'reference',
+          path: 'eslint.config.mjs',
+          detail: 'import',
+          rules: { total: expect.any(Number), exclusive: expect.any(Number) },
+        },
         { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
       ]);
     }

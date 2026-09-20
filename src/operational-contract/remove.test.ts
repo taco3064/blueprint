@@ -149,6 +149,28 @@ describe('remove outcome messages', () => {
     expect(renderRemoveConflicts([conflict])).toContain(text);
   });
 
+  it('states what the wiring emits before asking for it to be removed', () => {
+    const line = renderRemoveConflicts([{
+      kind: 'reference',
+      path: 'eslint.config.mjs',
+      detail: 'import',
+      rules: { total: 88, exclusive: 6 },
+    }]);
+
+    expect(line).toContain('emitting 88 rule(s) today');
+    expect(line).toContain('6 of them Blueprint\'s own and unrebuildable');
+    expect(line).toContain('lint stays green after you remove it, because the rules left with it');
+  });
+
+  it('asks for the wiring without a count when no config resolves', () => {
+    const line = renderRemoveConflicts([
+      { kind: 'reference', path: 'eslint.config.mjs', detail: 'import' },
+    ]);
+
+    expect(line).toContain('remove its Blueprint wiring');
+    expect(line).not.toContain('rule(s) today');
+  });
+
   it.each<[RemoveRefusalFact, string]>([
     [{ kind: 'not-adopted', root: '/repo' }, 'no adopted application was found at or below /repo'],
     [

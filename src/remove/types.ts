@@ -38,7 +38,13 @@ export type RemovalConflict
       path: string;
       detail: 'import' | 'config-path' | 'script';
       name?: string;
+      rules?: EmittedRuleInventory;
     };
+
+export interface EmittedRuleInventory {
+  total: number;
+  exclusive: number;
+}
 
 export type RemovalResidue
   = | { kind: 'required-by-source'; path: string; alias: string }

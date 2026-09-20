@@ -370,6 +370,14 @@ describe('authoringBrief · the method it prescribes', () => {
     expect(flattenProse(brief)).toContain('check the documents from step 1 before dropping it');
   });
 
+  it('keeps the import matrix evidence for the flow, never its author', () => {
+    expect(flattenProse(brief)).toContain('Decide what each layer is responsible for');
+    expect(flattenProse(brief)).toContain('can falsify it; it does not define it');
+
+    expect(flattenProse(brief))
+      .toContain('never choose a responsibility or an order because it minimises counter-edges');
+  });
+
   it('encodes the method: intent over zero-findings, per-layer shapes, ownership', () => {
     expect(brief).toContain('never contort the order to make findings zero');
     expect(brief).toContain('layout: \'folder\', entry: \'index\'');

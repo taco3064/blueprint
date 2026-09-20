@@ -206,7 +206,7 @@ export function renderAcceptanceGates(
     '- [ ] No `*.blueprint.*` reference file remains, except the retained ESLint migration '
     + 'reference when legacy ESLint is a named unresolved decision; lint adoption stays incomplete',
     '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
+    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN \`npx blueprint doctor\` reports no \`✗\`, and you can name the reason behind every \`⊘\` it does report — a skip is not a pass and keeps exit 0, but some are properties of the repository no adoption can remove: a lint script that mutates, a chain doctor cannot replay in isolation, a config shape it cannot prove statically. Clear the ones your adoption caused; name the rest in the report — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');
 }
 

@@ -90,6 +90,10 @@ function expectWorkflow(result: string): void {
   expect(result).toContain('## Verification and handoff');
   expect(result).toContain('git diff --summary');
   expect(result).toContain('npx blueprint doctor --json');
+
+  expect(result).toContain('does not fail when it stops');
+  expect(result).toContain('a threshold over an empty set passes');
+  expect(result).toContain('number measured before the move, not with its exit code');
 }
 
 it('keeps the standalone transformation boundary when no repository scope is supplied', () => {
