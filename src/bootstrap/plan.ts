@@ -133,11 +133,12 @@ export function generatedFormattingNote(installed: string[], actions: Action[]):
 }
 
 function ownedDocument(action: Action): action is Extract<Action, { kind: 'write' }> {
-  // Stryker disable next-line ConditionalExpression: `ownership` is declared on the write action
-  // alone, so no other kind can reach the test below and this narrowing decides nothing.
+  // Stryker disable ConditionalExpression,BlockStatement: `ownership` is declared on the write
+  // action alone, so no other kind can reach the test below and this narrowing decides nothing.
   if (action.kind !== 'write') {
     return false;
   }
+  // Stryker restore ConditionalExpression,BlockStatement
 
   return (action.ownership === 'generated' || action.ownership === 'section')
     && /\.(?:md|json)$/.test(action.path);

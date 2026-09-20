@@ -37,28 +37,28 @@ function reachedDirectories(
   aliases: [string, string][],
   outside: Set<string>,
 ): string[] {
-  const reached = scan.files.flatMap((file) => file.imports.flatMap((ref) =>
-    importedDirectories(ref.specifier, file.path, aliases)
-      .filter((directory) => outside.has(directory))));
+  const reached = scan.files.flatMap((file) => file.imports
+    .map((ref) => importedDirectory(ref.specifier, file.path, aliases))
+    .filter((directory) => outside.has(directory)));
 
   return [...new Set(reached)].sort();
 }
 
-function importedDirectories(
+function importedDirectory(
   specifier: string,
   from: string,
   aliases: [string, string][],
-): string[] {
+): string {
   const alias = aliases.find(([name]) =>
     specifier === name || specifier.startsWith(`${name}/`));
 
   if (alias) {
-    return [firstSegment(path.posix.join(alias[1], specifier.slice(alias[0].length)))];
+    return firstSegment(path.posix.join(alias[1], specifier.slice(alias[0].length)));
   }
 
   return specifier.startsWith('.')
-    ? [firstSegment(path.posix.join(path.posix.dirname(from), specifier))]
-    : [];
+    ? firstSegment(path.posix.join(path.posix.dirname(from), specifier))
+    : '';
 }
 
 function firstSegment(target: string): string {
