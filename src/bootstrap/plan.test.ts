@@ -187,6 +187,9 @@ describe('plan', () => {
     expect(install?.kind === 'install' && install.note)
       .toContain('admitted by every carrier\'s peer range');
 
+    expect(install?.kind === 'install' && install.note)
+      .toContain('not @kekkai/blueprint\'s own parser dependencies');
+
     // A repo that already has eslint gets the plain list — the sentence explains a
     // resolution about to happen, so with nothing to resolve it is noise.
     const partial = plan(state({ missingDeps: ['@kekkai/blueprint'] }), bp)

@@ -142,6 +142,14 @@ describe('analyze · module dependency DAG', () => {
     expect(internal.find((finding) => finding.rule === 'deep-import')?.message)
       .toContain('"~app/auth/services/api/internal" reaches inside a unit');
   });
+
+  it('offers a remedy a stylesheet can follow, since no entry re-exports one', () => {
+    const message = findings(file(['index.ts'], '~app/auth/services/api/internal'))
+      .find((finding) => finding.rule === 'deep-import')?.message;
+
+    expect(message).toContain('import it through that unit\'s entry');
+    expect(message).toContain('move it beside the file that imports it');
+  });
 });
 
 describe('analyze · dependency topology boundaries', () => {

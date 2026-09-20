@@ -9,6 +9,7 @@ import {
   deriveGlobalRules,
   derivePackageRules,
   normalizeGroupPatterns,
+  normalizePathPatterns,
 } from './patterns';
 import type { GlobalRule, LintConfigEntry, PackageRule } from './types';
 
@@ -72,13 +73,14 @@ function containerEntriesForModule(scope: {
 
   const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
     const { paths, patterns } = buildPackagePatterns(packages);
+    const restrictedPaths = normalizePathPatterns(paths);
 
     return {
       'no-restricted-imports': [
         scope.severity,
         {
           patterns: normalizeGroupPatterns([...structural, ...patterns]),
-          ...(paths.length ? { paths } : {}),
+          ...(restrictedPaths.length ? { paths: restrictedPaths } : {}),
         },
       ],
       ...buildGlobalRule(scope.globalRules, scope.severity),

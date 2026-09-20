@@ -14,6 +14,7 @@ import {
   deriveGlobalRules,
   METRIC_GATES,
   normalizeGroupPatterns,
+  normalizePathPatterns,
   selfOnlyReexportSelector,
   STATEMENT_PADDING,
   toArray,
@@ -174,6 +175,7 @@ function layerImportEntries(
 
     const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
       const { paths, patterns } = buildPackagePatterns(packages);
+      const restrictedPaths = normalizePathPatterns([...containers.paths, ...paths]);
 
       return {
 
@@ -182,9 +184,7 @@ function layerImportEntries(
           severity,
           {
             patterns: normalizeGroupPatterns([...structural, ...containers.patterns, ...patterns]),
-            ...([...containers.paths, ...paths].length
-              ? { paths: [...containers.paths, ...paths] }
-              : {}),
+            ...(restrictedPaths.length ? { paths: restrictedPaths } : {}),
           },
         ],
         ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
