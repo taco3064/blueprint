@@ -3,10 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { Blueprint } from '../config';
 import type { GitReader } from '../project';
 import { gatherRemovalFacts } from './facts';
 import type { RemovalApplication, RemovalFacts } from './facts';
-import { plannedFiles, referenceConflicts, TOOL_CONFIG } from './references';
+import {
+  emittedRuleInventory, plannedFiles, referenceConflicts, TOOL_CONFIG,
+} from './references';
 
 let root: string;
 
@@ -274,5 +277,42 @@ describe('referenceConflicts · partial removal', () => {
       { kind: 'reference', path: 'apps/web/package.json', detail: 'script', name: 'lint' },
       { kind: 'reference', path: 'vite.config.ts', detail: 'config-path' },
     ]);
+  });
+});
+
+function config(layerFilesIgnore?: string[]): Blueprint {
+  return {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [{ name: 'components', does: 'UI', layout: 'folder' }],
+      ...(layerFilesIgnore ? { layerFilesIgnore } : {}),
+    },
+  };
+}
+
+describe('emittedRuleInventory', () => {
+  it('counts each emitted rule once across applications and separates Blueprint\'s own', () => {
+    const one = emittedRuleInventory(facts([{ ...application('a'), blueprint: config() }]))!;
+
+    const two = emittedRuleInventory(facts([
+      { ...application('b'), blueprint: config() },
+      { ...application('c'), blueprint: config() },
+    ]));
+
+    expect(two).toEqual(one);
+    expect(one.exclusive).toBeGreaterThan(0);
+    expect(one.exclusive).toBeLessThan(one.total);
+  });
+
+  it('passes over an entry that emits no rules, and an application with no blueprint', () => {
+    expect(emittedRuleInventory(facts([
+      { ...application('d'), blueprint: config(['**/*.css']) },
+      application('e'),
+    ]))).toEqual(emittedRuleInventory(facts([{ ...application('f'), blueprint: config() }])));
+  });
+
+  it('reports no inventory when no application in scope carries a blueprint', () => {
+    expect(emittedRuleInventory(facts([application('g')]))).toBeUndefined();
   });
 });

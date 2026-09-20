@@ -108,7 +108,7 @@ export function plan(
     ...TOOLING_NOTES,
   ];
 
-  actions.push(...generatedFormattingNote(state, actions));
+  actions.push(...generatedFormattingNote(installedPackages(state), actions));
 
   assertContained(actions);
 
@@ -117,22 +117,30 @@ export function plan(
 
 const FORMATTERS = ['prettier', '@biomejs/biome', 'oxfmt', 'dprint'];
 
-function generatedFormattingNote(state: ProjectState, actions: Action[]): Action[] {
-  const installed = [state.localPackage, state.toolchainPackage]
+function installedPackages(state: ProjectState): string[] {
+  return [state.localPackage, state.toolchainPackage]
     .flatMap((metadata) => metadata.dependencies);
+}
 
+export function generatedFormattingNote(installed: string[], actions: Action[]): Action[] {
   const formatter = FORMATTERS.find((name) => installed.includes(name));
 
-  const documents = actions.flatMap((action) =>
-    action.kind === 'write'
-    && (action.ownership === 'generated' || action.ownership === 'section')
-    && /\.(?:md|json)$/.test(action.path)
-      ? [action.path]
-      : []);
+  const documents = actions.flatMap((action) => ownedDocument(action) ? [action.path] : []);
 
   return formatter === undefined || documents.length === 0
     ? []
     : [{ kind: 'instruct', note: renderGeneratedFormattingNote(formatter, documents) }];
+}
+
+function ownedDocument(action: Action): action is Extract<Action, { kind: 'write' }> {
+  // Stryker disable next-line ConditionalExpression: `ownership` is declared on the write action
+  // alone, so no other kind can reach the test below and this narrowing decides nothing.
+  if (action.kind !== 'write') {
+    return false;
+  }
+
+  return (action.ownership === 'generated' || action.ownership === 'section')
+    && /\.(?:md|json)$/.test(action.path);
 }
 
 function lintIntegrationOf(

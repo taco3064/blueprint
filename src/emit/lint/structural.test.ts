@@ -4,6 +4,7 @@ import {
   buildContainerPatterns,
   buildStructuralPatterns,
   normalizeGroupPatterns,
+  normalizePathPatterns,
 } from './structural';
 
 describe('normalizeGroupPatterns', () => {
@@ -24,6 +25,21 @@ describe('normalizeGroupPatterns', () => {
     ).toEqual([
       { group: ['\\#/router/**', '!\\#/router/public/**', '@/router/**'], message: 'blocked' },
     ]);
+  });
+});
+
+describe('normalizePathPatterns', () => {
+  const module = { name: '~app/auth', message: 'import the module entry' };
+  const layer = { name: '~app/auth/hooks', message: 'import the layer entry' };
+
+  it('keeps the first of two identical path patterns and drops the rest', () => {
+    expect(normalizePathPatterns([module, layer, module, layer])).toEqual([module, layer]);
+  });
+
+  it('keeps patterns that differ only in their message', () => {
+    const restated = { ...module, message: 'import the module entry instead' };
+
+    expect(normalizePathPatterns([module, restated])).toEqual([module, restated]);
   });
 });
 

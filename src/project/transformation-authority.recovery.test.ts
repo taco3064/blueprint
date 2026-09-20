@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import {
-  recoverTransformationObligation, writeTransformationAuthorities,
+  recoverTransformationObligation, retainedTransformationOrigin, writeTransformationAuthorities,
 } from './transformation-authority';
 import type { AuthorityGit } from './transformation-authority';
 import type { LayerToModuleObligation } from './transformation-obligation';
@@ -156,4 +156,18 @@ it('refuses empty retained member paths before recovery', () => {
 
   expect(() => recoverTransformationObligation(root, exec))
     .toThrow('unsafe or mismatched');
+});
+
+it('returns the retained origin only once the authority is completed', () => {
+  expect(retainedTransformationOrigin(root, harness({
+    status: 'completed', obligation: obligation(),
+  }))).toEqual(obligation());
+});
+
+it.each([
+  ['a pending authority', harness()],
+  ['no recorded authority', harness(null)],
+  ['an unreadable repository', vi.fn<AuthorityGit>(() => ({ status: 1, stdout: '' }))],
+] as const)('retains no origin from %s', (_case, exec) => {
+  expect(retainedTransformationOrigin(root, exec)).toBeNull();
 });
