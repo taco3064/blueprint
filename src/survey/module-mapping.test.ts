@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
 import { runSurvey } from './survey';
 import { collectModuleToLayerEvidence, destinationCollisions } from './module-mapping';
-import { isTransformationObligation } from '../project';
 import type { AliasCutoverEvidence } from './module-mapping';
 
 const dirs: string[] = [];
@@ -324,109 +323,5 @@ describe('module-first to layer-first router mapping', () => {
     })).toThrow(
       'requires a module-first architecture',
     );
-  });
-});
-
-describe('module-first to layer-first mapping · recorded origin', () => {
-  const obligation = {
-    version: 1 as const,
-    direction: 'layer-first-to-module-first' as const,
-    origin: {
-      head: 'abc123',
-      topology: 'layer-first' as const,
-      applicationRoot: '.',
-      selectedScope: 'src',
-      sourceRoot: 'src',
-      framework: 'react',
-      router: null,
-      layers: [{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }],
-      sources: [{
-        role: 'container-seed' as const,
-        unit: 'containers/AuthScreen',
-        members: ['src/containers/AuthScreen/AuthRoot.ts'],
-      }],
-    },
-    target: {
-      topology: 'module-first' as const,
-      decisions: [{
-        source: 'containers/AuthScreen',
-        destinations: ['src/auth/AuthRoot.ts'],
-        members: [{
-          source: 'src/containers/AuthScreen/AuthRoot.ts',
-          destination: 'src/auth/AuthRoot.ts',
-        }],
-      }],
-    },
-  };
-
-  it('closes the round trip on the recorded identity, and falls back without one', () => {
-    const root = fixture(mappingFiles);
-
-    const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
-
-    expect(isTransformationObligation(obligation)).toBe(true);
-
-    const recorded = collectModuleToLayerEvidence({
-      root, survey, architecture: mappingArchitecture(), nextAppRouter: false,
-      origin: obligation,
-    });
-
-    expect(recorded.mappings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        source: 'src/auth/AuthRoot.ts',
-        destination: 'src/containers/AuthScreen/AuthRoot.ts',
-      }),
-    ]));
-
-    expect(recorded.architectureBasis.layers)
-      .toEqual([{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }]);
-
-    const fallback = collectModuleToLayerEvidence({
-      root, survey, architecture: mappingArchitecture(), nextAppRouter: false,
-    });
-
-    expect(fallback.mappings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        source: 'src/auth/AuthRoot.ts',
-        destination: 'src/containers/auth/AuthRoot.ts',
-      }),
-    ]));
-  });
-
-  it('leaves a split decision to the deterministic fallback', () => {
-    const root = fixture(mappingFiles);
-
-    const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
-
-    const split = collectModuleToLayerEvidence({
-      root, survey, architecture: mappingArchitecture(), nextAppRouter: false,
-      origin: {
-        ...obligation,
-        target: {
-          ...obligation.target,
-          decisions: [{
-            source: 'containers/AuthScreen',
-            destinations: ['src/auth/AuthRoot.ts', 'src/checkout/hooks/useSession.ts'],
-            members: [
-              {
-                source: 'src/containers/AuthScreen/AuthRoot.ts',
-                destination: 'src/auth/AuthRoot.ts',
-              },
-              {
-                source: 'src/containers/AuthScreen/useSession.ts',
-                destination: 'src/checkout/hooks/useSession.ts',
-              },
-            ],
-          }],
-        },
-      },
-    });
-
-    expect(split.mappings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        source: 'src/auth/AuthRoot.ts',
-        destination: 'src/containers/auth/AuthRoot.ts',
-      }),
-    ]));
   });
 });

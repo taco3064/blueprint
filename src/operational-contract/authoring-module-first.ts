@@ -147,5 +147,11 @@ export function renderModuleFirstSchemaSketch(sourceRoot: string): string {
     + 'shared inner layers.',
     '`layerFiles` is optional. Its default follows the selected framework and `sourceRoot`; '
     + 'custom patterns must include both `{module}` and `{layer}`.',
+    'Module-first is closed-world at the source root. Every governed folder directly under '
+    + '`sourceRoot` is a declared module; source-root wiring files are the one exception, and a '
+    + 'global `components/`, `hooks/` or other horizontal layer tree beside the modules is not '
+    + 'module-first. `sourceRoot` is the application\'s architectural source, not a window onto '
+    + 'the part that already looks like modules — narrowing it to exclude the rest makes the '
+    + 'topology valid by hiding what it fails to cover.',
   ].join('\n');
 }

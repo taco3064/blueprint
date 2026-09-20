@@ -25,6 +25,7 @@ export type FindingMessageFact
     | { kind: 'undeclared-folder'; name: string; subject: 'module' | 'layer'; runway?: boolean }
     | { kind: 'undeclared-inner-layer'; layer: string; module: string }
     | { kind: 'missing-position'; name: string; subject: 'module' | 'layer' }
+    | { kind: 'scope-outside-modules'; sourceRoot: string; aliases: string[] }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
     | { kind: 'no-entry'; unit: string; entry: string; directFile?: string };
 
@@ -126,6 +127,12 @@ function renderFolderFinding(fact: FolderFindingFact): string {
       return `Declared ${fact.subject} "${fact.name}" has no folder yet — runway, not a todo: `
         + 'the rules arm when code lands; keeping it is the default, '
         + 'slimming is the owner\'s call.';
+    case 'scope-outside-modules':
+      return `Module-first is closed-world at the source root: every governed folder under `
+        + `"${fact.sourceRoot}" is a declared module, and nothing else shares that level. This `
+        + `config declares ${fact.aliases.join(', ')} outside it, so whatever they hold is not `
+        + 'in the module universe and no module rule reaches it. Widen the source root to cover '
+        + 'the application\'s architectural source, or confirm those paths hold none.';
     case 'declaratory-self-only':
       return `selfOnly on "${fact.layer}" (importer(s): ${fact.importers.join(', ')}) is declaratory — `
         + 'the layer holds no files, so the re-export ban cannot fire yet; it arms once code '

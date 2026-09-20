@@ -64,17 +64,27 @@ export function originContainerUnits(
 
   const seeds = new Map(origin.origin.sources.map((source) => [source.unit, source.role]));
   const prefix = origin.origin.sourceRoot === '.' ? '' : `${origin.origin.sourceRoot}/`;
+  const byModule = new Map<string, Set<string>>();
 
-  return new Map(origin.target.decisions.flatMap((decision) => {
+  for (const decision of origin.target.decisions) {
     if (seeds.get(decision.source) !== 'container-seed') {
-      return [];
+      continue;
     }
 
     const modules = new Set(decision.members.flatMap((member) =>
       moduleOfDestination(member.destination, prefix)));
 
-    return modules.size === 1 ? [[[...modules][0], decision.source] as const] : [];
-  }));
+    if (modules.size !== 1) {
+      continue;
+    }
+
+    const module = [...modules][0];
+
+    byModule.set(module, (byModule.get(module) ?? new Set()).add(decision.source));
+  }
+
+  return new Map([...byModule].flatMap(([module, units]) =>
+    units.size === 1 ? [[module, [...units][0]] as const] : []));
 }
 
 function moduleOfDestination(destination: string, prefix: string): string[] {
