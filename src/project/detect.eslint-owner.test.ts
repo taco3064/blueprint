@@ -163,6 +163,9 @@ describe('detect · incomplete eslint evidence', () => {
     + 'export default [...emitLint(b, { basePath: webRoot })];',
     'import \'@kekkai/blueprint\'; export default [...emitLint(b, '
     + '{ basePath: fileURLToPath(new URL(\'./apps/web/\', import.meta.url)) })];',
+    'import \'@kekkai/blueprint\'; '
+    + 'const webRoot = fileURLToPath(new URL(\'apps/web/\', import.meta.url)); '
+    + 'export default [...emitLint(b,{basePath:webRoot})];',
   ])('accepts any ancestor wiring scoped to this application: %s', (text) => {
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-scoped-'));
     const app = path.join(workspace, 'apps/web');
