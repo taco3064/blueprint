@@ -191,7 +191,32 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
 
   walk(base, files, { base, prefix: sourceRoot === '.' ? '' : sourceRoot, readdir });
 
-  return { topDirs, files };
+  return { topDirs, files, outsideDirs: outsideSourceDirs(root, sourceRoot, readdir) };
+}
+
+function outsideSourceDirs(
+  root: string,
+  sourceRoot: string,
+  readdir: (dir: string) => DirEntry[],
+): string[] {
+  if (sourceRoot === '.') {
+    return [];
+  }
+
+  const head = sourceRoot.split('/')[0];
+
+  return ordered(root, readdir)
+    .filter((entry) => entry.isDirectory()
+      && entry.name !== head
+      && !NON_SOURCE_DIRS.has(entry.name)
+      && holdsSource(path.join(root, entry.name), readdir))
+    .map((entry) => entry.name);
+}
+
+function holdsSource(dir: string, readdir: (dir: string) => DirEntry[]): boolean {
+  return ordered(dir, readdir).some((entry) => entry.isDirectory()
+    ? !NON_SOURCE_DIRS.has(entry.name) && holdsSource(path.join(dir, entry.name), readdir)
+    : SOURCE_EXT.test(entry.name));
 }
 
 const GLOB_META = /[*?[\]{}]/;

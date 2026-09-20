@@ -20,7 +20,6 @@ export function folderFindings(
   const scope: FolderScope = { topNames, prefix, subject, runway: resolved.moduleRunway };
 
   return [
-    ...scopeOutsideModulesFindings(resolved, prefix),
     ...undeclaredFindings(scan, scope),
     ...undeclaredInnerLayerFindings(scan, architecture, { framework, prefix }),
     ...missingFindings(scan, { ...scope, topology: resolved.topology }),
@@ -34,35 +33,6 @@ interface FolderScope {
   prefix: string;
   subject: 'module' | 'layer';
   runway: boolean;
-}
-
-function scopeOutsideModulesFindings(
-  resolved: ReturnType<typeof resolveArchitecture>,
-  prefix: string,
-): Finding[] {
-  if (resolved.topology !== 'module-first') {
-    return [];
-  }
-
-  const root = resolved.sourceRoot === '.' ? '' : `${resolved.sourceRoot}/`;
-
-  const outside = resolved.aliasMappings
-    .filter(([, target]) => root === '' ? false : !`${target}/`.startsWith(root))
-    .map(([alias]) => `\`${alias}\``);
-
-  return outside.length === 0
-    ? []
-    : [{
-        severity: 'info',
-        rule: 'scope-outside-modules',
-        path: prefix === '' ? '.' : resolved.sourceRoot,
-        subject: '',
-        message: renderFindingMessage({
-          kind: 'scope-outside-modules',
-          sourceRoot: resolved.sourceRoot,
-          aliases: outside,
-        }),
-      }];
 }
 
 function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {

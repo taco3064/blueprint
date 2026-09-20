@@ -194,8 +194,12 @@ export const OPERATIONAL_SURFACES = [
   },
   {
     id: 'finding-diagnostics', owner: 'findings.ts', channel: 'cli',
-    delivery: 'runtime', audiences: ['CLI users'], factProviders: ['inspection findings'],
-    consumers: ['src/inspect/analyze.ts', 'src/inspect/dependency.ts', 'src/inspect/folders.ts'],
+    delivery: 'runtime', audiences: ['CLI users'],
+    factProviders: ['inspection findings', 'application source universe'],
+    consumers: [
+      'src/inspect/analyze.ts', 'src/inspect/dependency.ts', 'src/inspect/folders.ts',
+      'src/inspect/scope.ts',
+    ],
     targets: ['inspect text and JSON'], verification: ['finding matrix tests'],
   },
   {

@@ -11,6 +11,7 @@ import type {
 } from '../config';
 import { dropLayerFilesIgnored, dropTestFiles } from './filter';
 import { folderFindings } from './folders';
+import { applicationScopeFindings } from './scope';
 import { compareText } from './order';
 import {
   aliasList,
@@ -41,6 +42,7 @@ export function analyze(
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
+    ...applicationScopeFindings(scan, architecture),
     ...folderFindings(scan, architecture, blueprint.framework),
     ...ownsFindings(architecture, dependencies),
     ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),

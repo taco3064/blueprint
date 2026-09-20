@@ -25,7 +25,7 @@ export type FindingMessageFact
     | { kind: 'undeclared-folder'; name: string; subject: 'module' | 'layer'; runway?: boolean }
     | { kind: 'undeclared-inner-layer'; layer: string; module: string }
     | { kind: 'missing-position'; name: string; subject: 'module' | 'layer' }
-    | { kind: 'scope-outside-modules'; sourceRoot: string; aliases: string[] }
+    | { kind: 'uncovered-application-source'; sourceRoot: string; directories: string[] }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
     | { kind: 'no-entry'; unit: string; entry: string; directFile?: string };
 
@@ -112,6 +112,18 @@ function renderUndeclaredModule(name: string, runway: boolean): string {
     + 'handbook; never declare a module only to silence this finding.';
 }
 
+function renderUncoveredApplicationSource(sourceRoot: string, directories: string[]): string {
+  const named = directories.map((directory) => `"${directory}"`).join(', ');
+
+  return `Module-first is closed-world at the source root: the folders under "${sourceRoot}" are `
+    + `the whole module universe. Code under "${sourceRoot}" imports ${named}, which hold source `
+    + 'outside it, so this application\'s architecture already extends past the configured scan '
+    + 'boundary and nothing here observes those folders — no flow rule, no cycle check, no '
+    + 'coverage number. The scan boundary is not the topology root: widen `architecture.'
+    + 'sourceRoot` to the directory that holds the whole application and declare what lives at '
+    + `that level, or move the imported source under "${sourceRoot}".`;
+}
+
 function renderFolderFinding(fact: FolderFindingFact): string {
   switch (fact.kind) {
     case 'undeclared-folder':
@@ -127,12 +139,8 @@ function renderFolderFinding(fact: FolderFindingFact): string {
       return `Declared ${fact.subject} "${fact.name}" has no folder yet — runway, not a todo: `
         + 'the rules arm when code lands; keeping it is the default, '
         + 'slimming is the owner\'s call.';
-    case 'scope-outside-modules':
-      return `Module-first is closed-world at the source root: every governed folder under `
-        + `"${fact.sourceRoot}" is a declared module, and nothing else shares that level. This `
-        + `config declares ${fact.aliases.join(', ')} outside it, so whatever they hold is not `
-        + 'in the module universe and no module rule reaches it. Widen the source root to cover '
-        + 'the application\'s architectural source, or confirm those paths hold none.';
+    case 'uncovered-application-source':
+      return renderUncoveredApplicationSource(fact.sourceRoot, fact.directories);
     case 'declaratory-self-only':
       return `selfOnly on "${fact.layer}" (importer(s): ${fact.importers.join(', ')}) is declaratory — `
         + 'the layer holds no files, so the re-export ban cannot fire yet; it arms once code '
