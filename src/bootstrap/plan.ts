@@ -125,7 +125,7 @@ function generatedFormattingNote(state: ProjectState, actions: Action[]): Action
 
   const documents = actions.flatMap((action) =>
     action.kind === 'write'
-    && action.ownership === 'generated'
+    && (action.ownership === 'generated' || action.ownership === 'section')
     && /\.(?:md|json)$/.test(action.path)
       ? [action.path]
       : []);

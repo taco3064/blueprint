@@ -58,14 +58,33 @@ export interface ModuleToLayerEvidenceInput {
 export function originContainerUnits(
   origin: LayerToModuleObligation | null | undefined,
 ): Map<string, string> {
-  const seeds = new Map(
-    (origin?.origin.sources ?? []).map((source) => [source.unit, source.role]),
-  );
+  if (!origin) {
+    return new Map();
+  }
 
-  return new Map((origin?.target.decisions ?? []).flatMap((decision) =>
-    decision.destinations.length === 1 && seeds.get(decision.source) === 'container-seed'
-      ? [[decision.destinations[0], decision.source] as const]
-      : []));
+  const seeds = new Map(origin.origin.sources.map((source) => [source.unit, source.role]));
+  const prefix = origin.origin.sourceRoot === '.' ? '' : `${origin.origin.sourceRoot}/`;
+
+  return new Map(origin.target.decisions.flatMap((decision) => {
+    if (seeds.get(decision.source) !== 'container-seed') {
+      return [];
+    }
+
+    const modules = new Set(decision.members.flatMap((member) =>
+      moduleOfDestination(member.destination, prefix)));
+
+    return modules.size === 1 ? [[[...modules][0], decision.source] as const] : [];
+  }));
+}
+
+function moduleOfDestination(destination: string, prefix: string): string[] {
+  if (!destination.startsWith(prefix)) {
+    return [];
+  }
+
+  const segments = destination.slice(prefix.length).split('/');
+
+  return segments.length > 1 ? [segments[0]] : [];
 }
 
 export function collectModuleToLayerEvidence(
