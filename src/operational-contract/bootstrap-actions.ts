@@ -123,7 +123,12 @@ export function renderDependencyInstallNote(
   eslintMajors: readonly number[],
 ): OperationalText {
   return operationalText(dependencies.includes('eslint')
-    ? `${dependencies.join(', ')} — eslint unpinned, resolving to the newest supported major (${eslintMajors.join(' and ')} are both admitted by every carrier's peer range, and @kekkai/blueprint's CI runs its own suite on each)`
+    ? `${dependencies.join(', ')} — eslint unpinned, resolving to the newest supported major `
+    + `(${eslintMajors.join(' and ')} are both admitted by every carrier's peer range, and `
+    + '@kekkai/blueprint\'s CI runs its own suite on each). That covers the carriers this '
+    + 'install adds, not @kekkai/blueprint\'s own parser dependencies: your package manager '
+    + 'may name those as unmet peers when it resolves the newest major. The emitted rules are '
+    + 'unaffected — pin eslint to the older major if you would rather not see it.'
     : dependencies.join(', '));
 }
 

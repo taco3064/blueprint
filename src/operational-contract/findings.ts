@@ -86,7 +86,9 @@ function renderDependencyFinding(fact: DependencyFindingFact): string {
       return `"${fact.subject}" crosses an architectural boundary through a secondary alias — `
         + `use the canonical source-root spelling "${fact.canonicalSpecifier}".`;
     case 'deep-import':
-      return `"${fact.subject}" reaches inside a unit — import it through its entry.`;
+      return `"${fact.subject}" reaches inside a unit — import it through that unit's entry, or, `
+        + 'for a file no entry can re-export such as a stylesheet, move it beside the file that '
+        + 'imports it.';
     case 'same-layer-alias':
       return `Same-layer import "${fact.subject}" via the alias — use a relative path or `
         + 'extract to a lower layer.';

@@ -32,6 +32,22 @@ export function normalizeGroupPatterns(patterns: GroupPattern[]): GroupPattern[]
   });
 }
 
+export function normalizePathPatterns(paths: PathPattern[]): PathPattern[] {
+  const seen = new Set<string>();
+
+  return paths.flatMap((path) => {
+    const key = JSON.stringify(path);
+
+    if (seen.has(key)) {
+      return [];
+    }
+
+    seen.add(key);
+
+    return [path];
+  });
+}
+
 function escapeLeadingHash(pattern: string): string {
   if (pattern.startsWith('#')) {
     return `\\${pattern}`;

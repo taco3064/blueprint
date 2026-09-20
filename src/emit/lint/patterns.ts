@@ -349,4 +349,8 @@ export function selfOnlyReexportSelector(alias: string, target?: string): string
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
 }
 
-export { buildStructuralPatterns, normalizeGroupPatterns } from './structural';
+export {
+  buildStructuralPatterns,
+  normalizeGroupPatterns,
+  normalizePathPatterns,
+} from './structural';
