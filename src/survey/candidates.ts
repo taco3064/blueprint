@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef, ResolvedArchitecture } from '../config';
+import type { ArchitectureDef, LayerDef, ResolvedArchitecture } from '../config';
 import {
   buildUnitGraph,
   detectCycles,
@@ -44,6 +44,7 @@ export interface TransformationEvidence {
   resolutionBasis: 'blueprint-config' | 'survey-detected';
   rootWiring: string[];
   sourceLayers: { layer: string; units: string[] }[];
+  sourcePolicy: LayerDef[];
   seedSource: 'containers' | 'pages' | 'none';
   candidates: TransformationCandidate[];
   routerCandidates: TransformationCandidate[];
@@ -115,6 +116,7 @@ export function collectTransformationEvidence(
     resolutionBasis: architecture ? 'blueprint-config' : 'survey-detected',
     rootWiring: survey.rootFiles,
     sourceLayers: sourceLayersOf(basis.physicalUnits),
+    sourcePolicy: architecture ? basis.resolved.layers.map((layer) => layer.definition) : [],
     seedSource,
     candidates,
     routerCandidates,

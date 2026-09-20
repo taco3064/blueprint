@@ -325,3 +325,72 @@ describe('module-first to layer-first router mapping', () => {
     );
   });
 });
+
+describe('module-first to layer-first mapping · recorded origin', () => {
+  it('restores the recorded container identity and layer policy over the fallback', () => {
+    const root = fixture(mappingFiles);
+
+    const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
+
+    const recorded = collectModuleToLayerEvidence({
+      root,
+      survey,
+      architecture: mappingArchitecture(),
+      nextAppRouter: false,
+      origin: {
+        version: 1,
+        direction: 'layer-first-to-module-first',
+        origin: {
+          head: 'abc123',
+          topology: 'layer-first',
+          applicationRoot: '.',
+          selectedScope: 'src',
+          sourceRoot: 'src',
+          framework: 'react',
+          router: null,
+          layers: [{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }],
+          sources: [{
+            role: 'container-seed',
+            unit: 'containers/AuthScreen',
+            members: ['src/containers/AuthScreen/index.ts'],
+          }],
+        },
+        target: {
+          topology: 'module-first',
+          decisions: [{
+            source: 'containers/AuthScreen',
+            destinations: ['auth'],
+            members: [{
+              source: 'src/containers/AuthScreen/index.ts',
+              destination: 'src/auth/index.ts',
+            }],
+          }],
+        },
+      },
+    });
+
+    expect(recorded.mappings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'src/auth/AuthRoot.ts',
+        destination: 'src/containers/AuthScreen/AuthRoot.ts',
+      }),
+    ]));
+
+    expect(recorded.architectureBasis.layers)
+      .toEqual([{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }]);
+
+    const fallback = collectModuleToLayerEvidence({
+      root,
+      survey,
+      architecture: mappingArchitecture(),
+      nextAppRouter: false,
+    });
+
+    expect(fallback.mappings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'src/auth/AuthRoot.ts',
+        destination: 'src/containers/auth/AuthRoot.ts',
+      }),
+    ]));
+  });
+});

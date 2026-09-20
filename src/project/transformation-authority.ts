@@ -146,6 +146,16 @@ export function writeTransformationAuthority(
   }
 }
 
+export function retainedTransformationOrigin(
+  root: string,
+  exec: AuthorityGit = git,
+): LayerToModuleObligation | null {
+  const ref = reference(root, exec);
+  const authority = ref === null ? null : read(root, ref, exec);
+
+  return authority?.status === 'completed' ? authority.obligation : null;
+}
+
 export function recoverTransformationObligation(
   root: string,
   exec: AuthorityGit = git,

@@ -19,6 +19,7 @@ import {
   writeTransformationAuthorities,
   claudeDirState,
   detect,
+  retainedTransformationOrigin,
   TRANSFORMATION_OBLIGATION_FILE,
   transformationObligationSource,
 } from '../project';
@@ -258,6 +259,7 @@ function renderApplication(
       survey,
       architecture: blueprint.architecture,
       nextAppRouter: state.hasNext,
+      origin: retainedTransformationOrigin(blueprint.applicationRoot),
     }),
     preflight,
     findings: preflight.inspection.findings!,

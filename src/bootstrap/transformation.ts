@@ -120,6 +120,7 @@ export function buildTransformationObligation(
       sourceRoot: input.evidence.sourceRoot,
       framework: input.state.framework ?? 'unknown',
       router: input.state.nextRouter,
+      layers: input.evidence.sourcePolicy,
       sources: unique,
     },
     target: { topology: 'module-first', decisions: [] },
