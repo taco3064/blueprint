@@ -30,6 +30,10 @@ function productionFiles(directoryPath: string): string[] {
   });
 }
 
+function isMutantInstrumented(file: string): boolean {
+  return fs.readFileSync(file, 'utf8').includes('stryMutAct_');
+}
+
 function compilerProgram(): ts.Program {
   const configFile = ts.readConfigFile(
     path.join(repository, 'tsconfig.test.json'),
@@ -375,10 +379,10 @@ describe('operational surface registry', () => {
     const operational = operationalTextType(program);
 
     const violations = productionFiles(path.join(repository, 'src'))
-      .filter((file) => !file.startsWith(directory))
+      .filter((file) => !file.startsWith(directory) && !isMutantInstrumented(file))
       .flatMap((file) => sinkViolations(program.getSourceFile(file)!, checker, operational));
 
-    expect(violations).toEqual([]);
+    expect(violations.join('\n')).toBe('');
   });
 });
 
