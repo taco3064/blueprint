@@ -37,6 +37,7 @@ export type { GitReader, GitReadResult, RepositoryContext } from './repository';
 export { findConfigFiles, resolveRepositoryBlueprints } from './blueprints';
 export type { RepositoryBlueprint, RepositoryBlueprintOptions } from './blueprints';
 export {
+  isTransformationObligation,
   readTransformationObligation,
   TRANSFORMATION_OBLIGATION_FILE,
   transformationObligationSource,
