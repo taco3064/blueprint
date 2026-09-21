@@ -25,7 +25,12 @@ export type FindingMessageFact
     | { kind: 'undeclared-folder'; name: string; subject: 'module' | 'layer'; runway?: boolean }
     | { kind: 'undeclared-inner-layer'; layer: string; module: string }
     | { kind: 'missing-position'; name: string; subject: 'module' | 'layer' }
-    | { kind: 'uncovered-application-source'; sourceRoot: string; directories: string[] }
+    | {
+      kind: 'uncovered-application-source';
+      sourceRoot: string;
+      imported: string[];
+      importing: string[];
+    }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
     | { kind: 'no-entry'; unit: string; entry: string; directFile?: string };
 
@@ -112,16 +117,25 @@ function renderUndeclaredModule(name: string, runway: boolean): string {
     + 'handbook; never declare a module only to silence this finding.';
 }
 
-function renderUncoveredApplicationSource(sourceRoot: string, directories: string[]): string {
-  const named = directories.map((directory) => `"${directory}"`).join(', ');
+function renderUncoveredApplicationSource(
+  sourceRoot: string,
+  imported: string[],
+  importing: string[],
+): string {
+  const named = (directories: string[]): string =>
+    directories.map((directory) => `"${directory}"`).join(', ');
+
+  const edges = [
+    imported.length === 0 ? '' : `code under "${sourceRoot}" imports ${named(imported)}`,
+    importing.length === 0 ? '' : `${named(importing)} import code under "${sourceRoot}"`,
+  ].filter(Boolean).join(', and ');
 
   return `Module-first is closed-world at the source root: the folders under "${sourceRoot}" are `
-    + `the whole module universe. Code under "${sourceRoot}" imports ${named}, which hold source `
-    + 'outside it, so this application\'s architecture already extends past the configured scan '
-    + 'boundary and nothing here observes those folders — no flow rule, no cycle check, no '
-    + 'coverage number. The scan boundary is not the topology root: widen `architecture.'
-    + 'sourceRoot` to the directory that holds the whole application and declare what lives at '
-    + `that level, or move the imported source under "${sourceRoot}".`;
+    + `the whole module universe. Here ${edges} — a dependency either way makes that source part `
+    + 'of this application\'s architecture, and nothing here observes it: no flow rule, no cycle '
+    + 'check, no coverage number. The scan boundary is not the topology root, so narrowing '
+    + '`architecture.sourceRoot` hides the dependency rather than removing it. Widen it to the '
+    + 'directory that holds the whole application and declare what lives at that level.';
 }
 
 function renderFolderFinding(fact: FolderFindingFact): string {
@@ -140,7 +154,7 @@ function renderFolderFinding(fact: FolderFindingFact): string {
         + 'the rules arm when code lands; keeping it is the default, '
         + 'slimming is the owner\'s call.';
     case 'uncovered-application-source':
-      return renderUncoveredApplicationSource(fact.sourceRoot, fact.directories);
+      return renderUncoveredApplicationSource(fact.sourceRoot, fact.imported, fact.importing);
     case 'declaratory-self-only':
       return `selfOnly on "${fact.layer}" (importer(s): ${fact.importers.join(', ')}) is declaratory — `
         + 'the layer holds no files, so the re-export ban cannot fire yet; it arms once code '

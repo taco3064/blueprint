@@ -140,19 +140,75 @@ describe('inspect · module-first application scope · silence', () => {
   });
 });
 
-describe('inspect · application universe scan', () => {
-  it('counts a directory as source only when it holds readable source below it', () => {
-    expect(scan(fixture(), 'features').outsideDirs).toEqual(['app', 'config', 'docs']);
+const PLAIN = 'export const Login = 1;\n';
+
+describe('inspect · module-first application scope · the other direction', () => {
+  it('reports a directory that imports the module universe with nothing imported back', () => {
+    expect(uncovered(fixture({
+      'features/auth/components/Login/index.tsx': PLAIN,
+      'app/router.ts': 'import \'~app/auth/components/Login\';\n',
+    }))).toEqual(['app']);
   });
 
-  it('does not count a directory whose only source sits under a skipped directory', () => {
-    expect(scan(fixture({
-      'features/auth/components/Login/index.tsx': 'export const Login = 1;\n',
-      'reports/coverage/bundle.ts': 'export const bundle = 1;\n',
-    }), 'features').outsideDirs).toEqual([]);
+  it('follows a relative import that climbs from outside into the module universe', () => {
+    expect(uncovered(fixture({
+      'features/auth/components/Login/index.tsx': PLAIN,
+      'app/router.ts': 'import \'../features/auth/components/Login\';\n',
+    }), { additionalAliases: undefined })).toEqual(['app']);
+  });
+
+  it('names a directory once, and both edges, when the dependency runs both ways', () => {
+    const root = fixture({
+      'features/auth/components/Login/index.tsx': 'import \'@app/router\';\n',
+      'app/router.ts': 'import \'~app/auth/components/Login\';\n',
+    });
+
+    const [finding] = applicationScopeFindings(scan(root, 'features'), blueprint({}).architecture);
+
+    expect(finding.subject).toBe('app');
+    expect(finding.message).toContain('code under "features" imports "app"');
+    expect(finding.message).toContain('"app" import code under "features"');
+  });
+
+  it('separates a nested source root from its own siblings', () => {
+    const files = {
+      'src/features/auth/components/Login/index.tsx': PLAIN,
+      'src/lib/thing.ts': 'export const thing = 1;\n',
+    };
+
+    const nested = { sourceRoot: 'src/features', additionalAliases: undefined };
+
+    expect(uncovered(fixture({
+      ...files,
+      'app/router.ts': 'import \'../src/lib/thing\';\n',
+    }), nested)).toEqual([]);
+
+    expect(uncovered(fixture({
+      ...files,
+      'app/router.ts': 'import \'../src/features/auth/components/Login\';\n',
+    }), nested)).toEqual(['app']);
+
+    expect(uncovered(fixture({
+      ...files,
+      'app/router.ts': 'import \'../src/features\';\n',
+    }), nested)).toEqual(['app']);
+  });
+
+  it('stays quiet about outside source that neither imports nor is imported', () => {
+    expect(uncovered(fixture({
+      'features/auth/components/Login/index.tsx': PLAIN,
+      'docs/guide/example.ts': 'export const example = 1;\n',
+    }))).toEqual([]);
+  });
+});
+
+describe('inspect · application universe scan', () => {
+  it('reads the source outside the source root, and nothing it never descends into', () => {
+    expect(scan(fixture(), 'features').outsideFiles?.map((file) => file.path))
+      .toEqual(['app/router.ts', 'config/env.ts', 'docs/guide/example.ts']);
   });
 
   it('has nothing outside a source root that is the application root', () => {
-    expect(scan(fixture(), '.').outsideDirs).toEqual([]);
+    expect(scan(fixture(), '.').outsideFiles).toEqual([]);
   });
 });
