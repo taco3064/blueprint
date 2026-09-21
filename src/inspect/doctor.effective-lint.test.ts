@@ -58,6 +58,8 @@ describe('Doctor effective nested-app lint context', () => {
     ['eslint .', 'apps/web', true],
     ['eslint apps/web', 'apps/web', true],
     ['eslint apps', 'apps/web', true],
+    ['eslint src apps/web', 'apps/web', true],
+    ['eslint apps/web/', 'apps/web/', true],
     ['eslint src', 'apps/web', false],
     ['eslint .', undefined, false],
   ] as const)('classifies coverage for %s / %s', (script, basePath, expected) => {
@@ -72,5 +74,10 @@ describe('Doctor effective nested-app lint context', () => {
     expect(ancestorLintCoversApplication(
       assessLintEntrypoint(pkg({ lint: 'eslint src && tsc' })), 'apps/web',
     )).toBe(false);
+
+    expect(ancestorLintCoversApplication({
+      reachable: true,
+      eslint: { command: 'eslint', args: undefined },
+    } as never, 'apps/web')).toBe(false);
   });
 });
