@@ -44,6 +44,8 @@ export function assessLintEntrypoint(
 function opaqueLintPath(scripts: Record<string, string>, name: string): boolean {
   const search = { scripts, queue: [name], visited: new Set([name]) };
 
+  // Stryker disable next-line EqualityOperator: one extra cursor iteration immediately reaches
+  // the undefined queue sentinel below and exits without observing or changing classification.
   for (let cursor = 0; cursor < Object.keys(scripts).length; cursor += 1) {
     const current = search.queue[cursor];
 
