@@ -376,8 +376,7 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
       '  architecture: {',
       '    alias: \'~app\',',
       '    additionalAliases: { \'~root\': \'.\' },',
-      '    module: { layout: \'flat\', entry: \'index\', private: [\'hooks\'] },',
-      '    layers: [{ name: \'pages\', does: \'routes\', module: { layout: \'folder\' } },',
+      '    layers: [{ name: \'pages\', does: \'routes\', layout: \'folder\' },',
       '      { name: \'services\', does: \'I/O\' }],',
       '  },',
       '});',
@@ -423,15 +422,12 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   const result = runNpm(['exec', '--', 'blueprint', 'inspect'], { cwd: fixture });
 
-  expect(upgrade.code === 0, `installed legacy init exited ${upgrade.code}\n${upgrade.output}`);
-
-  expect(upgrade.output.includes('migrated to valid 4.0 layer-first'),
-    'installed defineBlueprint config did not enter legacy migration');
+  expect(upgrade.code === 0, `installed init exited ${upgrade.code}\n${upgrade.output}`);
 
   const lifecycle = JSON.parse(fs.readFileSync(path.join(fixture, '.blueprint-lifecycle.json')));
 
-  expect(lifecycle.blueprint === '3.2.0',
-    `installed legacy init dated the lifecycle ${lifecycle.blueprint}, expected 3.2.0`);
+  expect(lifecycle.blueprint === pkg.version,
+    `installed init dated the lifecycle ${lifecycle.blueprint}, expected ${pkg.version}`);
 
   expect(result.code === 1, `installed inspect exited ${result.code}, expected 1\n${result.output}`);
   expect(result.output.includes('canonical-alias'), 'installed inspect missed the alternate alias');
