@@ -51,11 +51,16 @@ export {
   renderPlaybook,
 };
 
-export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = {}): string {
+export function renderCompactContract(
+  blueprint: Blueprint,
+  stack: StackFacts = {},
+  contractDoc?: string,
+): string {
   return renderOperationalCompactContract(blueprint, {
     gates: gateFacts(blueprint, stack),
     handbook: handbookPath(blueprint),
     lintIntegration: stack.lintIntegration,
+    contractDoc,
   });
 }
 

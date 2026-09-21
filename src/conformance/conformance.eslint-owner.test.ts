@@ -42,6 +42,13 @@ function expectRootReadyReference(reference: string): void {
   expect(reference).toContain('files: [\'src/**/*.{js,jsx,ts,tsx,vue}\']');
 }
 
+function expectNestedDependencyOwnership(output: string, app: string): void {
+  expect(output).toContain('pnpm add -Dw');
+
+  expect(read(app, 'AGENTS.md'))
+    .toContain('../../node_modules/@kekkai/blueprint/agent-contract.md');
+}
+
 afterEach(() => {
   for (const root of roots.splice(0)) {
     rm(root);
@@ -71,6 +78,7 @@ describe('nested application eslint ownership', () => {
 
     expect(result.output).toContain('basePath: applicationRoot');
     expect(result.output).toContain('import blueprint from \'./apps/web/blueprint.config.mjs\';');
+    expectNestedDependencyOwnership(result.output, app);
   });
 
   it('keeps adopter and Blueprint rules alive in one repository-root config', async () => {

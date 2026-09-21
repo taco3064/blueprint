@@ -42,7 +42,7 @@ export type DoctorCheckFact
       | {
         kind: 'lint-entrypoint';
         reachable: false;
-        reason: 'missing-lint' | 'unreachable';
+        reason: 'missing-lint' | 'unreachable' | 'opaque-ancestor';
         entrypoint?: string;
       }
       | { kind: 'live-lint'; status: 'unreachable' }
@@ -168,6 +168,16 @@ function renderLintEntrypoint(
     return { label, ok: true,
       skipped: 'No recognised lint or eslint script; the normal lint entrypoint '
         + 'could not be determined. Expose it through a lint script to verify this check.' };
+  }
+
+  if (fact.reason === 'opaque-ancestor') {
+    return {
+      label,
+      ok: true,
+      skipped: `The ancestor lint entrypoint runs \`${fact.entrypoint}\`, whose implementation `
+        + 'Blueprint cannot inspect. Expose a direct or npm/pnpm/yarn-delegated ESLint leg '
+        + 'to verify this check.',
+    };
   }
 
   return { label, ok: false,

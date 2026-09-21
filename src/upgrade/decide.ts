@@ -149,6 +149,14 @@ function checkpointRefusal(facts: UpgradeFacts): UpgradeDecision | null {
     });
   }
 
+  if (checkpoint.kind === 'unproven-legacy-source') {
+    return refuse({
+      kind: 'unproven-legacy-source',
+      installed: checkpoint.installed,
+      checkpoint: checkpoint.checkpoint,
+    });
+  }
+
   return checkpoint.kind === 'mixed-installed'
     ? refuse({ kind: 'mixed-installed', versions: checkpoint.versions })
     : null;

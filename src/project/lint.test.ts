@@ -92,6 +92,18 @@ describe('assessLintEntrypoint', () => {
       reason: 'eslint-unreachable',
     });
   });
+
+  it('distinguishes an opaque wrapper from a provably different lint command', () => {
+    expect(assessLintEntrypoint(pkg({ lint: 'vsh lint' })).reason).toBe('eslint-opaque');
+
+    expect(assessLintEntrypoint(pkg({ lint: 'node scripts/lint.js' })).reason)
+      .toBe('eslint-opaque');
+
+    expect(assessLintEntrypoint(pkg({ lint: 'oxlint' })).reason).toBe('eslint-unreachable');
+
+    expect(assessLintEntrypoint(pkg({ lint: 'npm run missing' })).reason)
+      .toBe('eslint-unreachable');
+  });
 });
 
 describe('assessLintEntrypoint · command positions', () => {

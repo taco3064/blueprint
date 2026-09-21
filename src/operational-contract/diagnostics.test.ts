@@ -40,10 +40,20 @@ describe('operational diagnostic prose', () => {
       kind: 'lint-entrypoint', reachable: false, reason: 'unreachable', entrypoint: 'oxlint',
     });
 
+    const opaque = renderDoctorCheck({
+      kind: 'lint-entrypoint', reachable: false, reason: 'opaque-ancestor',
+      entrypoint: 'vsh lint',
+    });
+
     const skipped = renderDoctorCheck({ kind: 'live-lint', status: 'unreachable' });
     const passed = renderDoctorCheck({ kind: 'config', present: true });
 
     expect(failed).toMatchObject({ ok: false, detail: expect.stringContaining('no reachable') });
+
+    expect(opaque).toMatchObject({
+      ok: true,
+      skipped: expect.stringContaining('implementation Blueprint cannot inspect'),
+    });
 
     expect(skipped).toMatchObject({
       ok: true, skipped: expect.stringContaining('unverified path'),
@@ -56,6 +66,7 @@ describe('operational diagnostic prose', () => {
     expect(complete).toContain('Adoption complete');
     expect(complete).not.toContain('Stryker was here');
     expect(renderDoctorReport([skipped], {})).toContain('Adoption unverified');
+    expect(renderDoctorReport([opaque], {})).toContain('Adoption unverified');
     expect(renderDoctorReport([failed], {})).toContain('Adoption incomplete');
   });
 

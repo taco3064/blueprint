@@ -165,6 +165,32 @@ describe('runUpgrade · refusals before any change', () => {
       'Blueprint 3.1.0 is below the supported upgrade window, which starts at 3.2.0',
     );
   });
+
+  it('does not date an ambiguous legacy adoption from a preinstalled current package', async () => {
+    adopt('.', '4.1.0');
+    const before = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+    const loadConfig = async () => ({ architecture: { module: {}, layers: [] } });
+
+    await expect(upgrade({
+      loadConfig,
+      git: (args) => {
+        if (args[0] === 'rev-list') {
+          return { status: 0, stdout: '', stderr: '' };
+        }
+
+        if (args[0] === 'rev-parse' && args[1] === '--is-shallow-repository') {
+          return { status: 0, stdout: 'false', stderr: '' };
+        }
+
+        return repository(args, root);
+      },
+    })).rejects.toThrow('the legacy Blueprint config overlaps releases below and inside the '
+      + 'supported upgrade window');
+
+    expect(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).toBe(before);
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'blueprint-upgrade.md'))).toBe(false);
+  });
 });
 
 describe('runUpgrade · refusals of the plan and its safety', () => {

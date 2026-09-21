@@ -193,6 +193,17 @@ describe('plan · the agent contract files it stops emitting', () => {
 });
 
 describe('plan · the agent contract files it writes, and the marker block inside them', () => {
+  it('links an application contract to the ancestor-installed package contract', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo',
+    }), bp);
+
+    expect(write(actions, 'AGENTS.md')?.content)
+      .toContain('../../node_modules/@kekkai/blueprint/agent-contract.md');
+  });
+
   it('renders a malformed merge boundary through the operational contract', () => {
     expect(() => plan(state(), bp, {
       existingAgentFiles: {

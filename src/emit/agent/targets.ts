@@ -1,3 +1,5 @@
+import nodePath from 'node:path';
+
 import type { AgentTarget, Blueprint } from '../../config';
 import { normalizeAgentEmit } from '../../config';
 import { withValidationErrorRendering } from '../../operational-contract';
@@ -61,8 +63,8 @@ export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strate
  * Distribute the agent contract across tool-specific files. Shared context files
  * (`merge`) get the compact pointer block, since people maintain those documents;
  * tool-owned rule files (`own`) get the full contract. `defaultTargets` overrides
- * the built-in default when `emit.agents` is unset; `stack` carries the fact no
- * Blueprint holds, which decides whether `explicitAny` may be named hard here.
+ * the built-in default when `emit.agents` is unset; `facts` carries evidence no
+ * Blueprint holds, including lint integration and the package-install root.
  * Pure — writes nothing.
  * @group Emitters
  * @example
@@ -73,28 +75,35 @@ export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strate
 export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],
-  stack: StackFacts = {},
+  facts: StackFacts & { packageRoot?: string } = {},
 ): AgentFile[] {
   return withValidationErrorRendering(() => emitAgentFilesUnchecked(
     blueprint,
     defaultTargets,
-    stack,
+    facts,
   ));
 }
 
 function emitAgentFilesUnchecked(
   blueprint: Blueprint,
   defaultTargets: AgentTarget[] | undefined,
-  stack: StackFacts,
+  facts: StackFacts & { packageRoot?: string },
 ): AgentFile[] {
+  const { packageRoot = '.', ...stack } = facts;
   const entries = normalizeAgentEmit(blueprint.emit?.agents, defaultTargets);
 
   return entries.map(({ target, path }) => {
     const spec = TARGETS[target];
 
+    const contractDoc = nodePath.posix.relative(
+      nodePath.posix.dirname(path ?? spec.path),
+      nodePath.posix.join(packageRoot, 'node_modules/@kekkai/blueprint/agent-contract.md'),
+    );
+
     const contract = emitAgentContract(blueprint, {
       ...stack,
       compact: spec.strategy === 'merge',
+      contractDoc,
     });
 
     return {

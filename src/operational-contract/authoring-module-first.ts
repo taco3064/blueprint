@@ -34,7 +34,9 @@ export function renderModuleFirstGoal(): string {
     '2. `npx blueprint init` artifacts (lint config, handbook, agent contracts)',
     '3. `npx blueprint inspect --update-baseline` — a missing baseline is correct when no debt '
     + 'exists',
-    '4. A closing report with the module + inner-layer structure, dependency debt, and cycles',
+    '4. A closing report with the module + inner-layer structure, dependency debt, and cycle '
+    + 'results only when a declared Blueprint gate or existing house detector measured them; '
+    + 'otherwise state that cycle detection was not enabled',
     '',
     'Out of scope: fixing application debt or changing the selected topology.',
     'There is no module-first domain preset: Blueprint never invents domain modules, and this '
@@ -65,7 +67,9 @@ export function renderModuleFirstMethod(
     + '`components`, `hooks`, `services`, and `lib`) from the actual code. Declare one inner-layer '
     + 'flow shared by the modules; do not create parallel global layer folders.',
     '6. Derive direct `dependsOn` edges from the real cross-module imports of the decided '
-    + 'ownership; report cycles and counter-direction edges as debt instead of inventing edges.',
+    + 'ownership; report counter-direction edges as debt instead of inventing edges. Report '
+    + 'cycles only when a declared non-off Blueprint gate or an existing house detector measured '
+    + 'them; otherwise state that cycle detection was not enabled and do not claim there are none.',
     '7. Choose file/folder unit layouts and the inner-layer order from actual import direction.',
     '   A layer may import only inner layers declared after it; cross-boundary imports use the '
     + 'canonical alias.',

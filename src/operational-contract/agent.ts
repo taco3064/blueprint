@@ -29,7 +29,14 @@ export interface AgentGateFact {
 export interface CompactContractFacts {
   gates: AgentGateFact[];
   handbook: string;
+  contractDoc?: string;
   lintIntegration?: 'verified' | 'unverified' | 'reference-only';
+}
+
+const DEFAULT_CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
+
+function contractDocument(facts: CompactContractFacts): string {
+  return facts.contractDoc ?? DEFAULT_CONTRACT_DOC;
 }
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -67,8 +74,6 @@ export function renderHeader(): string {
   ].join('\n');
 }
 
-const CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
-
 export function renderCompactContract(
   blueprint: Blueprint,
   facts: CompactContractFacts,
@@ -76,7 +81,14 @@ export function renderCompactContract(
   const { architecture } = blueprint;
   const resolved = resolveArchitecture(architecture);
   const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
-  const { gates, handbook, lintIntegration = 'unverified' } = facts;
+
+  const {
+    gates,
+    handbook,
+    lintIntegration = 'unverified',
+  } = facts;
+
+  const contractDoc = contractDocument(facts);
 
   const topology = resolved.topology === 'module-first'
     ? 'Module → Layer → Unit'
@@ -99,7 +111,7 @@ export function renderCompactContract(
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, ${resolved.topology === 'module-first' ? 'module boundaries, ' : ''}unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
-    + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
+    + `and the pre-commit checklist: read [${contractDoc}](${contractDoc}) `
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version). Upgrade Blueprint only with '
     + '`npx @kekkai/blueprint@latest upgrade` and remove it only with `npx blueprint remove` '

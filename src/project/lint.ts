@@ -9,7 +9,7 @@ export interface LintEntrypointAssessment {
   entrypoint: string | null;
   scriptPath: string[];
   eslint: EslintInvocation | null;
-  reason: 'eslint-reachable' | 'missing-lint' | 'eslint-unreachable';
+  reason: 'eslint-reachable' | 'missing-lint' | 'eslint-unreachable' | 'eslint-opaque';
 }
 
 export function assessLintEntrypoint(
@@ -35,8 +35,42 @@ export function assessLintEntrypoint(
     entrypoint,
     scriptPath: result?.path ?? [name],
     eslint: result?.eslint ?? null,
-    reason: result === null ? 'eslint-unreachable' : 'eslint-reachable',
+    reason: result === null
+      ? opaqueLintPath(pkg.scripts, name) ? 'eslint-opaque' : 'eslint-unreachable'
+      : 'eslint-reachable',
   };
+}
+
+function opaqueLintPath(scripts: Record<string, string>, name: string): boolean {
+  const queue = [name];
+  const visited = new Set(queue);
+
+  while (queue.length) {
+    const command = scripts[queue.shift() as string]!;
+
+    for (const part of shellCommands(command)) {
+      const delegated = delegatedScript(part);
+
+      if (delegated) {
+        if (scripts[delegated.name] !== undefined && !visited.has(delegated.name)) {
+          visited.add(delegated.name);
+          queue.push(delegated.name);
+        }
+
+        continue;
+      }
+
+      if (!provablyNonEslint(part)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function provablyNonEslint(command: string): boolean {
+  return /^(?:npx\s+)?(?:oxlint|biome(?:\s+lint)?|stylelint|tsc|vue-tsc)(?:\s|$)/.test(command);
 }
 
 function pathToEslint(

@@ -85,15 +85,17 @@ describe('sourceCheckpoint', () => {
       .toEqual({ kind: 'bootstrap', version: '4.2.0', evidence: 'state-never-committed' });
   });
 
-  it('lets a legacy config shape prove an older source than the installed package', () => {
+  it('uses an installed legacy package as the exact source checkpoint', () => {
     expect(checkpoint({ installed: ['3.2.0'], legacyShape: true }))
-      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'installed-package' });
 
     expect(checkpoint({ installed: ['3.1.0'], legacyShape: true }))
-      .toEqual({ kind: 'bootstrap', version: '3.1.0', evidence: 'legacy-config' });
+      .toEqual({ kind: 'bootstrap', version: '3.1.0', evidence: 'installed-package' });
+  });
 
+  it('does not round an ambiguous legacy source up to the supported checkpoint', () => {
     expect(checkpoint({ installed: ['4.1.0'], legacyShape: true, history: 'never-recorded' }))
-      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+      .toEqual({ kind: 'unproven-legacy-source', installed: '4.1.0', checkpoint: '3.2.0' });
   });
 
   it('never lets a legacy config shape rebuild lost or unprovable lifecycle state', () => {

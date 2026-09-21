@@ -64,6 +64,11 @@ const small = authoringBrief(
 );
 
 describe('authoringActions', () => {
+  it('points a nested launch at the application-local playbook', () => {
+    expect(AGENT_PROMPT).toContain('from the application root');
+    expect(AGENT_PROMPT).not.toContain('at the repository root');
+  });
+
   it('keeps module-first narration aligned with its selected authoring path', () => {
     const actions = authoringActions(
       { ...survey, totalFiles: 0 },
@@ -443,6 +448,22 @@ describe('authoringBrief · how its prose is wrapped', () => {
 });
 
 describe('authoringBrief · what the closing sections carry', () => {
+  it('does not require an adopting agent to invent cycle detection', () => {
+    expect(brief).toContain('cycle detection was not enabled');
+    expect(brief).toContain('Do not enable a new gate solely to satisfy this acceptance item');
+    expect(brief).toContain('an ancestor-owned lint wrapper Blueprint cannot inspect');
+    expect(brief).not.toContain('report names every import cycle');
+
+    const module = authoringBrief(survey, 'npm i', {
+      claudeDir: { hadDir: false, otherCommands: 0 },
+      topology: 'module-first',
+    });
+
+    expect(module).toContain('cycle detection was not enabled');
+    expect(module).toContain('Report cycles only when a declared non-off Blueprint gate');
+    expect(module).not.toContain('report cycles and counter-direction edges as debt');
+  });
+
   it('embeds the survey evidence and the schema sketch', () => {
     expect(brief).toContain('resources → components');
     expect(brief).toContain('~root/…'); // the unresolved-alias hint travels with the evidence

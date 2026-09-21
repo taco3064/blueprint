@@ -33,6 +33,7 @@ import { launchAgent } from './agent';
 import {
   claudeAuthoringLauncherActions,
   emitsClaudeAuthoringLauncher,
+  REPOSITORY_AGENT_PROMPT,
 } from './authoring-launcher';
 import { apply, defaultExec } from './apply';
 import { installCommand } from './plan';
@@ -150,6 +151,7 @@ export async function runRepositoryTopologyTransformation(
     launchAgent(input.options.agent, repositoryRoot, {
       log: input.log,
       spawner: input.options.spawn,
+      prompt: REPOSITORY_AGENT_PROMPT,
     });
   }
 
@@ -215,7 +217,7 @@ function repositoryLauncher(
 
   return {
     cleanup: cleanupTargets(claudeDirState(repositoryRoot), claude),
-    actions: claudeAuthoringLauncherActions(claude),
+    actions: claudeAuthoringLauncherActions(claude, REPOSITORY_AGENT_PROMPT),
   };
 }
 

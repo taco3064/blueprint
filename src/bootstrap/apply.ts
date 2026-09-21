@@ -43,7 +43,7 @@ export function apply(root: string, actions: Action[], effects: ApplyEffects): v
       fs.mkdirSync(full, { recursive: true });
       fs.writeFileSync(path.join(full, '.gitkeep'), '');
     } else if (action.kind === 'install') {
-      exec(action.command, root);
+      exec(action.command, action.cwd ?? root);
     } else if (action.kind === 'rm') {
       fs.rmSync(path.resolve(root, action.path), { force: true });
     }

@@ -255,6 +255,47 @@ describe('referenceConflicts · comments', () => {
   });
 });
 
+describe('referenceConflicts · surviving source imports', () => {
+  const conflicts = (actions: Parameters<typeof plannedFiles>[0] = []) =>
+    referenceConflicts(facts([application('.')]), plannedFiles(actions));
+
+  it.each([
+    ['static', 'import { defineBlueprint } from \'@kekkai/blueprint\';'],
+    ['public subpath', 'export * from \'@kekkai/blueprint/operational-contract\';'],
+    ['CommonJS', 'const blueprint = require(\'@kekkai/blueprint\');'],
+    ['dynamic', 'const blueprint = import(\'@kekkai/blueprint/operational-contract\');'],
+    ['type', 'type Text = import(\'@kekkai/blueprint/operational-contract\').OperationalText;'],
+  ])('reports a real %s reference', (_label, source) => {
+    write('src/use-blueprint.ts', `${source}\n`);
+
+    expect(conflicts()).toEqual([{
+      kind: 'reference', path: 'src/use-blueprint.ts', detail: 'import',
+    }]);
+  });
+
+  it('ignores comments, prose, inert strings, and similarly named packages', () => {
+    write('src/notes.ts', [
+      '// import value from "@kekkai/blueprint";',
+      'const prose = "import value from \'@kekkai/blueprint/operational-contract\'";',
+      'const packageName = "@kekkai/blueprint";',
+      'const other = import("@kekkai/blueprintish");',
+      '',
+    ].join('\n'));
+
+    expect(conflicts()).toEqual([]);
+  });
+
+  it('evaluates the content that survives planned deletion or rewriting', () => {
+    write('src/deleted.ts', 'import value from "@kekkai/blueprint";\n');
+    write('src/rewritten.ts', 'import value from "@kekkai/blueprint";\n');
+
+    expect(conflicts([
+      { kind: 'delete', path: 'src/deleted.ts', reason: 'generated' },
+      { kind: 'write', path: 'src/rewritten.ts', content: 'export {};\n', reason: 'edit' },
+    ])).toEqual([]);
+  });
+});
+
 describe('referenceConflicts · one directory under two spellings', () => {
   let link: string;
 

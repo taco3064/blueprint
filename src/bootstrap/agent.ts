@@ -7,6 +7,7 @@ import {
   renderAgentLaunchFailure,
   renderAgentLaunchHeader,
 } from '../operational-contract';
+import type { OperationalText } from '../operational-contract';
 
 export const AGENT_KINDS = ['claude', 'codex'] as const;
 
@@ -16,8 +17,8 @@ export function agentTargetOf(agent: AgentKind): 'claude' | 'agents' {
   return agent === 'claude' ? 'claude' : 'agents';
 }
 
-export function launchCommandLine(agent: AgentKind): string {
-  return renderAgentCommand(agent, AGENT_PROMPT);
+export function launchCommandLine(agent: AgentKind, prompt = AGENT_PROMPT): string {
+  return renderAgentCommand(agent, prompt);
 }
 
 export type Spawner = (
@@ -37,20 +38,20 @@ const defaultSpawner: Spawner = (bin, args, cwd) => {
 export function launchAgent(
   agent: AgentKind,
   root: string,
-  effects: { log: (message: string) => void; spawner?: Spawner },
+  effects: { log: (message: string) => void; spawner?: Spawner; prompt?: OperationalText },
 ): number {
-  const { log, spawner = defaultSpawner } = effects;
+  const { log, spawner = defaultSpawner, prompt = AGENT_PROMPT } = effects;
 
   log(renderAgentLaunchHeader(agent));
-  log(renderAgentCommandOutput(launchCommandLine(agent)));
+  log(renderAgentCommandOutput(launchCommandLine(agent, prompt)));
 
-  const result = spawner(agent, [AGENT_PROMPT], root);
+  const result = spawner(agent, [prompt], root);
 
   if (result.error) {
     throw new Error(renderAgentLaunchFailure(
       agent,
       result.error.message,
-      launchCommandLine(agent),
+      launchCommandLine(agent, prompt),
     ));
   }
 

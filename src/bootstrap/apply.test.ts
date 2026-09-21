@@ -139,4 +139,22 @@ describe('apply · announcing the install', () => {
 
     expect(order).toEqual(['starting npm i -D eslint', 'exec npm i -D eslint', 'applied install']);
   });
+
+  it('runs an owned install from its dependency consumer root', () => {
+    const workspace = path.join(root, 'workspace');
+    const application = path.join(workspace, 'apps/web');
+    const calls: string[] = [];
+
+    apply(application, [{
+      kind: 'install',
+      command: 'pnpm add -Dw eslint',
+      note: note('workspace lint dependency'),
+      cwd: workspace,
+    }], {
+      exec: (command, cwd) => calls.push(`${command} @ ${cwd}`),
+      onApplied: noExec,
+    });
+
+    expect(calls).toEqual([`pnpm add -Dw eslint @ ${workspace}`]);
+  });
 });

@@ -171,7 +171,7 @@ function hasTypescriptSource(root: string): boolean {
     : entry.isFile() && /\.(?:ts|tsx|mts|cts)$/.test(entry.name));
 }
 
-function readPackageMetadata(root: string): PackageMetadata {
+export function readPackageMetadata(root: string): PackageMetadata {
   const pkg = readJson(path.join(root, 'package.json')) ?? {};
 
   const dependencies = Object.fromEntries([

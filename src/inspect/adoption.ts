@@ -1,7 +1,8 @@
 import type { Blueprint } from '../config';
-import { assessLintEntrypoint, loadProjectModule } from '../project';
+import { loadProjectModule } from '../project';
 import type { ProjectState } from '../project';
 import { runLiveLint } from './lint-runtime';
+import { effectiveLintContext } from './doctor';
 import type { ScanResult } from './types';
 import { wiringCheck } from './wiring';
 
@@ -23,9 +24,15 @@ export async function assessLintIntegration(
       : 'unverified';
   }
 
-  const assessment = assessLintEntrypoint(state.localPackage);
+  const dependencies = [...new Set([
+    ...state.localPackage.dependencies,
+    ...state.toolchainPackage.dependencies,
+  ])];
 
-  if (!assessment.reachable || state.missingDeps.length > 0) {
+  const effective = effectiveLintContext(state.applicationRoot, state);
+
+  if (!effective.assessment.reachable || !effective.coversApplication
+    || state.missingDeps.length > 0) {
     return 'unverified';
   }
 
@@ -44,12 +51,7 @@ export async function assessLintIntegration(
     return 'unverified';
   }
 
-  const dependencies = [...new Set([
-    ...state.localPackage.dependencies,
-    ...state.toolchainPackage.dependencies,
-  ])];
-
-  const live = (lint ?? runLiveLint)(state.applicationRoot, dependencies, assessment);
+  const live = (lint ?? runLiveLint)(effective.lintRoot, dependencies, effective.assessment);
 
   return live.status === 'passed' ? 'verified' : 'unverified';
 }

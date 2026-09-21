@@ -7,6 +7,9 @@ import type { Action } from './types';
 export const AGENT_PROMPT
   = renderAuthoringAgentPrompt(AUTHORING_FILE);
 
+export const REPOSITORY_AGENT_PROMPT
+  = renderAuthoringAgentPrompt(AUTHORING_FILE, 'repository');
+
 export type AuthoringAgents = readonly (AgentTarget | AgentEmitEntry)[] | undefined;
 
 export function freshAuthoringAgents(
@@ -24,12 +27,15 @@ export function authoringLauncherActions(agents: AuthoringAgents): Action[] {
   return claudeAuthoringLauncherActions(emitsClaudeAuthoringLauncher(agents));
 }
 
-export function claudeAuthoringLauncherActions(enabled: boolean): Action[] {
+export function claudeAuthoringLauncherActions(
+  enabled: boolean,
+  prompt = AGENT_PROMPT,
+): Action[] {
   return enabled
     ? [{
         kind: 'write',
         path: COMMAND_FILE,
-        content: `${AGENT_PROMPT}\n`,
+        content: `${prompt}\n`,
         note: renderAuthoringLauncherNote(COMMAND_FILE),
         ownership: 'generated',
       }]

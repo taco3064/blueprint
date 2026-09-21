@@ -206,6 +206,54 @@ describe('assessLintIntegration', () => {
   });
 });
 
+describe('assessLintIntegration nested application ownership', () => {
+  it('uses a covering ancestor lint entrypoint for nested authoring evidence', async () => {
+    const runLint = lint('passed');
+    const applicationRoot = path.join(process.cwd(), 'apps/web');
+
+    const nested = state({
+      root: applicationRoot,
+      applicationRoot,
+      eslintConfigRoot: process.cwd(),
+      eslintBasePath: 'apps/web',
+      localPackage: { root: applicationRoot, scripts: {}, dependencies: [] },
+      toolchainPackage: {
+        root: process.cwd(), scripts: { lint: 'eslint apps/web' }, dependencies: ['eslint'],
+      },
+    });
+
+    await expect(assessLintIntegration(
+      nested,
+      blueprint,
+      { scanResult, load: loader(emitLint(blueprint, { basePath: 'apps/web' })), lint: runLint },
+    )).resolves.toBe('verified');
+
+    expect(runLint).toHaveBeenCalledExactlyOnceWith(
+      process.cwd(), ['eslint'], expect.objectContaining({ reachable: true }),
+    );
+  });
+
+  it('keeps an opaque ancestor lint owner unverified without executing it', async () => {
+    const runLint = lint('passed');
+    const applicationRoot = path.join(process.cwd(), 'apps/web');
+    const load = vi.fn(loader());
+
+    await expect(assessLintIntegration(state({
+      root: applicationRoot,
+      applicationRoot,
+      eslintConfigRoot: process.cwd(),
+      eslintBasePath: 'apps/web',
+      localPackage: { root: applicationRoot, scripts: {}, dependencies: [] },
+      toolchainPackage: {
+        root: process.cwd(), scripts: { lint: 'vsh lint' }, dependencies: ['eslint'],
+      },
+    }), blueprint, { scanResult, load, lint: runLint })).resolves.toBe('unverified');
+
+    expect(runLint).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+});
+
 describe('assessLintIntegration defaults', () => {
   it('uses project loading and live lint when effects are not overridden', async () => {
     const root = makeRepo({

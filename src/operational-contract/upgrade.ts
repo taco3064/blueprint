@@ -4,7 +4,6 @@ import type { OperationalText } from './operational-contract';
 export type UpgradeSourceEvidence
   = | 'state'
     | 'installed-package'
-    | 'legacy-config'
     | 'state-never-committed';
 
 export interface UpgradeInstallFact {
@@ -31,7 +30,6 @@ const EVIDENCE: Record<UpgradeSourceEvidence, string> = {
   state: 'recorded in .blueprint-lifecycle.json',
   'installed-package': 'installed @kekkai/blueprint; no lifecycle state yet, so this run '
     + 'establishes it',
-  'legacy-config': 'a Blueprint 3.2 config shape proves the adoption predates 4.0',
   'state-never-committed': 'installed @kekkai/blueprint; no commit reachable from any ref holds '
     + '.blueprint-lifecycle.json, so no lifecycle is proven and this run establishes it',
 };

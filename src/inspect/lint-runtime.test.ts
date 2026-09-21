@@ -55,6 +55,24 @@ function files(): Record<string, string> {
 }
 
 describe('runLiveLint', () => {
+  it('accepts an empty greenfield target and enforces it as soon as source arrives', () => {
+    expect(run('src --no-error-on-unmatched-pattern')).toEqual({
+      status: 'passed',
+      command: 'eslint src --no-error-on-unmatched-pattern',
+      errors: 0,
+      warnings: 0,
+    });
+
+    fs.mkdirSync(path.join(root, 'src'));
+    write('src/violation.js', 'debugger;\n');
+
+    expect(run('src --no-error-on-unmatched-pattern')).toMatchObject({
+      status: 'failed',
+      errors: 1,
+      reason: 'the native ESLint gate failed',
+    });
+  });
+
   it('reports the real project-local eslint result and preserves max-warnings', () => {
     write('clean.js', 'export const answer = 42;\n');
 

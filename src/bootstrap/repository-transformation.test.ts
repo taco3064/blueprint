@@ -235,7 +235,7 @@ describe('repository-wide topology transformation', () => {
     expect(fs.readFileSync(
       path.join(fixture.root, '.claude', 'commands', 'blueprint-author.md'),
       'utf8',
-    )).toContain('Read blueprint-authoring.md at the repository root');
+    )).toContain('Read blueprint-authoring.md from the repository root');
   });
 });
 

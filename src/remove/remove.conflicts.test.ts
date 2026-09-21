@@ -121,7 +121,7 @@ describe('runRemove · all-or-nothing ownership preflight', () => {
     const error = await remove().catch((failure: Error) => failure.message);
 
     expect(error).toContain('✗ package.json: scripts.lint is "eslint src --max-warnings 0", '
-      + 'not the value Blueprint wrote ("eslint src")');
+      + 'not the value Blueprint wrote ("eslint src --no-error-on-unmatched-pattern")');
 
     expect(error).toContain('✗ .gitignore: text Blueprint inserted now appears 2 times');
 

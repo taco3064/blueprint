@@ -422,7 +422,7 @@ describe('layer-first to module-first execution boundary', () => {
       expect(read(launched, 'blueprint-authoring.md')).not.toBeNull();
 
       expect(calls).toMatchObject([['codex', [
-        'Read blueprint-authoring.md at the repository root and execute it end to end.',
+        'Read blueprint-authoring.md from the application root and execute it end to end.',
       ], launched]]);
     });
 });

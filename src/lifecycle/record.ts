@@ -32,7 +32,11 @@ export interface RecordAdoptionInput {
 
 export type RecordAdoptionOutcome
   = | { status: 'write'; content: string; established: LifecycleEstablishment }
-    | { status: 'skipped'; reason: 'unproven-checkpoint' | 'pending-upgrade' | 'missing-state' };
+    | {
+      status: 'skipped';
+      reason: 'unproven-checkpoint' | 'unproven-legacy-source'
+        | 'pending-upgrade' | 'missing-state';
+    };
 
 export function applicationKey(lifecycleRoot: string, applicationRoot: string): string {
   return path.relative(lifecycleRoot, applicationRoot).split(path.sep).join('/') || '.';
@@ -97,6 +101,10 @@ function establishedState(
 
   if (checkpoint.kind === 'bootstrap') {
     return { state: emptyState(checkpoint.version, 'partial'), established: 'bootstrap' };
+  }
+
+  if (checkpoint.kind === 'unproven-legacy-source') {
+    return { status: 'skipped', reason: 'unproven-legacy-source' };
   }
 
   return checkpoint.kind === 'missing-state'
