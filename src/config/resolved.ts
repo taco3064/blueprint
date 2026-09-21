@@ -405,10 +405,6 @@ export function resolveLayerFilePatterns(
 }
 
 function rootedLayerFiles(glob: string, sourceRoot: string): string {
-  if (sourceRoot === '.') {
-    return glob;
-  }
-
   const root = segments(sourceRoot);
   const pattern = segments(glob);
 
