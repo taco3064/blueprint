@@ -145,7 +145,10 @@ export const scenarios = [
       path: 'src/hooks',
       subject: '',
     }],
-    playbookClaims: ['src/app/Shop.vue` → `src/pages/Shop.vue', 'For React/Vue'],
+    playbookClaims: [
+      'src/app/Shop.vue` → **unresolved router placement decision**',
+      'For React/Vue',
+    ],
   },
   {
     id: 'reverse-next-app-router',
