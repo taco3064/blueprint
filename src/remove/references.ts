@@ -137,9 +137,11 @@ function sourceImportConflicts(
       seen.add(file);
       const remaining = remainingText(facts.root, file, planned);
 
-      return remaining !== null && importsBlueprint(remaining, file)
-        ? [{ kind: 'reference', path: file, detail: 'import', rules }]
-        : [];
+      if (remaining === null || !importsBlueprint(remaining, file)) {
+        return [];
+      }
+
+      return [{ kind: 'reference', path: file, detail: 'import', rules }];
     }));
 }
 

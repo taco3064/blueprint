@@ -108,16 +108,35 @@ describe('assessLintEntrypoint', () => {
       lint: 'npm run lint:wrapped',
       'lint:wrapped': 'vsh lint',
     })).reason).toBe('eslint-opaque');
+
+    expect(assessLintEntrypoint(pkg({ lint: 'oxlint', build: 'vite build' })).reason)
+      .toBe('eslint-unreachable');
   });
 });
 
 describe('assessLintEntrypoint · opaque command classification', () => {
+  it('reaches opaque leaves without other paths consuming the traversal bound', () => {
+    expect(assessLintEntrypoint(pkg({
+      lint: 'npm run lint:cycle && npm run lint:branch',
+      'lint:cycle': 'npm run lint',
+      'lint:branch': 'npm run lint:leaf',
+      'lint:leaf': 'vsh lint',
+    })).reason).toBe('eslint-opaque');
+
+    expect(assessLintEntrypoint(pkg({
+      lint: 'npm run missing && npm run branch',
+      branch: 'npm run leaf',
+      leaf: 'vsh lint',
+    })).reason).toBe('eslint-opaque');
+  });
+
   it.each([
     'oxlint',
     'npx oxlint',
     'npx   oxlint',
     'biome',
     'biome lint',
+    'biome  lint',
     'stylelint "src/**/*.css"',
     'tsc --noEmit',
     'vue-tsc --noEmit',
@@ -130,6 +149,7 @@ describe('assessLintEntrypoint · opaque command classification', () => {
     'npxoxlint',
     'npx-oxlint',
     'biomelint',
+    'biomeXlint',
     'stylelintx',
     'tscx',
     'vue-tscx',

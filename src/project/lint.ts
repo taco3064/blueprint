@@ -79,10 +79,16 @@ function enqueueOpaqueDelegation(
   },
   name: string,
 ): void {
-  if (search.scripts[name] !== undefined && !search.visited.has(name)) {
-    search.visited.add(name);
-    search.queue.push(name);
+  if (search.scripts[name] === undefined) {
+    return;
   }
+
+  if (search.visited.has(name)) {
+    return;
+  }
+
+  search.visited.add(name);
+  search.queue.push(name);
 }
 
 function provablyNonEslint(command: string): boolean {
