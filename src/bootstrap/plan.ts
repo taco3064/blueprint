@@ -413,5 +413,5 @@ export function installCommand(
     return `npm install -D ${list}`;
   }
 
-  return `${pm} add -D${pm === 'pnpm' && workspaceRoot ? 'w' : ''} ${list}`;
+  return `${pm} add -D${workspaceRoot ? 'w' : ''} ${list}`;
 }

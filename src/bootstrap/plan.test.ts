@@ -249,6 +249,34 @@ describe('plan · nested dependency installation', () => {
       && action.note.includes('Install skipped'))?.note)
       .toContain('pnpm add -Dw eslint @kekkai/blueprint');
   });
+
+  it('does not use the pnpm workspace flag outside the toolchain workspace root', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo/apps',
+      packageManager: 'pnpm',
+    }), bp);
+
+    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
+      command: 'pnpm add -D eslint @kekkai/blueprint',
+      cwd: '/repo/apps',
+    });
+  });
+
+  it('does not apply the pnpm workspace flag to another package manager', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo',
+      packageManager: 'yarn',
+    }), bp);
+
+    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
+      command: 'yarn add -D eslint @kekkai/blueprint',
+      cwd: '/repo',
+    });
+  });
 });
 
 describe('plan · sourceRoot scaffolding', () => {
