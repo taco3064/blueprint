@@ -179,6 +179,36 @@ describe('module-first to layer-first mapping · recorded origin', () => {
     expect(evidence.mappings.find((entry) => entry.source === 'src/app/Game.tsx')?.destination)
       .toBe('src/pages/Game/Game.tsx');
   });
+
+  it('leaves router placement unresolved when origin has no exact destination match', () => {
+    const root = fixture();
+
+    writeFile(root, 'src/app/Game.tsx', 'export const game = 1;\n');
+
+    const unrelatedOrigin: LayerToModuleObligation = {
+      ...obligation,
+      target: {
+        topology: 'module-first',
+        decisions: [{
+          source: 'pages/Other', destinations: ['src/app/Other.tsx'],
+          members: [{ source: 'src/pages/Other.tsx', destination: 'src/app/Other.tsx' }],
+        }],
+      },
+    };
+
+    const withApp = { ...architecture, modules: [
+      { name: 'app', does: 'routing' }, ...(architecture.modules ?? []),
+    ] };
+
+    const evidence = collectModuleToLayerEvidence({
+      root, survey: runSurvey(root, { sourceRoot: 'src', log: () => {} }),
+      architecture: withApp, nextAppRouter: false, origin: unrelatedOrigin,
+    });
+
+    const mapping = evidence.mappings.find((entry) => entry.source === 'src/app/Game.tsx');
+
+    expect(mapping).not.toHaveProperty('destination');
+  });
 });
 
 function writeFile(root: string, file: string, content: string): void {
