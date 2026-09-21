@@ -90,6 +90,23 @@ describe('Doctor effective nested-app lint context', () => {
     });
 
     expect(local).toMatchObject({ ok: false, detail: expect.stringContaining('oxlint') });
+
+    const ancestorNonEslint = lintEntrypointCheck(
+      assessLintEntrypoint(pkg({ lint: 'oxlint' })),
+      true,
+    );
+
+    const localOpaque = lintEntrypointCheck(assessment, false);
+
+    expect(ancestorNonEslint).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('oxlint'),
+    });
+
+    expect(localOpaque).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('vsh lint'),
+    });
   });
 
   it.each([
