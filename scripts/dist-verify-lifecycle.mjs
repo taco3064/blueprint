@@ -59,7 +59,7 @@ export async function verifyLifecycle(tools) {
     expect(dry.code === 0, `upgrade --dry-run exited ${dry.code}\n${dry.output}`);
 
     for (const fragment of [
-      'Source: 3.2.0 (a Blueprint 3.2 config shape proves the adoption predates 4.0)',
+      'Source: 3.2.0 (installed @kekkai/blueprint; no lifecycle state yet',
       `Target: ${pkg.version}`,
       'legacy-unit-shape',
       'review-retired-module-private (4.0.0)',
@@ -131,6 +131,13 @@ export async function verifyLifecycle(tools) {
       [localBin, 'upgrade', '--complete', 'review-retired-module-private'], { cwd: dir });
 
     expect(completed.code === 0, `--complete exited ${completed.code}\n${completed.output}`);
+
+    const manifest = readJson(path.join(dir, 'package.json'));
+
+    writeJson(path.join(dir, 'package.json'), {
+      ...manifest,
+      scripts: { ...manifest.scripts, lint: 'oxlint' },
+    });
 
     const verified = runCmd(process.execPath, [localBin, 'upgrade'], { cwd: dir });
 
