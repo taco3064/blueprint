@@ -79,5 +79,10 @@ describe('Doctor effective nested-app lint context', () => {
       reachable: true,
       eslint: { command: 'eslint', args: undefined },
     } as never, 'apps/web')).toBe(false);
+
+    expect(ancestorLintCoversApplication({
+      reachable: true,
+      eslint: { command: 'eslint', args: ['apps/web/'] },
+    } as never, 'apps/web')).toBe(true);
   });
 });
