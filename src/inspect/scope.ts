@@ -62,7 +62,7 @@ function coupledDirectories(
 function outsideDirectory(segments: string[], sourceRoot: string[]): string {
   const depth = sourceRoot.findIndex((segment, index) => segments[index] !== segment);
 
-  return depth === -1 ? '' : segments.slice(0, depth + 1).join('/');
+  return segments.slice(0, depth + 1).join('/');
 }
 
 function fileDirectory(segments: string[], sourceRoot: string[]): string {
