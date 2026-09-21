@@ -92,6 +92,8 @@ function enqueueOpaqueDelegation(
 }
 
 function provablyNonEslint(command: string): boolean {
+  // Stryker disable next-line Regex: collapsing biome's internal whitespace still matches the
+  // same command as bare `biome` followed by arguments, so classification is unchanged.
   return /^(?:npx\s+)?(?:oxlint|biome(?:\s+lint)?|stylelint|tsc|vue-tsc)(?:\s|$)/.test(command);
 }
 
