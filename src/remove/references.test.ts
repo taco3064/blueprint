@@ -84,6 +84,34 @@ describe('referenceConflicts · full removal', () => {
     }]))).toEqual([]);
   });
 
+  it('only scans YAML files and exact workflow run keys', () => {
+    write('.github/workflows/plain.yml', 'run: npx blueprint doctor\n');
+    write('.github/workflows/spaced.yaml', '-   run: npx @kekkai/blueprint doctor\n');
+    write('.github/workflows/notes.txt', 'run: npx blueprint doctor\n');
+    write('.github/workflows/backup.yml.bak', 'run: npx blueprint doctor\n');
+
+    write('.github/workflows/near.yml', [
+      'name: run: npx blueprint doctor',
+      'pre-run: npx blueprint doctor',
+      'runner: npx blueprint doctor',
+      '',
+    ].join('\n'));
+
+    fs.mkdirSync(path.join(root, '.github/workflows/directory.yml'));
+
+    expect(referenceConflicts(facts([application('.')]), plannedFiles([]))).toEqual([
+      {
+        kind: 'reference', path: '.github/workflows/plain.yml', detail: 'script', name: 'workflow',
+      },
+      {
+        kind: 'reference',
+        path: '.github/workflows/spaced.yaml',
+        detail: 'script',
+        name: 'workflow',
+      },
+    ]);
+  });
+
   it('reports Blueprint scripts, imports, and config paths that would survive removal', () => {
     write('package.json', JSON.stringify({
       scripts: {
