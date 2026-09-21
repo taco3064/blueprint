@@ -127,7 +127,7 @@ function renderUncoveredApplicationSource(
 
   const edges = [
     imported.length === 0 ? '' : `code under "${sourceRoot}" imports ${named(imported)}`,
-    importing.length === 0 ? '' : `${named(importing)} import code under "${sourceRoot}"`,
+    importing.length === 0 ? '' : `code under "${sourceRoot}" is imported by ${named(importing)}`,
   ].filter(Boolean).join(', and ');
 
   return `Module-first is closed-world at the source root: the folders under "${sourceRoot}" are `
@@ -135,7 +135,9 @@ function renderUncoveredApplicationSource(
     + 'of this application\'s architecture, and nothing here observes it: no flow rule, no cycle '
     + 'check, no coverage number. The scan boundary is not the topology root, so narrowing '
     + '`architecture.sourceRoot` hides the dependency rather than removing it. Widen it to the '
-    + 'directory that holds the whole application and declare what lives at that level.';
+    + 'directory that holds the whole application and declare what lives at that level, or, where '
+    + 'the named folder is tooling rather than architecture, break the dependency so the module '
+    + 'universe stands alone.';
 }
 
 function renderFolderFinding(fact: FolderFindingFact): string {
