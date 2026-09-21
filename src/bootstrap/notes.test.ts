@@ -68,6 +68,15 @@ describe('lintScriptAction · adopter data, not a replacement pattern', () => {
 });
 
 describe('lintScriptAction · delegated entrypoint reachability', () => {
+  it('hands an ancestor ESLint entrypoint to the owner without adding a local script', () => {
+    expect(lintScriptAction(root, vuePreset(), {
+      greenfield: false, eslintBasePath: 'apps/web',
+    })).toEqual({
+      kind: 'instruct',
+      note: expect.stringContaining('application path: apps/web'),
+    });
+  });
+
   it.each(['npm run lint:code', 'pnpm lint:code', 'yarn run lint:code'])(
     'leaves %s unchanged when its delegated script reaches eslint',
     (lint) => {

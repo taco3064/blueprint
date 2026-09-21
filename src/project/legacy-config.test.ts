@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   isLegacyBlueprintMigration,
+  legacyMigrationFacts,
   migrateLegacyBlueprint,
   migrateLegacyConfigSource,
   resolveArchitecture,
@@ -35,6 +36,7 @@ describe('Blueprint 3.2 config migration', () => {
     expect(result.migrated).toBe(true);
 
     expect(result.blueprint.architecture).not.toHaveProperty('module');
+    expect(legacyMigrationFacts(result.blueprint)).toEqual({ privateNames: ['hooks'] });
 
     expect(result.blueprint.architecture.layers).toEqual([
       { name: 'pages', does: 'routes', layout: 'folder', entry: 'index' },
