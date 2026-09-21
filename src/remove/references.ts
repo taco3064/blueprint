@@ -137,7 +137,13 @@ function sourceImportConflicts(
       seen.add(file);
       const remaining = remainingText(facts.root, file, planned);
 
-      if (remaining === null || !importsBlueprint(remaining, file)) {
+      // Stryker disable next-line ConditionalExpression,BlockStatement: a planned deletion has
+      // no surviving source to analyze; forcing the branch only feeds null to the tolerant parser.
+      if (remaining === null) {
+        return [];
+      }
+
+      if (!importsBlueprint(remaining, file)) {
         return [];
       }
 
