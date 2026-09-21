@@ -91,7 +91,7 @@ describe('module mapping properties', () => {
       const upper: LayerMappingCandidate = {
         ...lower,
         source: `src/${module}-other/hooks/${file}.ts`,
-        destination: lower.destination.toUpperCase(),
+        destination: lower.destination!.toUpperCase(),
       };
 
       expect(destinationCollisions([lower, upper])).toEqual([{

@@ -81,8 +81,14 @@ const FIELD_PROMPT_TEMPLATE = [
   '撤掉、不要報。誠實寫，不用客氣；沒有踩點就寫沒有。',
 ].join('\n') + '\n';
 
-export function renderFieldPrompt(options: { topology: FieldTopology }): string {
-  return FIELD_PROMPT_TEMPLATE.replace(TOPOLOGY_TOKEN, options.topology);
+export function renderFieldPrompt(
+  options: { topology: FieldTopology; greenfield?: boolean },
+): string {
+  const prompt = FIELD_PROMPT_TEMPLATE.replace(TOPOLOGY_TOKEN, options.topology);
+
+  return options.greenfield
+    ? prompt.replace(` --topology ${options.topology} --authoring`, ` --topology ${options.topology}`)
+    : prompt;
 }
 
 export function renderManualFieldPrompt(): string {

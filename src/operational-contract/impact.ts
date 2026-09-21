@@ -36,8 +36,8 @@ export function renderImpactUnavailable(fact: {
     ? `Migrate the project to ESLint ${supported}`
     : `Use a supported ESLint ${supported} release`;
 
-  return `⊘ Rule impact unavailable — ${version} cannot run Blueprint's isolated flat-config `
-    + `analysis. ${next}, then rerun \`blueprint impact\`. Until `
+  return `⊘ Rule impact unavailable — Blueprint's isolated flat-config analysis does not support `
+    + `${version}. ${next}, then rerun \`blueprint impact\`. Until `
     + 'then no impact count was measured; this result does not mean the emitted rules have zero '
     + 'hits.';
 }

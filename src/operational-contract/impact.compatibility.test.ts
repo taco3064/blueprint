@@ -11,8 +11,8 @@ describe('impact compatibility guidance', () => {
     [11, 'ESLint 11', 'Use a supported ESLint 9 or 10 release'],
   ] as const)('names the unavailable API and remedy for %s', (eslintMajor, version, remedy) => {
     expect(renderImpactUnavailable({ eslintMajor, supportedMajors: [9, 10] })).toBe(
-      `⊘ Rule impact unavailable — ${version} cannot run Blueprint's isolated flat-config `
-      + `analysis. ${remedy}, then rerun \`blueprint impact\`. Until `
+      `⊘ Rule impact unavailable — Blueprint's isolated flat-config analysis does not support `
+      + `${version}. ${remedy}, then rerun \`blueprint impact\`. Until `
       + 'then no impact count was measured; this result does not mean the emitted rules have zero '
       + 'hits.',
     );

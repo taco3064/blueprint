@@ -19,7 +19,8 @@ it('renders the retained origin and every source member as bounded recovery inst
   expect(guide).toContain('- containers (container-seed): '
     + 'source/containers/Auth.ts, source/containers/Login.ts');
 
-  expect(guide).toContain('members: [{ source, destination }]');
+  expect(guide).toContain('"source": "pages/Game"');
+  expect(guide).toContain('corresponding `origin.sources[].unit`');
   expect(guide).toContain('Only successful verification retires the obligation.');
   expect(guide).toContain('Recovery never performs retirement.');
 });

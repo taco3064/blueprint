@@ -73,6 +73,7 @@ function options(patch: Partial<UpgradeOptions> = {}): UpgradeOptions {
   };
 }
 
+// eslint-disable-next-line max-lines-per-function
 describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
   it('plans without mutation on --dry-run', async () => {
     adoptLegacy();
@@ -206,6 +207,25 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
 
     expect(await runUpgrade(root, options({ loadConfig: async () => ({}) }))).toBe(0);
     expect(lines.at(-1)).toContain('Blueprint lifecycle 4.1.0 is current — nothing to upgrade.');
+  });
+
+  it('keeps the lifecycle pending when final workflow-artifact retirement fails', async () => {
+    adoptLegacy();
+    await runUpgrade(root, options());
+    await runUpgrade(root, options({ complete: 'review-retired-module-private' }));
+    write('blueprint-upgrade.md', '# pending finalization\n');
+
+    await expect(runUpgrade(root, options({
+      loadConfig: async () => ({}),
+      retire: () => { throw new Error('retirement interrupted'); },
+    }))).rejects.toThrow('retirement interrupted');
+
+    expect(state()).toMatchObject({ blueprint: '3.2.0' });
+    expect(state().pending).not.toBeNull();
+    expect(exists('blueprint-upgrade.md')).toBe(true);
+
+    expect(await runUpgrade(root, options({ loadConfig: async () => ({}) }))).toBe(0);
+    expect(state()).toMatchObject({ blueprint: '4.1.0', pending: null });
   });
 });
 

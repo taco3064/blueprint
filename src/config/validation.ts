@@ -22,6 +22,7 @@ export type ConfigValidationFact
     | { kind: 'canonical-alias-collision'; alias: string; canonical: string; additional: string }
     | { kind: 'layer-files-layer'; glob: string }
     | { kind: 'module-layer-files'; glob: string }
+    | { kind: 'module-layer-files-position'; glob: string }
     | { kind: 'layer-layer-files'; glob: string }
     | { kind: 'id-empty'; subject: string }
     | { kind: 'duplicate-id'; subject: string; id: string }

@@ -14,7 +14,7 @@ import type {
 
 export interface LayerMappingCandidate {
   source: string;
-  destination: string;
+  destination?: string;
   module: string;
   layer: string;
   layout: 'folder' | 'file' | 'container' | 'router';
@@ -116,7 +116,9 @@ export function collectModuleToLayerEvidence(
     const position = resolved.classify(file.segments);
 
     if (relative[0] === 'app') {
-      return [routerMapping(relative, resolved.sourceRoot, nextAppRouter)];
+      return [routerMapping(relative, resolved.sourceRoot, {
+        nextAppRouter, origin: input.origin,
+      })];
     }
 
     if (!position || position.kind === 'source-root') {
@@ -190,15 +192,18 @@ export function collectModuleToLayerEvidence(
 function routerMapping(
   relative: string[],
   sourceRoot: string,
-  nextAppRouter: boolean,
+  context: { nextAppRouter: boolean; origin: LayerToModuleObligation | null | undefined },
 ): LayerMappingCandidate {
+  const { nextAppRouter, origin } = context;
   const source = sourcePath(sourceRoot, relative);
+
+  const restored = origin?.target.decisions
+    .flatMap((decision) => decision.members)
+    .find((member) => normalizedPath(member.destination) === normalizedPath(source))?.source;
 
   return {
     source,
-    destination: nextAppRouter
-      ? source
-      : sourcePath(sourceRoot, ['pages', ...relative.slice(1)].join('/')),
+    ...(nextAppRouter ? { destination: source } : restored ? { destination: restored } : {}),
     module: 'app',
     layer: nextAppRouter ? 'app' : 'pages',
     layout: 'router',
@@ -250,7 +255,8 @@ function collectAliasCutovers(
       isAtOrBelow(normalizedPath(mapping.source), normalizedTarget));
 
     const remainsAtTarget = affectedMappings.length > 0 && affectedMappings.every((mapping) =>
-      isAtOrBelow(normalizedPath(mapping.destination), normalizedTarget));
+      mapping.destination !== undefined
+      && isAtOrBelow(normalizedPath(mapping.destination), normalizedTarget));
 
     const disposition: AliasCutoverEvidence['disposition'] = moduleScoped && !remainsAtTarget
       ? 'rewrite-or-remove'
@@ -260,7 +266,8 @@ function collectAliasCutovers(
       alias,
       target,
       disposition,
-      mappedDestinations: affectedMappings.map((mapping) => mapping.destination),
+      mappedDestinations: affectedMappings.flatMap((mapping) =>
+        mapping.destination === undefined ? [] : [mapping.destination]),
     };
   }).sort((left, right) => left.alias.localeCompare(right.alias));
 }
@@ -280,6 +287,10 @@ export function destinationCollisions(
   );
 
   for (const mapping of mappings) {
+    if (mapping.destination === undefined) {
+      continue;
+    }
+
     const identity = normalizedPath(mapping.destination);
 
     destinations.set(identity, new Set([
@@ -323,6 +334,6 @@ function sourcePath(sourceRoot: string, relative: string | string[]): string {
 }
 
 function compareMappings(left: LayerMappingCandidate, right: LayerMappingCandidate): number {
-  return left.destination.localeCompare(right.destination)
+  return (left.destination ?? '').localeCompare(right.destination ?? '')
     || left.source.localeCompare(right.source);
 }

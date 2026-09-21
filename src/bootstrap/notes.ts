@@ -23,6 +23,7 @@ import {
   renderGitignoreNote,
   renderGitignoreArtifactComment,
   renderLintScriptInstruction,
+  renderNestedLintScriptInstruction,
   renderLintScriptNote,
   renderTemplateCleanupNote,
 } from '../operational-contract';
@@ -149,6 +150,24 @@ export function templateCleanupActions(
 export function lintScriptAction(
   root: string,
   blueprint: Blueprint,
+  input: boolean | { greenfield: boolean; eslintBasePath?: string },
+): Action | null {
+  const context = typeof input === 'boolean' ? { greenfield: input } : input;
+  const target = resolveArchitecture(blueprint.architecture).sourceRoot;
+
+  if (context.eslintBasePath) {
+    return {
+      kind: 'instruct',
+      note: renderNestedLintScriptInstruction(context.eslintBasePath, target),
+    };
+  }
+
+  return ordinaryLintScriptAction(root, target, context.greenfield);
+}
+
+function ordinaryLintScriptAction(
+  root: string,
+  target: string,
   greenfield: boolean,
 ): Action | null {
   const file = path.join(root, 'package.json');
@@ -159,8 +178,6 @@ export function lintScriptAction(
   const assessment = assessLintEntrypoint({
     scripts: parsed.scripts ?? {},
   });
-
-  const target = resolveArchitecture(blueprint.architecture).sourceRoot;
 
   if (assessment.reachable) {
     return null;

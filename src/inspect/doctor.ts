@@ -230,14 +230,12 @@ async function doctorChecks(
     load: options.loadModule ?? loadProjectModule,
   });
 
-  const lintAssessment = assessLintEntrypoint(state.localPackage);
-
   const lintDependencies = [...new Set(state.localPackage.dependencies
     .concat(state.toolchainPackage.dependencies))];
 
-  const lintEvidence = lintAssessment.reachable
-    ? (options.runLint ?? runLiveLint)(root, lintDependencies, lintAssessment)
-    : runLiveLint(root, lintDependencies, lintAssessment);
+  const { assessment: lintAssessment, evidence: lintEvidence } = measureEffectiveLint({
+    root, state, dependencies: lintDependencies, run: options.runLint,
+  });
 
   return {
     checks: [
@@ -261,6 +259,59 @@ async function doctorChecks(
     ],
     probed: wiring.probed,
   };
+}
+
+export function measureEffectiveLint(input: {
+  root: string;
+  state: ProjectState;
+  dependencies: string[];
+  run?: typeof runLiveLint;
+}) {
+  const { root, state, dependencies } = input;
+
+  const ancestor = state.eslintConfigRoot !== undefined
+    && path.resolve(state.eslintConfigRoot) !== path.resolve(root);
+
+  const lintRoot = ancestor ? state.eslintConfigRoot! : root;
+
+  const assessment = assessLintEntrypoint(
+    ancestor ? state.toolchainPackage : state.localPackage,
+  );
+
+  if (ancestor && !ancestorLintCoversApplication(assessment, state.eslintBasePath)) {
+    return {
+      assessment,
+      evidence: {
+        status: 'unverified' as const,
+        command: assessment.eslint?.command ?? null,
+        errors: 0,
+        warnings: 0,
+        reason: 'the ancestor ESLint entrypoint does not prove it targets this application while '
+          + 'preserving the effective config and suppressions scope',
+      },
+    };
+  }
+
+  const run = assessment.reachable ? input.run ?? runLiveLint : runLiveLint;
+
+  return { assessment, evidence: run(lintRoot, dependencies, assessment) };
+}
+
+export function ancestorLintCoversApplication(
+  assessment: ReturnType<typeof assessLintEntrypoint>,
+  basePath: string | undefined,
+): boolean {
+  const args = assessment.eslint?.args;
+
+  if (!assessment.reachable || args === null || args === undefined || !basePath) {
+    return false;
+  }
+
+  const normalizedBase = basePath.replaceAll('\\', '/').replace(/\/$/, '');
+
+  return args.some((arg) => arg === '.'
+    || normalizedBase === arg.replaceAll('\\', '/').replace(/\/$/, '')
+    || normalizedBase.startsWith(`${arg.replaceAll('\\', '/').replace(/\/$/, '')}/`));
 }
 
 function transformationChecks(

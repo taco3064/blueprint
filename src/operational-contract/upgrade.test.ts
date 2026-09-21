@@ -144,7 +144,7 @@ describe('upgrade instructions and playbook', () => {
 
     expect(text).toContain('not by whether the config calls a preset');
 
-    expect(restate.replace(/\s+/g, ' ')).toMatch(/^If the owner's own source declares `module\.private`.*restate the private-layer intent.*even when the config also calls a Blueprint preset/);
+    expect(restate.replace(/\s+/g, ' ')).toMatch(/^If the owner's own source declares `module\.private`.*retired private unit-member\/path name, not as a layer/);
 
     expect(preset.replace(/\s+/g, ' '))
       .toMatch(/^If no owner source declares it, `module\.private` came from a Blueprint 3\.2 preset call/);

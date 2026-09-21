@@ -63,6 +63,9 @@ const renderers = {
   'module-layer-files': (fact) =>
     `Module-first layerFiles entry "${fact.glob}" must include both "{module}" and "{layer}" `
     + 'so repeated layers do not collapse into one global net.',
+  'module-layer-files-position': (fact) =>
+    'Module-first layerFiles must place "{module}" directly below sourceRoot; nested '
+    + `architectural containers are not supported: "${fact.glob}".`,
   'layer-layer-files': (fact) =>
     `Layer-first layerFiles entry "${fact.glob}" must not include "{module}" — `
     + 'declare architecture.modules to open the module dimension, or remove the placeholder.',

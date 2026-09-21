@@ -20,6 +20,21 @@ export interface Finding {
   message: string;
 }
 
+/** Stable identity shared by analysis, reports, and baseline persistence. */
+export function findingIdentity(finding: Pick<Finding, 'rule' | 'path' | 'subject'>): string {
+  return `${finding.rule}\0${finding.path}\0${finding.subject}`;
+}
+
+export function uniqueFindings(findings: Finding[]): Finding[] {
+  const byIdentity = new Map<string, Finding>();
+
+  for (const finding of findings) {
+    byIdentity.set(findingIdentity(finding), finding);
+  }
+
+  return [...byIdentity.values()];
+}
+
 export interface ImportRef {
   specifier: string;
 

@@ -96,7 +96,7 @@ export interface ModuleToLayerEvidenceFact {
   }[];
   mappings: {
     source: string;
-    destination: string;
+    destination?: string;
     module: string;
     layer: string;
     layout: 'folder' | 'file' | 'container' | 'router';

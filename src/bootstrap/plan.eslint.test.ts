@@ -250,9 +250,9 @@ describe('plan · the note that says how to wire an eslint config already there'
 
     const reference = write(actions, 'eslint.config.blueprint.mjs')?.content;
 
-    expect(reference).toContain('basePath: applicationRoot');
+    expect(reference).not.toContain('basePath: applicationRoot');
     expect(reference).toContain('typescript: tseslint.plugin');
-    expect(reference).toContain('    basePath: applicationRoot,');
+    expect(reference).toContain('import blueprint from \'./blueprint.config.mjs\';');
   });
 });
 

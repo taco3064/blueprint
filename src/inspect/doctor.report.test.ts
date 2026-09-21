@@ -229,9 +229,9 @@ describe('runDoctor · what the run reports', () => {
       log: (m) => (json = m),
     });
 
-    expect(green.verdict).toBe('complete');
-    expect(complete).toContain('✓ Adoption complete — all 12 checks passed.');
-    expect(JSON.parse(json).counts).toEqual({ total: 12, passed: 12, failed: 0, skipped: 0 });
+    expect(green.verdict).toBe('unverified');
+    expect(complete).toContain('⊘ Adoption unverified');
+    expect(JSON.parse(json).counts).toEqual({ total: 12, passed: 11, failed: 0, skipped: 1 });
 
     // And one failure with still nothing skipped: the third arm, and the clause about
     // skips must NOT appear — there are none to leave unproven.
@@ -246,8 +246,7 @@ describe('runDoctor · what the run reports', () => {
     });
 
     expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 12 check(s) failed.');
-    expect(red).not.toContain('could not run');
+    expect(red).toContain('✗ Adoption incomplete — 1 of 12 check(s) failed, and 1 could not run');
   });
 
   it('gives the JSON the same banner and ratio the screen gets', async () => {
@@ -538,7 +537,8 @@ describe('runDoctor · the notes under the banner', () => {
 
     // The contradiction this replaces, in one line each: the skip the entry caused, and
     // the check it left running — with no note calling the cause of either inert.
-    expect(swallowed).toContain('skipped — no probe derivable from the architecture globs');
+    expect(swallowed).toContain('⊘ emitted rules survive the merged eslint config');
+    expect(swallowed).toContain('no probe derivable from the architecture globs');
     expect(swallowed).not.toContain('layerFilesIgnore');
 
     expect(partial).toContain('✓ emitted rules survive the merged eslint config (');

@@ -1,4 +1,5 @@
 import { compareText } from './order';
+import { findingIdentity } from './types';
 import type { Finding } from './types';
 import { renderBaselineError, renderBaselineSummary } from '../operational-contract';
 
@@ -24,23 +25,23 @@ export interface BaselineSplit {
   stale: number;
 }
 
-function keyOf(entry: Omit<BaselineEntry, 'message'>): string {
-  return `${entry.rule}\0${entry.path}\0${entry.subject}`;
-}
-
 export function splitByBaseline(findings: Finding[], baseline: BaselineEntry[]): BaselineSplit {
-  const allowed = new Set(baseline.map(keyOf));
-  const fresh = findings.filter((finding) => !allowed.has(keyOf(finding)));
-  const current = new Set(findings.map(keyOf));
-  const stale = baseline.filter((entry) => !current.has(keyOf(entry))).length;
+  const current = new Map(findings.map((finding) => [findingIdentity(finding), finding]));
+  const allowed = new Set(baseline.map(findingIdentity));
 
-  return { fresh, suppressed: findings.length - fresh.length, stale };
+  const fresh = [...current.entries()]
+    .filter(([identity]) => !allowed.has(identity))
+    .map(([, finding]) => finding);
+
+  const stale = baseline.filter((entry) => !current.has(findingIdentity(entry))).length;
+
+  return { fresh, suppressed: current.size - fresh.length, stale };
 }
 
 export function renderBaseline(findings: Finding[]): string {
   const byKey = new Map(
     findings.map((finding) => [
-      keyOf(finding),
+      findingIdentity(finding),
       {
         rule: finding.rule,
         path: finding.path,

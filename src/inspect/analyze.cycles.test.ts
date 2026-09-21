@@ -32,6 +32,19 @@ describe('analyze · cycle', () => {
     expect(found).toContain('cycle');
   });
 
+  it('obeys the configured cycle tier, including off', () => {
+    const files = [
+      file(['components', 'A', 'A.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'B.ts'], [{ specifier: '../A' }]),
+    ];
+
+    expect(analyze(scanOf(files), { ...bp, rules: { ...bp.rules, cycles: 'off' } })
+      .some((finding) => finding.rule === 'cycle')).toBe(false);
+
+    expect(analyze(scanOf(files), { ...bp, rules: { ...bp.rules, cycles: 'warn' } })
+      .find((finding) => finding.rule === 'cycle')?.severity).toBe('warn');
+  });
+
   it('reports no cycle when a module is reached by two paths without a loop', () => {
     const found = rulesFor([
       file(['components', 'A', 'index.ts'], [{ specifier: '../B' }, { specifier: '../C' }]),

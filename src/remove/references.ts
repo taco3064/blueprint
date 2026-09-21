@@ -101,6 +101,34 @@ function importConflicts(
     });
 }
 
+function workflowConflicts(root: string, planned: PlannedFiles): RemovalConflict[] {
+  const directory = path.join(root, '.github', 'workflows');
+
+  if (!fs.existsSync(directory)) {
+    return [];
+  }
+
+  const files = fs.readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.ya?ml$/.test(entry.name))
+    .map((entry) => path.posix.join('.github/workflows', entry.name));
+
+  return files.flatMap((file): RemovalConflict[] => {
+    const content = remainingText(root, file, planned);
+
+    if (content === null) {
+      return [];
+    }
+
+    const executable = withoutComments(file, content).split('\n')
+      .filter((line) => /^\s*(?:-\s*)?run\s*:/.test(line))
+      .join('\n');
+
+    return BLUEPRINT_COMMAND.test(executable) || executable.includes('@kekkai/blueprint')
+      ? [{ kind: 'reference', path: file, detail: 'script', name: 'workflow' }]
+      : [];
+  });
+}
+
 export function referenceConflicts(facts: RemovalFacts, planned: PlannedFiles): RemovalConflict[] {
   const full = facts.remaining.length === 0;
   const applicationRoots = facts.scope.map((application) => application.root);
@@ -114,16 +142,19 @@ export function referenceConflicts(facts: RemovalFacts, planned: PlannedFiles): 
 
   const rules = emittedRuleInventory(facts);
 
-  return directories.flatMap((directory) => {
-    const owned = full || applicationRoots.includes(directory);
+  return [
+    ...(full ? workflowConflicts(facts.root, planned) : []),
+    ...directories.flatMap((directory) => {
+      const owned = full || applicationRoots.includes(directory);
 
-    const configs = facts.scope.map((application) => applicationRoots.includes(directory)
-      ? 'blueprint.config.mjs'
-      : path.posix.join(relativeDirectory(directory, application.root), 'blueprint.config.mjs'));
+      const configs = facts.scope.map((application) => applicationRoots.includes(directory)
+        ? 'blueprint.config.mjs'
+        : path.posix.join(relativeDirectory(directory, application.root), 'blueprint.config.mjs'));
 
-    return [
-      ...(owned ? scriptConflicts(facts.root, directory, planned) : []),
-      ...importConflicts({ root: facts.root, directory, planned, rules }, owned, configs),
-    ];
-  });
+      return [
+        ...(owned ? scriptConflicts(facts.root, directory, planned) : []),
+        ...importConflicts({ root: facts.root, directory, planned, rules }, owned, configs),
+      ];
+    }),
+  ];
 }

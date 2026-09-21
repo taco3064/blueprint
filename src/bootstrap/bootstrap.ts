@@ -323,7 +323,9 @@ async function runScaffold(
   );
 
   if (!state.legacyEslintConfig) {
-    applyLintWiring(actions, lintScriptAction(root, blueprint, configSource !== null));
+    applyLintWiring(actions, lintScriptAction(
+      root, blueprint, { greenfield: configSource !== null, eslintBasePath: state.eslintBasePath },
+    ));
   }
 
   actions.push(...scaffoldNotes(state, blueprint, { configSource, agentTarget }));

@@ -92,7 +92,9 @@ function mapping(evidence: ModuleToLayerEvidenceFact): string {
     '',
     ...(evidence.mappings.length
       ? evidence.mappings.map((entry) => [
-          `- \`${entry.source}\` → \`${entry.destination}\``,
+          entry.destination
+            ? `- \`${entry.source}\` → \`${entry.destination}\``
+            : `- \`${entry.source}\` → **unresolved router placement decision** (no concrete destination is proven)`,
           `  (${entry.module}; ${entry.layer}; ${entry.layout}; ${entry.disposition})`,
         ].join('\n'))
       : ['- (no governed source mapping was measured; stop before movement)']),
