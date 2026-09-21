@@ -39,19 +39,36 @@ function coupledDirectories(
   aliases: [string, string][],
   sourceRoot: string,
 ): { imported: string[]; importing: string[] } {
-  const outsideFiles = scan.outsideFiles ?? [];
-  const outside = new Set(outsideFiles.map((file) => file.segments[0]));
+  const root = sourceRoot.split('/');
+
+  const outsideFiles = (scan.outsideFiles ?? [])
+    .map((file) => ({ file, directory: fileDirectory(file.segments, root) }))
+    .filter((entry) => entry.directory !== '');
+
+  const outside = new Set(outsideFiles.map((entry) => entry.directory));
 
   const imported = scan.files.flatMap((file) => importedPaths(file, aliases)
-    .map((target) => target.split('/')[0])
+    .map((target) => outsideDirectory(target.split('/'), root))
     .filter((directory) => outside.has(directory)));
 
-  const importing = outsideFiles.flatMap((file) =>
-    importedPaths(file, aliases).some((target) => isUnder(target, sourceRoot))
-      ? [file.segments[0]]
+  const importing = outsideFiles.flatMap((entry) =>
+    importedPaths(entry.file, aliases).some((target) => isUnder(target, sourceRoot))
+      ? [entry.directory]
       : []);
 
   return { imported: unique(imported), importing: unique(importing) };
+}
+
+function outsideDirectory(segments: string[], sourceRoot: string[]): string {
+  const depth = sourceRoot.findIndex((segment, index) => segments[index] !== segment);
+
+  return depth === -1 ? '' : segments.slice(0, depth + 1).join('/');
+}
+
+function fileDirectory(segments: string[], sourceRoot: string[]): string {
+  const directory = outsideDirectory(segments, sourceRoot);
+
+  return directory.split('/').length < segments.length ? directory : '';
 }
 
 function isUnder(target: string, root: string): boolean {

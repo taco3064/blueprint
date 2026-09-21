@@ -10,6 +10,8 @@ import { applicationScopeFindings } from './scope';
 
 const dirs: string[] = [];
 
+const PLAIN = 'export const Login = 1;\n';
+
 const LOGIN = [
   'import \'../../../../config/env\';',
   'import \'@app/router\';',
@@ -28,7 +30,7 @@ const tree: Record<string, string> = {
   'reports/coverage/bundle.ts': 'export const bundle = 1;\n',
   'node_modules/pkg/index.js': 'module.exports = 1;\n',
   'assets/logo.txt': 'logo\n',
-  'vite.config.ts': 'export default {};\n',
+  'vite.config.ts': 'import \'~app/auth/components/Login\';\nexport default {};\n',
 };
 
 function fixture(files: Record<string, string> = tree): string {
@@ -82,8 +84,19 @@ describe('inspect · module-first application scope', () => {
     expect(findings[0].severity).toBe('error');
     expect(findings[0].path).toBe('features');
     expect(findings[0].message).toContain('closed-world at the source root');
-    expect(findings[0].message).toContain('"app", "config"');
+    expect(findings[0].message).toContain('Here code under "features" imports "app", "config" —');
+    expect(findings[0].message).not.toContain('is imported by');
     expect(findings[0].message).toContain('The scan boundary is not the topology root');
+  });
+
+  it('ignores a test file outside the source root that reaches into it', () => {
+    const findings = analyze(scan(fixture({
+      'features/auth/components/Login/index.tsx': PLAIN,
+      'e2e/login.test.ts': 'import \'~app/auth/components/Login\';\n',
+    }), 'features'), blueprint({}))
+      .filter((finding) => finding.rule === 'uncovered-application-source');
+
+    expect(findings).toEqual([]);
   });
 
   it('names each reached directory once, in order, however the imports spelled it', () => {
@@ -140,14 +153,26 @@ describe('inspect · module-first application scope · silence', () => {
   });
 });
 
-const PLAIN = 'export const Login = 1;\n';
-
 describe('inspect · module-first application scope · the other direction', () => {
   it('reports a directory that imports the module universe with nothing imported back', () => {
-    expect(uncovered(fixture({
+    const root = fixture({
       'features/auth/components/Login/index.tsx': PLAIN,
       'app/router.ts': 'import \'~app/auth/components/Login\';\n',
-    }))).toEqual(['app']);
+    });
+
+    const [finding] = applicationScopeFindings(scan(root, 'features'), blueprint({}).architecture);
+
+    expect(finding.subject).toBe('app');
+    expect(finding.message).toContain('Here code under "features" is imported by "app" —');
+    expect(finding.message).not.toContain('" imports ');
+  });
+
+  it('orders the directories it names, whichever edge found them', () => {
+    expect(uncovered(fixture({
+      'features/auth/components/Login/index.tsx': 'import \'../../../../config/env\';\n',
+      'config/env.ts': 'export const env = 1;\n',
+      'app/router.ts': 'import \'~app/auth/components/Login\';\n',
+    }))).toEqual(['app config']);
   });
 
   it('follows a relative import that climbs from outside into the module universe', () => {
@@ -166,8 +191,30 @@ describe('inspect · module-first application scope · the other direction', () 
     const [finding] = applicationScopeFindings(scan(root, 'features'), blueprint({}).architecture);
 
     expect(finding.subject).toBe('app');
-    expect(finding.message).toContain('code under "features" imports "app"');
-    expect(finding.message).toContain('"app" import code under "features"');
+
+    expect(finding.message).toContain(
+      'Here code under "features" imports "app", and code under "features" is imported by "app" —',
+    );
+  });
+
+  it('sees the siblings of a nested source root, in both directions', () => {
+    const governed = 'src/features/auth/components/Login/index.tsx';
+    const nested = { sourceRoot: 'src/features', additionalAliases: undefined };
+
+    expect(uncovered(fixture({
+      [governed]: PLAIN,
+      'src/app/router.ts': 'import \'~app/auth/components/Login\';\n',
+    }), nested)).toEqual(['src/app']);
+
+    expect(uncovered(fixture({
+      [governed]: 'import \'../../../../app/router\';\n',
+      'src/app/router.ts': 'export const router = 1;\n',
+    }), nested)).toEqual(['src/app']);
+
+    expect(uncovered(fixture({
+      [governed]: PLAIN,
+      'src/app/router.ts': 'export const router = 1;\n',
+    }), nested)).toEqual([]);
   });
 
   it('separates a nested source root from its own siblings', () => {
@@ -205,7 +252,7 @@ describe('inspect · module-first application scope · the other direction', () 
 describe('inspect · application universe scan', () => {
   it('reads the source outside the source root, and nothing it never descends into', () => {
     expect(scan(fixture(), 'features').outsideFiles?.map((file) => file.path))
-      .toEqual(['app/router.ts', 'config/env.ts', 'docs/guide/example.ts']);
+      .toEqual(['app/router.ts', 'config/env.ts', 'docs/guide/example.ts', 'vite.config.ts']);
   });
 
   it('has nothing outside a source root that is the application root', () => {

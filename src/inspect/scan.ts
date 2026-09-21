@@ -143,6 +143,8 @@ interface WalkScope {
 
   prefix: string;
   readdir: (dir: string) => DirEntry[];
+
+  skip?: string;
 }
 
 function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
@@ -150,11 +152,13 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
 
   for (const entry of ordered(dir, readdir)) {
     if (entry.isDirectory()) {
-      if (NON_SOURCE_DIRS.has(entry.name)) {
+      const child = path.join(dir, entry.name);
+
+      if (NON_SOURCE_DIRS.has(entry.name) || relativePath(base, child) === scope.skip) {
         continue;
       }
 
-      walk(path.join(dir, entry.name), files, scope);
+      walk(child, files, scope);
     } else if (SOURCE_EXT.test(entry.name)) {
       const rel = path
         .relative(base, path.join(dir, entry.name))
@@ -203,16 +207,15 @@ function outsideSource(
     return [];
   }
 
-  const head = sourceRoot.split('/')[0];
   const files: ScannedFile[] = [];
 
-  for (const entry of ordered(root, readdir)) {
-    if (entry.isDirectory() && entry.name !== head && !NON_SOURCE_DIRS.has(entry.name)) {
-      walk(path.join(root, entry.name), files, { base: root, prefix: '', readdir });
-    }
-  }
+  walk(root, files, { base: root, prefix: '', readdir, skip: sourceRoot });
 
   return files;
+}
+
+function relativePath(base: string, target: string): string {
+  return path.relative(base, target).split(path.sep).join('/');
 }
 
 const GLOB_META = /[*?[\]{}]/;
