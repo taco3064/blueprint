@@ -13,6 +13,7 @@ import {
   renderInstallNote,
   renderInstallSkipped,
   renderLintScriptNote,
+  renderNestedLintScriptInstruction,
   renderOptionalToolingNote,
   renderTemplateCleanupNote,
 } from './bootstrap-actions';
@@ -131,6 +132,9 @@ describe('bootstrap operational text follows supplied facts', () => {
 
     expect(renderLintScriptNote('added', 'src'))
       .toBe('package.json (added "lint": "eslint src" — so lint runs the generated rules)');
+
+    expect(renderNestedLintScriptInstruction('apps/web', 'src'))
+      .toContain('Do not add an app-local "lint": "eslint src" command');
   });
 
   it('keeps transformation action notes and directions distinct', () => {
