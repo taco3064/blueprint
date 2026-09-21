@@ -91,6 +91,11 @@ describe('assessLintEntrypoint', () => {
       eslint: null,
       reason: 'eslint-unreachable',
     });
+
+    expect(assessLintEntrypoint(pkg({
+      lint: 'npm run missing',
+      build: 'vite build',
+    })).reason).toBe('eslint-unreachable');
   });
 
   it('distinguishes an opaque wrapper from a provably different lint command', () => {
@@ -137,6 +142,7 @@ describe('assessLintEntrypoint · opaque command classification', () => {
     'biome',
     'biome lint',
     'biome  lint',
+    'biome     lint',
     'stylelint "src/**/*.css"',
     'tsc --noEmit',
     'vue-tsc --noEmit',
