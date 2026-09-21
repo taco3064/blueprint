@@ -42,20 +42,22 @@ export function assessLintEntrypoint(
 }
 
 function opaqueLintPath(scripts: Record<string, string>, name: string): boolean {
-  const queue = [name];
-  const visited = new Set(queue);
+  const search = { scripts, queue: [name], visited: new Set([name]) };
 
-  while (queue.length) {
-    const command = scripts[queue.shift() as string]!;
+  for (let cursor = 0; cursor < Object.keys(scripts).length; cursor += 1) {
+    const current = search.queue[cursor];
+
+    if (current === undefined) {
+      break;
+    }
+
+    const command = scripts[current]!;
 
     for (const part of shellCommands(command)) {
       const delegated = delegatedScript(part);
 
       if (delegated) {
-        if (scripts[delegated.name] !== undefined && !visited.has(delegated.name)) {
-          visited.add(delegated.name);
-          queue.push(delegated.name);
-        }
+        enqueueOpaqueDelegation(search, delegated.name);
 
         continue;
       }
@@ -67,6 +69,20 @@ function opaqueLintPath(scripts: Record<string, string>, name: string): boolean 
   }
 
   return false;
+}
+
+function enqueueOpaqueDelegation(
+  search: {
+    scripts: Record<string, string>;
+    visited: Set<string>;
+    queue: string[];
+  },
+  name: string,
+): void {
+  if (search.scripts[name] !== undefined && !search.visited.has(name)) {
+    search.visited.add(name);
+    search.queue.push(name);
+  }
 }
 
 function provablyNonEslint(command: string): boolean {
