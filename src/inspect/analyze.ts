@@ -52,7 +52,7 @@ export function analyze(
 
   const cycleTier = activeSetting(blueprint.rules?.cycles)?.tier;
 
-  if (cycleTier && cycleTier !== 'off') {
+  if (cycleTier === 'warn' || cycleTier === 'error') {
     for (const cycle of detectCycles(buildUnitGraph(scan, architecture).edges)) {
       const members = [...new Set(cycle)].sort(compareText);
 
