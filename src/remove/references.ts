@@ -2,6 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { emitLint } from '../emit/lint';
+import { scan } from '../inspect';
+import { PACKAGE_NAME } from '../lifecycle';
+import { analyzeModuleImports } from '../plugin';
 import { withoutComments } from './comments';
 import { parseManifest } from './documents';
 import type { RemovalFacts } from './facts';
@@ -91,7 +94,7 @@ function importConflicts(
 
       const text = withoutComments(file, remaining);
 
-      if (owned && text.includes('@kekkai/blueprint')) {
+      if (owned && importsBlueprint(remaining, file, true)) {
         return [{ kind: 'reference', path: file, detail: 'import', rules: context.rules }];
       }
 
@@ -99,6 +102,45 @@ function importConflicts(
         ? [{ kind: 'reference', path: file, detail: 'config-path' }]
         : [];
     });
+}
+
+function importsBlueprint(source: string, file: string, configFallback = false): boolean {
+  if (configFallback && !/\.[cm]?[jt]s$/.test(file)) {
+    return withoutComments(file, source).includes(PACKAGE_NAME);
+  }
+
+  const analysis = analyzeModuleImports(source, file);
+
+  if (analysis.parseError && configFallback) {
+    return withoutComments(file, source).includes(PACKAGE_NAME);
+  }
+
+  return analysis.specifiers.some((specifier) =>
+    specifier === PACKAGE_NAME || specifier.startsWith(`${PACKAGE_NAME}/`));
+}
+
+function sourceImportConflicts(
+  facts: RemovalFacts,
+  planned: PlannedFiles,
+  rules: EmittedRuleInventory | undefined,
+): RemovalConflict[] {
+  const seen = new Set<string>();
+
+  return facts.scope.flatMap((application) => scan(application.root, '.').files
+    .flatMap((source): RemovalConflict[] => {
+      const file = path.posix.join(relativeDirectory(facts.root, application.root), source.path);
+
+      if (seen.has(file) || TOOL_CONFIG.test(path.posix.basename(file))) {
+        return [];
+      }
+
+      seen.add(file);
+      const remaining = remainingText(facts.root, file, planned);
+
+      return remaining !== null && importsBlueprint(remaining, file)
+        ? [{ kind: 'reference', path: file, detail: 'import', rules }]
+        : [];
+    }));
 }
 
 function workflowConflicts(root: string, planned: PlannedFiles): RemovalConflict[] {
@@ -144,6 +186,7 @@ export function referenceConflicts(facts: RemovalFacts, planned: PlannedFiles): 
 
   return [
     ...(full ? workflowConflicts(facts.root, planned) : []),
+    ...sourceImportConflicts(facts, planned, rules),
     ...directories.flatMap((directory) => {
       const owned = full || applicationRoots.includes(directory);
 

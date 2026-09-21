@@ -99,4 +99,12 @@ describe('CLI operational contract', () => {
     expect(init).not.toContain('src/<layer>/');
     expect(init).not.toContain('and AI agent contracts (CLAUDE.md, AGENTS.md)');
   });
+
+  it('describes cycle findings as an optional inspect gate', () => {
+    const help = renderCliCommandHelp({ brownfieldMinFiles: 10 });
+
+    expect(help.inspect).toContain('when `rules.cycles`\nis declared with a tier other than `off`');
+    expect(help.rules).toContain('cycles is diagnosed when declared and not off');
+    expect(help.inspect).not.toContain('selfOnly re-exports, import cycles');
+  });
 });

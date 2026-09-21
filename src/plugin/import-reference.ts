@@ -26,6 +26,11 @@ export interface DynamicImportAnalysis {
   parseError?: string;
 }
 
+export interface ModuleImportAnalysis {
+  specifiers: string[];
+  parseError?: string;
+}
+
 const vueJsxParser = {
   parseForESLint(
     source: string,
@@ -85,6 +90,36 @@ export function analyzeDynamicImports(
   });
 
   return result;
+}
+
+export function analyzeModuleImports(source: string, filePath = 'source.js'): ModuleImportAnalysis {
+  let parsed: ParsedSource;
+
+  try {
+    parsed = parseSource(source, filePath);
+  } catch (error) {
+    return { specifiers: [], parseError: String(error) };
+  }
+
+  const specifiers: string[] = [];
+  const globalScope = parsed.scopeManager.globalScope!;
+
+  walk(parsed.ast, parsed.visitorKeys, (node) => {
+    const sourceNode = moduleSpecifier(node, globalScope);
+
+    if (sourceNode === null) {
+      return;
+    }
+
+    const scope = getInnermostScope(globalScope, sourceNode as never);
+    const specifier = staticImportSpecifier(sourceNode, scope);
+
+    if (specifier !== null) {
+      specifiers.push(specifier);
+    }
+  });
+
+  return { specifiers };
 }
 
 function parseSource(source: string, filePath: string): ParsedSource {
@@ -191,4 +226,12 @@ function memberModuleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode
   const scope = getInnermostScope(globalScope, callee as never);
 
   return findVariable(scope, callee as never) === null ? args[0] : null;
+}
+
+function moduleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode | null {
+  if (node.type === 'TSImportType') {
+    return node.source as AstNode;
+  }
+
+  return memberModuleSpecifier(node, globalScope);
 }

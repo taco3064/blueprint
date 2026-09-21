@@ -58,12 +58,14 @@ describe('lintScriptAction · adopter data, not a replacement pattern', () => {
     const { content } = action as Extract<Action, { kind: 'write' }>;
 
     expect(() => JSON.parse(content)).not.toThrow();
-    expect(JSON.parse(content).scripts.lint).toBe(`${lint} && eslint src`);
+
+    expect(JSON.parse(content).scripts.lint)
+      .toBe(`${lint} && eslint src --no-error-on-unmatched-pattern`);
 
     // The whole file, not just the lint line: `manifest` is a pure function of the
     // script, so this pins the patch as a splice — indent, key order, the sibling
     // script and the trailing newline all come back unchanged.
-    expect(content).toBe(manifest(`${lint} && eslint src`));
+    expect(content).toBe(manifest(`${lint} && eslint src --no-error-on-unmatched-pattern`));
   });
 });
 

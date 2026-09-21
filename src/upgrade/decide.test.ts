@@ -44,4 +44,41 @@ describe('decideUpgrade · defense against a resolution the catalog check did no
       refusal: { kind: 'invalid-catalog', problems: ['dependency-cycle'] },
     });
   });
+
+  it('refuses an ambiguous legacy source before resolving an upgrade plan', () => {
+    const facts: UpgradeFacts = {
+      root: '/repo',
+      applications: [{
+        key: '.',
+        root: '/repo',
+        installed: { root: '/repo/node_modules/@kekkai/blueprint', version: '4.1.0' },
+        manifest: { root: '/repo', section: 'devDependencies' },
+        packageManager: 'npm',
+        facts: { root: '.', legacyShape: true, legacyKeys: {} },
+      }],
+      state: { status: 'missing' },
+      checkpoint: {
+        kind: 'unproven-legacy-source', installed: '4.1.0', checkpoint: '3.2.0',
+      },
+      git: { repository: true, changes: [] },
+      workflows: [],
+      unreadable: null,
+    };
+
+    expect(decideUpgrade({
+      facts,
+      running: { root: '/runner', version: '4.1.0' },
+      catalog: {
+        supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+        retired: [],
+      },
+      installSpec: '@kekkai/blueprint@4.1.0',
+      hasInstruction: () => true,
+    })).toEqual({
+      kind: 'refuse',
+      refusal: {
+        kind: 'unproven-legacy-source', installed: '4.1.0', checkpoint: '3.2.0',
+      },
+    });
+  });
 });

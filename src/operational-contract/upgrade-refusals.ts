@@ -12,6 +12,7 @@ export type UpgradeRefusalFact
     | { kind: 'not-installed'; applications: string[] }
     | { kind: 'mixed-installed'; versions: string[]; pending?: { from: string; to: string } }
     | { kind: 'installed-newer'; application: string; installed: string; target: string }
+    | { kind: 'unproven-legacy-source'; installed: string; checkpoint: string }
     | { kind: 'unsupported-source'; source: string; checkpoint: string }
     | { kind: 'downgrade'; source: string; target: string }
     | { kind: 'invalid-catalog'; problems: string[] }
@@ -70,6 +71,11 @@ const REFUSALS: { [K in UpgradeRefusalFact['kind']]: Renderer<K> } = {
   'installed-newer': (fact) => `${fact.application} resolves @kekkai/blueprint ${fact.installed}, `
     + `which is newer than the running ${fact.target}. upgrade never downgrades the package; run `
     + `\`npx @kekkai/blueprint@latest upgrade\` instead. ${RECOVERY}`,
+  'unproven-legacy-source': (fact) => `the legacy Blueprint config overlaps releases below and `
+    + `inside the supported upgrade window, and the installed ${fact.installed} package does not `
+    + `prove which release adopted it. Establish the supported ${fact.checkpoint} checkpoint with `
+    + `that release's own tooling (install @kekkai/blueprint@${fact.checkpoint}, run \`npx blueprint `
+    + `init\` and \`npx blueprint doctor\`), commit, then run this upgrade again. ${RECOVERY}`,
   'unsupported-source': (fact) => `Blueprint ${fact.source} is below the supported upgrade window, `
     + `which starts at ${fact.checkpoint}. Reach ${fact.checkpoint} with that release's own tooling `
     + `(install @kekkai/blueprint@${fact.checkpoint}, run \`npx blueprint init\` and \`npx blueprint `

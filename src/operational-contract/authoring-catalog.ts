@@ -205,8 +205,11 @@ export function renderAcceptanceGates(
     + 'report',
     '- [ ] No `*.blueprint.*` reference file remains, except the retained ESLint migration '
     + 'reference when legacy ESLint is a named unresolved decision; lint adoption stays incomplete',
-    '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN run \`npx blueprint doctor\`. If legacy ESLint migration is the named unresolved owner decision above, its lint-wiring \`✗\` is expected: report the adoption as partial/unresolved, preserve the reference, and do not migrate merely to manufacture green. Otherwise Doctor reports no \`✗\`. In either branch, name the reason behind every \`⊘\` — a skip is not a pass and keeps exit 0, but some are properties of the repository no adoption can remove: a lint script that mutates, a chain doctor cannot replay in isolation, a config shape it cannot prove statically. Clear the ones your adoption caused; name the rest in the report — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
+    '- [ ] The report names every upward dependency found. It names import cycles only when '
+    + '`rules.cycles` is declared and not `off`, or when an existing house detector measured '
+    + 'them. Otherwise it states that cycle detection was not enabled and does not claim there '
+    + 'are no cycles. Do not enable a new gate solely to satisfy this acceptance item',
+    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN run \`npx blueprint doctor\`. If legacy ESLint migration is the named unresolved owner decision above, its lint-wiring \`✗\` is expected: report the adoption as partial/unresolved, preserve the reference, and do not migrate merely to manufacture green. Otherwise Doctor reports no \`✗\`. In either branch, name the reason behind every \`⊘\` — a skip is not a pass and keeps exit 0, but some are properties of the repository no adoption can remove: a lint script that mutates, an ancestor-owned lint wrapper Blueprint cannot inspect, a chain doctor cannot replay in isolation, a config shape it cannot prove statically. Clear the ones your adoption caused; name the rest in the report — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');
 }
 

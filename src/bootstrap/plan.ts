@@ -78,7 +78,13 @@ export function plan(
   const agentFiles = emitAgentFiles(
     blueprint,
     options.agentTarget ? [options.agentTarget] : undefined,
-    stack,
+    {
+      ...stack,
+      packageRoot: path.relative(
+        state.applicationRoot,
+        state.dependencyRoot ?? state.applicationRoot,
+      ).split(path.sep).join('/') || '.',
+    },
   );
 
   const actions: Action[] = [
@@ -339,6 +345,13 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
 
 function installActions(state: ProjectState, options: PlanOptions): Action[] {
   const deps = state.missingDeps;
+  const dependencyRoot = state.dependencyRoot ?? state.applicationRoot;
+
+  const workspaceRoot = state.packageManager === 'pnpm'
+    && dependencyRoot === state.toolchainRoot
+    && dependencyRoot !== state.applicationRoot;
+
+  const command = installCommand(state.packageManager, deps, workspaceRoot);
 
   if (!deps.length) {
     return [];
@@ -347,16 +360,17 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
   if (options.install === false) {
     return [{
       kind: 'instruct',
-      note: renderInstallSkippedForPlan(installCommand(state.packageManager, deps)),
+      note: renderInstallSkippedForPlan(command),
       defers: 'install',
     }];
   }
 
   return [{
     kind: 'install',
-    command: installCommand(state.packageManager, deps),
+    command,
     note: renderDependencyInstallNote(deps, SUPPORTED_ESLINT_MAJORS),
     dependencies: deps,
+    cwd: dependencyRoot,
   }];
 }
 
@@ -388,12 +402,16 @@ export function scriptCommand(pm: PackageManager, script: string): string {
   return pm === 'npm' ? `npm run ${script}` : `${pm} ${script}`;
 }
 
-export function installCommand(pm: PackageManager, deps: string[]): string {
+export function installCommand(
+  pm: PackageManager,
+  deps: string[],
+  workspaceRoot = false,
+): string {
   const list = deps.join(' ');
 
   if (pm === 'npm') {
     return `npm install -D ${list}`;
   }
 
-  return `${pm} add -D ${list}`;
+  return `${pm} add -D${pm === 'pnpm' && workspaceRoot ? 'w' : ''} ${list}`;
 }

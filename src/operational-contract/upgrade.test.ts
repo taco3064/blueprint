@@ -213,6 +213,10 @@ describe('upgrade refusals', () => {
       { kind: 'unsupported-source', source: '3.1.0', checkpoint: '3.2.0' },
       'install @kekkai/blueprint@3.2.0',
     ],
+    [
+      { kind: 'unproven-legacy-source', installed: '4.1.0', checkpoint: '3.2.0' },
+      'legacy Blueprint config overlaps releases below and inside the supported upgrade window',
+    ],
     [{ kind: 'no-manifest', application: 'apps/web' }, 'no package.json above apps/web declares'],
     [{ kind: 'no-pending', id: 'x' }, '`npx blueprint upgrade --dry-run`'],
     [{ kind: 'unknown-operation', id: 'x', pending: ['a', 'b'] }, 'Pending: a, b.'],

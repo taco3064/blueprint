@@ -404,6 +404,43 @@ describe('resolveArchitecture · module-first path contexts', () => {
     ]);
   });
 
+  it.each([
+    ['{module}/{layer}/**/*.ts', 'source/auth/hooks/**/*.ts'],
+    ['source/{module}/{layer}/**/*.ts', 'source/auth/hooks/**/*.ts'],
+  ])('roots custom module-first file nets at sourceRoot: %s', (layerFiles, expected) => {
+    const architecture = moduleFirst();
+
+    architecture.sourceRoot = 'source';
+    architecture.layerFiles = layerFiles;
+
+    expect(resolveArchitecture(architecture).layerFiles('hooks', 'auto', 'auth'))
+      .toEqual([expected]);
+  });
+
+  it.each([
+    ['{layer}/**/*.ts', 'source/hooks/**/*.ts'],
+    ['source/{layer}/**/*.ts', 'source/hooks/**/*.ts'],
+    ['source2/{layer}/**/*.ts', 'source/source2/hooks/**/*.ts'],
+  ])('roots custom layer-first file nets by complete sourceRoot segments: %s', (
+    layerFiles,
+    expected,
+  ) => {
+    const architecture = layerFirst('source');
+
+    architecture.layerFiles = layerFiles;
+
+    expect(resolveArchitecture(architecture).layerFiles('hooks', 'auto')).toEqual([expected]);
+  });
+
+  it('leaves custom file nets unchanged at a project-root sourceRoot', () => {
+    const architecture = layerFirst('.');
+
+    architecture.layerFiles = '{layer}/**/*.ts';
+
+    expect(resolveArchitecture(architecture).layerFiles('hooks', 'auto'))
+      .toEqual(['hooks/**/*.ts']);
+  });
+
   it('keeps an unresolved module placeholder visible to unchecked resolver callers', () => {
     const architecture = layerFirst();
 

@@ -192,8 +192,10 @@ Those remain authoring decisions.
 
 `inspect` compares the configured source tree with the architecture. It reports undeclared
 folders, module or layer flow violations, non-canonical aliases, deep imports, relative escapes,
-package ownership, `selfOnly` re-exports, unit cycles, missing entries, and informative missing
-module/layer positions.
+package ownership, `selfOnly` re-exports, missing entries, and informative missing module/layer
+positions. It also reports unit cycles when `rules.cycles` is declared with a tier other than
+`off`. With that gate absent or off, no cycle finding means only that Blueprint cycle detection was
+not enabled; it does not prove the graph has no cycles.
 
 ```bash
 npx @kekkai/blueprint inspect
@@ -339,9 +341,10 @@ config migrations, regenerated outputs, semantic work that needs a person or cod
 final verification. `upgrade` owns the whole sequence:
 
 1. **Plan.** Read the lifecycle checkpoint in `.blueprint-lifecycle.json`. A repository adopted
-   before lifecycle state existed gets its checkpoint from provable facts only: the installed
-   `@kekkai/blueprint` version, or 3.2.0 when a Blueprint 3.2 config shape proves the adoption
-   predates 4.0. Then resolve every structured upgrade operation of every release in
+   before lifecycle state existed gets its checkpoint from an exact installed pre-lifecycle
+   `@kekkai/blueprint` version. A legacy config shape spans supported and unsupported 3.x
+   releases, so it cannot date the source by itself; when a newer package has replaced that
+   evidence, establish a known 3.2 checkpoint before upgrading. Then resolve every operation in
    `(source, target]` before anything runs.
 2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume.
 3. **Move `@kekkai/blueprint`** to the running target through the detected npm, pnpm, or Yarn

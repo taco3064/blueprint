@@ -4,12 +4,13 @@ import type { LifecycleStateHistory } from './state-history';
 import type { LifecycleState, UpgradeCatalog } from './types';
 import { compareVersions } from './version';
 
-export type BootstrapEvidence = 'installed-package' | 'legacy-config' | 'state-never-committed';
+export type BootstrapEvidence = 'installed-package' | 'state-never-committed';
 
 export type SourceCheckpoint
   = | { kind: 'state'; version: string; state: LifecycleState }
     | { kind: 'adoption-incomplete' }
     | { kind: 'bootstrap'; version: string; evidence: BootstrapEvidence }
+    | { kind: 'unproven-legacy-source'; installed: string; checkpoint: string }
     | { kind: 'missing-state'; installed: string }
     | { kind: 'invalid-state'; reason: string }
     | { kind: 'not-installed' }
@@ -57,11 +58,13 @@ function bootstrapCheckpoint(installed: string, input: SourceCheckpointInput): S
   }
 
   if (input.legacyShape) {
-    return {
-      kind: 'bootstrap',
-      version: [installed, input.catalog.legacyConfigCheckpoint].sort(compareVersions)[0],
-      evidence: 'legacy-config',
-    };
+    return compareVersions(installed, input.catalog.legacyConfigCheckpoint) <= 0
+      ? { kind: 'bootstrap', version: installed, evidence: 'installed-package' }
+      : {
+          kind: 'unproven-legacy-source',
+          installed,
+          checkpoint: input.catalog.legacyConfigCheckpoint,
+        };
   }
 
   return aware

@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Framework } from '../config';
-import { directoriesToBoundary, resolveProjectContext, sameFilesystemPath } from './context';
+import {
+  directoriesToBoundary,
+  readPackageMetadata,
+  resolveProjectContext,
+  sameFilesystemPath,
+} from './context';
 import { REQUIRED_DEPS, STACK_DEPS } from './install';
 import type { ProjectState } from './types';
 
@@ -249,16 +254,23 @@ export function detect(root: string): ProjectState {
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
   const viteConfig = readViteConfig(root, viteFile);
 
-  const availableDependencies = new Set([
-    ...deps,
-    ...context.toolchainPackage.dependencies,
-  ]);
+  const dependencyRoot = eslint.configRoot && !sameFilesystemPath(eslint.configRoot, root)
+    ? eslint.configRoot
+    : context.applicationRoot;
+
+  const dependencyBoundary = context.repositoryRoot ?? context.toolchainRoot;
+
+  const availableDependencies = new Set(directoriesToBoundary(
+    dependencyRoot,
+    dependencyBoundary,
+  ).flatMap((directory) => readPackageMetadata(directory).dependencies));
 
   return {
     root,
     applicationRoot: context.applicationRoot,
     repositoryRoot: context.repositoryRoot,
     toolchainRoot: context.toolchainRoot,
+    dependencyRoot,
     localPackage: context.localPackage,
     toolchainPackage: context.toolchainPackage,
     framework,

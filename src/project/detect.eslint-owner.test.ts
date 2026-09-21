@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { detect, GENERATED_ESLINT_BANNER } from './detect';
+import { REQUIRED_DEPS, STACK_DEPS } from './install';
 
 const roots: string[] = [];
 
@@ -12,6 +13,39 @@ afterEach(() => {
   for (const root of roots.splice(0)) {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+describe('detect · ancestor eslint ownership', () => {
+  it('judges dependencies from the ancestor config consumer, not an isolated child package', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-deps-'));
+    const app = path.join(workspace, 'apps', 'web');
+    const required = [...REQUIRED_DEPS, STACK_DEPS.vue];
+
+    roots.push(workspace);
+    spawnSync('git', ['init'], { cwd: workspace });
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'pnpm-workspace.yaml'), 'packages: [apps/*]\n');
+    fs.writeFileSync(path.join(workspace, 'package.json'), '{}');
+    fs.writeFileSync(path.join(workspace, 'eslint.config.mjs'), 'export default [];\n');
+
+    fs.writeFileSync(path.join(app, 'package.json'), JSON.stringify({
+      dependencies: Object.fromEntries([
+        ['vue', '^3'],
+        ...required.map((dependency) => [dependency, '*']),
+      ]),
+    }));
+
+    expect(detect(app)).toMatchObject({
+      dependencyRoot: workspace,
+      missingDeps: required,
+    });
+
+    fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({
+      devDependencies: Object.fromEntries(required.map((dependency) => [dependency, '*'])),
+    }));
+
+    expect(detect(app).missingDeps).toEqual([]);
+  });
 });
 
 describe('detect · ancestor eslint ownership', () => {

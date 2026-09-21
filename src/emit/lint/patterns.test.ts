@@ -77,7 +77,7 @@ describe('resolveLayerFiles', () => {
   it('substitutes {layer} in custom globs', () => {
     expect(resolveLayerFiles('services', 'auto', { layerFiles: ['lib/{layer}/**/*.ts'] }))
       .toEqual([
-        'lib/services/**/*.ts',
+        'src/lib/services/**/*.ts',
       ]);
   });
 
@@ -88,7 +88,7 @@ describe('resolveLayerFiles', () => {
     // matches nothing, and nothing in the output says why.
     expect(resolveLayerFiles('services', 'auto', { layerFiles: ['lib/{ layer }/**/*.ts'] }))
       .toEqual([
-        'lib/services/**/*.ts',
+        'src/lib/services/**/*.ts',
       ]);
   });
 

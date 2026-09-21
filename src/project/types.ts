@@ -12,6 +12,8 @@ export interface ProjectState {
 
   toolchainRoot: string;
 
+  dependencyRoot?: string;
+
   localPackage: PackageMetadata;
 
   toolchainPackage: PackageMetadata;

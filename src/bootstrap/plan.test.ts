@@ -222,6 +222,35 @@ describe('plan', () => {
   });
 });
 
+describe('plan · nested dependency installation', () => {
+  it('installs ancestor eslint dependencies at the pnpm workspace root', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo',
+      packageManager: 'pnpm',
+    }), bp);
+
+    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
+      command: 'pnpm add -Dw eslint @kekkai/blueprint',
+      cwd: '/repo',
+    });
+  });
+
+  it('prints the owned pnpm workspace install under --no-install', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo',
+      packageManager: 'pnpm',
+    }), bp, { install: false });
+
+    expect(actions.find((action) => action.kind === 'instruct'
+      && action.note.includes('Install skipped'))?.note)
+      .toContain('pnpm add -Dw eslint @kekkai/blueprint');
+  });
+});
+
 describe('plan · sourceRoot scaffolding', () => {
   it('keeps an empty module-first tree as runway instead of inventing global layers', () => {
     const moduleFirst: Blueprint = {

@@ -176,8 +176,10 @@ npx @kekkai/blueprint survey --source-root apps/web/src --json
 ## `inspect`
 
 `inspect` 會拿設定過的原始碼樹與架構比對，找出未宣告資料夾、模組或分層流向違規、非
-標準別名、深入匯入、相對路徑逃逸、套件所有權違規、`selfOnly` 再匯出、單元循環、缺少
-公開入口，以及尚未落地的模組／分層提示。
+標準別名、深入匯入、相對路徑逃逸、套件所有權違規、`selfOnly` 再匯出、缺少公開入口，
+以及尚未落地的模組／分層提示。只有在 `rules.cycles` 已宣告且層級不是 `off` 時，它才會
+回報單元循環。關卡未宣告或為 `off` 時，沒有循環 finding 只代表 Blueprint 未啟用循環
+偵測，不能證明相依圖中沒有循環。
 
 ```bash
 npx @kekkai/blueprint inspect
@@ -324,7 +326,7 @@ Blueprint 的版本升級不只包含 npm 套件本身。
 
 1. **確認起始狀態並產生計畫。**
    讀取 `.blueprint-lifecycle.json` 中已完成的生命週期版本與升級紀錄。
-   如果專案是在生命週期狀態功能加入之前就已經導入 Blueprint，只能使用受支援且可證明的套件與設定事實建立起始檢查點。
+   如果專案是在生命週期狀態功能加入之前就已經導入 Blueprint，只能使用當時實際安裝、可精確證明的套件版本建立起始檢查點。舊版設定格式橫跨受支援與不受支援的 3.x 版本，不能單獨證明來源版本；若較新的套件已覆蓋這項證據，必須先建立已知的 3.2 檢查點再升級。
    接著一次收集 `(source, target]` 區間內所有版本的結構化升級操作，先處理 `requires`、`cancels`、`supersedes` 與適用條件，算出最終有效計畫，之後才開始修改專案。
 
 2. **記錄尚未完成的升級。**
@@ -422,7 +424,7 @@ Blueprint 的 lifecycle 是 repository-wide。所有已導入的應用程式都�
 
 如果 `.blueprint-lifecycle.json` 損壞、內容無法驗證，或 Git 歷史能證明它曾經存在但目前檔案已遺失，`upgrade` 會停止，不會依目前的設定或已安裝套件自行重建 lifecycle history。若不在 Git repository 內，或 shallow clone 無法提供完整歷史，也同樣停止。請先從版本控制或其他可信來源還原 lifecycle state；無法還原時，交由 owner 決定後續處理。
 
-如果 `.blueprint-lifecycle.json` 目前不存在，而且完整 Git 歷史中所有目前可追溯的 ref 都找不到曾包含這個檔案的 commit，Blueprint 不會把它視為「遺失的 lifecycle state」，因為現有版本控制證據無法證明 lifecycle 曾經成立。常見情況是 Renovate、Dependabot 或 `npm update` 在執行 `upgrade` 之前，就先把 4.0 專案的套件升到 4.1。這種 repository 會和 lifecycle 功能出現以前就已導入 Blueprint 的專案一樣，從目前可證明的套件與設定事實建立起始檢查點。Git 無法區分這種情況，和「使用 4.1 之後的版本導入、但從未提交 lifecycle state，之後又把檔案刪掉」；兩者會走同一條 bootstrap 路徑。請把 `.blueprint-lifecycle.json` 提交進版本控制，讓後續遺失時有可恢復的歷史依據。
+如果 `.blueprint-lifecycle.json` 目前不存在，而且完整 Git 歷史中所有目前可追溯的 ref 都找不到曾包含這個檔案的 commit，Blueprint 不會把它視為「遺失的 lifecycle state」，因為現有版本控制證據無法證明 lifecycle 曾經成立。這種 repository 只能由實際安裝、可精確定年的舊版套件建立起始檢查點；若 Renovate、Dependabot 或 `npm update` 已把套件升到較新版本，舊版設定格式本身無法區分 3.1 與 3.2，Blueprint 會拒絕猜測，並要求先建立已知的 3.2 檢查點。請把 `.blueprint-lifecycle.json` 提交進版本控制，讓後續遺失時有可恢復的歷史依據。
 
 ## `remove`
 

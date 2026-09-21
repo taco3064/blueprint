@@ -18,6 +18,8 @@ import {
 export interface AgentContractOptions extends StackFacts {
 
   compact?: boolean;
+
+  contractDoc?: string;
 }
 
 export function emitAgentContract(
@@ -31,10 +33,10 @@ function emitAgentContractUnchecked(
   blueprint: Blueprint,
   options: AgentContractOptions,
 ): string {
-  const { compact, ...stack } = options;
+  const { compact, contractDoc, ...stack } = options;
 
   if (compact) {
-    return `${renderCompactContract(blueprint, stack)}\n`;
+    return `${renderCompactContract(blueprint, stack, contractDoc)}\n`;
   }
 
   const { architecture, principles, rules } = blueprint;

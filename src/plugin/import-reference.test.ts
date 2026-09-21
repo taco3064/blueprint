@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyzeDynamicImports } from './import-reference';
+import { analyzeDynamicImports, analyzeModuleImports } from './import-reference';
 
 describe('analyzeDynamicImports', () => {
   it.each([
@@ -65,6 +65,44 @@ describe('analyzeDynamicImports', () => {
   it('walks nullable items in parser visitor arrays safely', () => {
     expect(analyzeDynamicImports('const [first,,last] = values; import("~app/hooks/x")'))
       .toEqual({ specifiers: ['~app/hooks/x'], unknown: 0 });
+  });
+});
+
+describe('analyzeModuleImports', () => {
+  it('finds source module references without treating inert text as an import', () => {
+    const source = [
+      'import value from "@kekkai/blueprint";',
+      'export { value as other } from "@kekkai/blueprint/operational-contract";',
+      'const loaded = require("@kekkai/blueprint/runtime");',
+      'const dynamic = import("@kekkai/blueprint/dynamic");',
+      'type Contract = import("@kekkai/blueprint/types").Contract;',
+      'const prose = "import ignored from \'@kekkai/blueprint/inert\'";',
+    ].join('\n');
+
+    expect(analyzeModuleImports(source, 'source.ts')).toEqual({
+      specifiers: [
+        '@kekkai/blueprint',
+        '@kekkai/blueprint/operational-contract',
+        '@kekkai/blueprint/runtime',
+        '@kekkai/blueprint/dynamic',
+        '@kekkai/blueprint/types',
+      ],
+    });
+  });
+
+  it('ignores a shadowed require and reports malformed source', () => {
+    expect(analyzeModuleImports(
+      'function load(require) { return require("@kekkai/blueprint"); }',
+    )).toEqual({ specifiers: [] });
+
+    expect(analyzeModuleImports('const =', 'broken.ts')).toMatchObject({
+      specifiers: [], parseError: expect.any(String),
+    });
+  });
+
+  it('ignores module references whose specifier is only known at runtime', () => {
+    expect(analyzeModuleImports('const target = runtime(); import(target);'))
+      .toEqual({ specifiers: [] });
   });
 });
 

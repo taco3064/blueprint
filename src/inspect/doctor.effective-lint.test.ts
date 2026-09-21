@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { assessLintEntrypoint } from '../project';
 import type { ProjectState } from '../project';
-import { ancestorLintCoversApplication, measureEffectiveLint } from './doctor';
+import {
+  ancestorLintCoversApplication,
+  lintEntrypointCheck,
+  measureEffectiveLint,
+} from './doctor';
 
 const pkg = (scripts: Record<string, string>) => ({ root: '/repo', scripts, dependencies: [] });
 
@@ -31,6 +35,23 @@ describe('Doctor effective nested-app lint context', () => {
     expect(result.evidence.status).toBe('passed');
   });
 
+  it('runs an ordinarily delegated covering ancestor entrypoint', () => {
+    const nested = state('npm run lint:code');
+
+    nested.toolchainPackage.scripts['lint:code'] = 'eslint apps/web';
+
+    const run = vi.fn(() => ({
+      status: 'passed' as const, command: 'eslint apps/web', errors: 0, warnings: 0,
+    }));
+
+    const result = measureEffectiveLint({
+      root: '/repo/apps/web', state: nested, dependencies: ['eslint'], run,
+    });
+
+    expect(run).toHaveBeenCalledWith('/repo', ['eslint'], result.assessment);
+    expect(result.evidence.status).toBe('passed');
+  });
+
   it('leaves an ancestor command unresolved when it does not cover the application', () => {
     const run = vi.fn();
 
@@ -52,6 +73,23 @@ describe('Doctor effective nested-app lint context', () => {
     });
 
     expect(result.evidence).toMatchObject({ status: 'unverified', command: null });
+  });
+
+  it('keeps an opaque ancestor unverified while a local non-eslint command is incomplete', () => {
+    const assessment = assessLintEntrypoint(pkg({ lint: 'vsh lint' }));
+    const ancestor = lintEntrypointCheck(assessment, true);
+
+    const local = lintEntrypointCheck(
+      assessLintEntrypoint(pkg({ lint: 'oxlint' })),
+      false,
+    );
+
+    expect(ancestor).toMatchObject({
+      ok: true,
+      skipped: expect.stringContaining('implementation Blueprint cannot inspect'),
+    });
+
+    expect(local).toMatchObject({ ok: false, detail: expect.stringContaining('oxlint') });
   });
 
   it.each([

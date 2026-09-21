@@ -122,7 +122,9 @@ export function renderGoal(claudeLauncher: boolean): string {
     '3. `npx blueprint inspect --update-baseline` run — '
     + 'it writes `.blueprint-baseline.json` only when debt exists; '
     + 'on a clean repo "No debt to lock" and no file IS the correct outcome',
-    '4. A short report: the layer table, debt counts by category, any cycles.',
+    '4. A short report: the layer table, debt counts by category, and cycle results only when '
+    + 'a declared Blueprint gate or existing house detector measured them; otherwise state that '
+    + 'cycle detection was not enabled.',
     '   It is a message, not an artifact — deliver it as your closing reply to the user (or the PR '
     + 'description when one is opened); never commit a report file',
     '',

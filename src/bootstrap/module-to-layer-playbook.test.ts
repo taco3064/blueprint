@@ -193,6 +193,33 @@ describe('module-first to layer-first playbook', () => {
       'npx blueprint doctor --json',
     ]);
   });
+
+  it('makes a retained container identity authoritative over the module-name fallback', () => {
+    const result = moduleToLayerBrief({
+      evidence: evidence({
+        modules: [{ name: 'session', dependsOn: [] }],
+        mappings: [{
+          source: 'src/session/TitleScreen.tsx',
+          destination: 'src/containers/TitleScreen/TitleScreen.tsx',
+          module: 'session',
+          layer: 'containers',
+          layout: 'container',
+          disposition: 'move',
+        }],
+      }),
+      preflight,
+      findings: [],
+      state: state(),
+      install: 'npm install',
+      cleanup: 'the playbook.',
+    });
+
+    expect(result).toContain('Every listed destination is authoritative');
+    expect(result).toContain('a retained layer-first origin restores');
+    expect(result).toContain('`containers/<module>` is only the fallback');
+    expect(result).toContain('retained origin destination with the generic');
+    expect(result).not.toContain('map ordinary module roots below `containers/<module>`');
+  });
 });
 
 describe('module-first to layer-first playbook risks', () => {

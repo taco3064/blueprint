@@ -243,7 +243,7 @@ async function doctorChecks(
       ...transformationChecks(root, blueprint, state),
       leftoversCheck(root, blueprint, !eslintWired && state.legacyEslintConfig !== undefined),
       eslintWiredCheck(state, eslintWired),
-      lintEntrypointCheck(lintAssessment),
+      lintEntrypointCheck(lintAssessment, effectiveLintIsAncestor(root, state)),
       liveLintCheck(lintEvidence, lintAssessment),
       ...aliasChecks(root, blueprint, state),
       wiring.check,
@@ -268,17 +268,9 @@ export function measureEffectiveLint(input: {
   run?: typeof runLiveLint;
 }) {
   const { root, state, dependencies } = input;
+  const { ancestor, lintRoot, assessment, coversApplication } = effectiveLintContext(root, state);
 
-  const ancestor = state.eslintConfigRoot !== undefined
-    && path.resolve(state.eslintConfigRoot) !== path.resolve(root);
-
-  const lintRoot = ancestor ? state.eslintConfigRoot! : root;
-
-  const assessment = assessLintEntrypoint(
-    ancestor ? state.toolchainPackage : state.localPackage,
-  );
-
-  if (ancestor && !ancestorLintCoversApplication(assessment, state.eslintBasePath)) {
+  if (ancestor && !coversApplication) {
     return {
       assessment,
       evidence: {
@@ -295,6 +287,28 @@ export function measureEffectiveLint(input: {
   const run = assessment.reachable ? input.run ?? runLiveLint : runLiveLint;
 
   return { assessment, evidence: run(lintRoot, dependencies, assessment) };
+}
+
+export function effectiveLintContext(root: string, state: ProjectState) {
+  const ancestor = effectiveLintIsAncestor(root, state);
+  const lintRoot = ancestor ? state.eslintConfigRoot! : root;
+
+  const assessment = assessLintEntrypoint(
+    ancestor ? state.toolchainPackage : state.localPackage,
+  );
+
+  return {
+    ancestor,
+    lintRoot,
+    assessment,
+    coversApplication: !ancestor
+      || ancestorLintCoversApplication(assessment, state.eslintBasePath),
+  };
+}
+
+function effectiveLintIsAncestor(root: string, state: ProjectState): boolean {
+  return state.eslintConfigRoot !== undefined
+    && path.resolve(state.eslintConfigRoot) !== path.resolve(root);
 }
 
 export function ancestorLintCoversApplication(
@@ -371,15 +385,20 @@ function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorChec
   });
 }
 
-function lintEntrypointCheck(
+export function lintEntrypointCheck(
   assessment: ReturnType<typeof assessLintEntrypoint>,
+  ancestor: boolean,
 ): DoctorCheck {
   return assessment.reachable
     ? renderDoctorCheck({ kind: 'lint-entrypoint', reachable: true })
     : renderDoctorCheck({
         kind: 'lint-entrypoint',
         reachable: false,
-        reason: assessment.reason === 'missing-lint' ? 'missing-lint' : 'unreachable',
+        reason: assessment.reason === 'missing-lint'
+          ? 'missing-lint'
+          : ancestor && assessment.reason === 'eslint-opaque'
+            ? 'opaque-ancestor'
+            : 'unreachable',
         ...(assessment.entrypoint ? { entrypoint: assessment.entrypoint } : {}),
       });
 }

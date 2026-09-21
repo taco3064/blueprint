@@ -9,6 +9,12 @@ export type Action
     ownership?: 'generated' | 'section';
   }
   | { kind: 'mkdir'; path: string; note: OperationalText }
-  | { kind: 'install'; command: string; note: OperationalText; dependencies?: readonly string[] }
+  | {
+    kind: 'install';
+    command: string;
+    note: OperationalText;
+    dependencies?: readonly string[];
+    cwd?: string;
+  }
   | { kind: 'rm'; path: string; note: OperationalText }
   | { kind: 'instruct'; note: OperationalText; defers?: AdoptionGap };

@@ -83,7 +83,8 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
     expect(output()).toContain('Blueprint upgrade — dry run (nothing was changed)');
 
     expect(output())
-      .toContain('Source: 3.2.0 (a Blueprint 3.2 config shape proves the adoption predates 4.0)');
+      .toContain('Source: 3.2.0 (installed @kekkai/blueprint; no lifecycle state yet, so this '
+        + 'run establishes it)');
 
     expect(output()).toContain('Target: 4.1.0 (the running @kekkai/blueprint package is the only '
       + 'target authority)');

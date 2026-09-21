@@ -92,7 +92,10 @@ describe('init lifecycle recording', () => {
       { kind: 'generated', path: 'eslint.config.mjs' },
       created('jsconfig.json'),
       { kind: 'directory', path: 'src/pages' },
-      { kind: 'script', path: 'package.json', name: 'lint', before: null, after: 'eslint src' },
+      {
+        kind: 'script', path: 'package.json', name: 'lint', before: null,
+        after: 'eslint src --no-error-on-unmatched-pattern',
+      },
       { kind: 'dependency', name: 'eslint' },
       { kind: 'dependency', name: '@kekkai/blueprint' },
       {
@@ -359,11 +362,12 @@ describe('adoption recorder', () => {
     recorder.finish(log, true);
   }
 
-  it('dates a pre-lifecycle adoption from its 3.2 config backup', () => {
+  it('does not date a pre-lifecycle adoption from an ambiguous legacy config backup', () => {
     git('init', '--quiet');
     adoptedBeside(`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`);
 
-    expect(lifecycle()).toMatchObject({ blueprint: '3.2.0', provenance: 'partial' });
+    expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
+    expectLogged('legacy config shape overlaps supported and unsupported 3.x releases');
   });
 
   it('never rebuilds lost or unprovable state from a 3.2 config backup', () => {

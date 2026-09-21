@@ -190,7 +190,7 @@ function ordinaryLintScriptAction(
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
   if (greenfield && text.split(needle).length === 2) {
-    const patched = `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`;
+    const patched = `"lint": ${JSON.stringify(`${lint} && ${greenfieldEslintLeg(target)}`)}`;
 
     return {
       kind: 'write',
@@ -218,7 +218,10 @@ function noLintScript(
     };
   }
 
-  const patched = { ...parsed, scripts: { ...parsed.scripts, lint: `eslint ${target}` } };
+  const patched = {
+    ...parsed,
+    scripts: { ...parsed.scripts, lint: greenfieldEslintLeg(target) },
+  };
 
   return {
     kind: 'write',
@@ -226,6 +229,10 @@ function noLintScript(
     content: `${JSON.stringify(patched, null, 2)}\n`,
     note: renderLintScriptNote('added', target),
   };
+}
+
+function greenfieldEslintLeg(target: string): string {
+  return `eslint ${target} --no-error-on-unmatched-pattern`;
 }
 
 export function applyLintWiring(actions: Action[], wiring: Action | null): void {

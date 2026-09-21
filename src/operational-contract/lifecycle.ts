@@ -5,7 +5,8 @@ export type LifecycleEstablishment = 'first' | 'bootstrap' | 'records-only' | nu
 
 export type AdoptionGap = 'install' | 'authoring';
 
-export type LifecycleRecordSkip = 'unproven-checkpoint' | 'pending-upgrade' | 'missing-state';
+export type LifecycleRecordSkip = 'unproven-checkpoint' | 'unproven-legacy-source'
+  | 'pending-upgrade' | 'missing-state';
 
 const NOTES: Record<string, string> = {
   first: '(lifecycle checkpoint and Blueprint ownership records — commit it; `blueprint upgrade` '
@@ -52,6 +53,10 @@ const SKIPPED: Record<LifecycleRecordSkip, string> = {
   'unproven-checkpoint': 'Lifecycle state not recorded — the installed @kekkai/blueprint version '
     + 'could not be read, so no lifecycle checkpoint can be proven. Install dependencies and '
     + 're-run init so `blueprint upgrade` and `blueprint remove` can rely on recorded ownership.',
+  'unproven-legacy-source': 'Lifecycle state not recorded — the legacy config shape overlaps '
+    + 'supported and unsupported 3.x releases, so it cannot prove an exact source checkpoint. '
+    + 'Install Blueprint 3.2, run that release\'s init and doctor, commit the checkpoint, then '
+    + 'upgrade.',
 };
 
 export function renderLifecycleRecordSkipped(reason: LifecycleRecordSkip): OperationalText {

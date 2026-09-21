@@ -63,7 +63,9 @@ describe('gatherUpgradeFacts', () => {
     ]);
 
     expect(facts.checkpoint)
-      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+      .toEqual({
+        kind: 'unproven-legacy-source', installed: '4.0.0', checkpoint: '3.2.0',
+      });
 
     expect(facts.git).toEqual({ repository: true, changes: ['a.ts', 'docs/b.md'] });
   });
@@ -105,6 +107,8 @@ describe('gatherUpgradeFacts', () => {
       });
 
       expect(facts.checkpoint)
-        .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+        .toEqual({
+          kind: 'unproven-legacy-source', installed: '4.0.0', checkpoint: '3.2.0',
+        });
     });
 });

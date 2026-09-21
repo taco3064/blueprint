@@ -2,8 +2,11 @@ import type { OperationalText } from './operational-contract';
 
 const message = (value: string): OperationalText => value as OperationalText;
 
-export function renderAuthoringAgentPrompt(file: string): OperationalText {
-  return message(`Read ${file} at the repository root and execute it end to end.`);
+export function renderAuthoringAgentPrompt(
+  file: string,
+  root: 'application' | 'repository' = 'application',
+): OperationalText {
+  return message(`Read ${file} from the ${root} root and execute it end to end.`);
 }
 
 export interface LegacyManualRewriteFact {

@@ -98,7 +98,8 @@ describe('runInit · lint-script wiring', () => {
 
     await runLayerFirstInit(root, { install: false, log: silent });
 
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
+    expect(JSON.parse(read('package.json')).scripts.lint)
+      .toBe('oxlint && eslint src --no-error-on-unmatched-pattern');
   });
 
   it('falls back to an instruction when the script cannot be patched safely', async () => {
@@ -151,7 +152,21 @@ describe('runInit · lint-script wiring', () => {
 
     await runLayerFirstInit(root, { install: false, log: silent });
 
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
+    expect(JSON.parse(read('package.json')).scripts.lint)
+      .toBe('eslint src --no-error-on-unmatched-pattern');
+  });
+
+  it('adds an empty-safe lint script for a module-first runway with no source folder', async () => {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+
+    await runInit(root, {
+      topology: 'module-first', install: false, log: silent,
+    });
+
+    expect(exists('src')).toBe(false);
+
+    expect(JSON.parse(read('package.json')).scripts.lint)
+      .toBe('eslint src --no-error-on-unmatched-pattern');
   });
 
   it('instructs about a missing lint script on an existing project', async () => {
@@ -188,7 +203,9 @@ describe('runInit · where the lint-script action lands in the plan', () => {
 
     expect(writeAt).toBeGreaterThan(-1);
     expect(writeAt).toBeLessThan(installAt);
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
+
+    expect(JSON.parse(read('package.json')).scripts.lint)
+      .toBe('oxlint && eslint src --no-error-on-unmatched-pattern');
   });
 
   it('lands the lint-script patch before the install that would clobber it', async () => {

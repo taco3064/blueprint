@@ -397,11 +397,22 @@ export function resolveLayerFilePatterns(
 
   const declared = scope.layerFiles === undefined
     ? [`${root}/**/*.{${FRAMEWORK_EXTS[framework]}}`]
-    : toArray(scope.layerFiles);
+    : toArray(scope.layerFiles).map((glob) => rootedLayerFiles(glob, sourceRoot));
 
   return declared.map((glob) => glob
     .replace(/\{\s*module\s*\}/g, () => scope.module ?? '{module}')
     .replace(/\{\s*layer\s*\}/g, () => layer));
+}
+
+function rootedLayerFiles(glob: string, sourceRoot: string): string {
+  if (sourceRoot === '.') {
+    return glob;
+  }
+
+  const root = segments(sourceRoot);
+  const pattern = segments(glob);
+
+  return startsWith(pattern, root) ? glob : joinSource(sourceRoot, glob);
 }
 
 function toArray(value: string | string[]): string[] {
