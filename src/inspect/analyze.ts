@@ -1,6 +1,7 @@
 import {
   resolveArchitecture,
   sourceRootLabel,
+  activeSetting,
 } from '../config';
 import type {
   AliasRoot,
@@ -23,6 +24,7 @@ import {
   stripAlias,
 } from './resolve';
 import type { EntryOf, LayoutOf, UnitShape } from './resolve';
+import { uniqueFindings } from './types';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 import { aliasDependencyFindings } from './dependency';
 import { renderFindingMessage } from '../operational-contract';
@@ -48,19 +50,24 @@ export function analyze(
     ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
-  for (const cycle of detectCycles(buildUnitGraph(scan, architecture).edges)) {
-    const members = [...new Set(cycle)].sort(compareText);
+  const cycleTier = activeSetting(blueprint.rules?.cycles)?.tier;
 
-    findings.push(
-      finding('error', 'cycle', {
-        path: members[0],
-        subject: members.join(' '),
-        message: renderFindingMessage({ kind: 'cycle', cycle }),
-      }),
-    );
+  if (cycleTier && cycleTier !== 'off') {
+    for (const cycle of detectCycles(buildUnitGraph(scan, architecture).edges)) {
+      const members = [...new Set(cycle)].sort(compareText);
+
+      findings.push(
+        finding(cycleTier, 'cycle', {
+          path: members[0],
+          subject: members.join(' '),
+          message: renderFindingMessage({ kind: 'cycle', cycle }),
+        }),
+      );
+    }
   }
 
-  return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+  return uniqueFindings(findings)
+    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
 function ownsFindings(

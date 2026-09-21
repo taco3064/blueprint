@@ -153,7 +153,8 @@ describe('module-first to layer-first transformation authoring', () => {
       packageJson: { dependencies: { react: '^18.0.0' } },
       config: config('react'),
       files: source,
-      claims: ['src/app/Login.ts` → `src/pages/Login.ts', 'src/hooks/usesession.ts'],
+      claims: ['src/app/Login.ts` → **unresolved router placement decision**',
+        'src/hooks/usesession.ts'],
     },
     {
       framework: 'Vue',

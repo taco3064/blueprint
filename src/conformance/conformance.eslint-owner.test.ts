@@ -37,8 +37,8 @@ function seedNestedApp(root: string, app: string, eslintConfig: string): void {
 }
 
 function expectRootReadyReference(reference: string): void {
-  expect(reference).toContain('new URL(\'./apps/web/\', import.meta.url)');
-  expect(reference).toContain('basePath: applicationRoot');
+  expect(reference).toContain('import blueprint from \'./blueprint.config.mjs\'');
+  expect(reference).not.toContain('basePath: applicationRoot');
   expect(reference).toContain('files: [\'src/**/*.{js,jsx,ts,tsx,vue}\']');
 }
 

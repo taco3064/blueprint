@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { migrateLegacyBlueprint } from '../config';
+import { legacyMigrationFacts, migrateLegacyBlueprint } from '../config';
 import type { Blueprint } from '../config';
 import {
   applicationKey,
@@ -71,13 +71,16 @@ export function lifecycleRoot(cwd: string, git: GitReader = defaultGitReader): s
 function legacyFacts(key: string, loaded: unknown): ApplicationFacts {
   const blueprint = loaded as Blueprint & { architecture?: { module?: { private?: unknown } } };
   const privateLayers = blueprint.architecture?.module?.private;
+  const preserved = legacyMigrationFacts(blueprint);
 
   return {
     root: key,
-    legacyShape: migrateLegacyBlueprint(blueprint).migrated,
-    legacyKeys: Array.isArray(privateLayers)
-      ? { 'module.private': privateLayers.map(String) }
-      : {},
+    legacyShape: preserved !== null || migrateLegacyBlueprint(blueprint).migrated,
+    legacyKeys: preserved?.privateNames.length
+      ? { 'module.private': preserved.privateNames }
+      : Array.isArray(privateLayers)
+        ? { 'module.private': privateLayers.map(String) }
+        : {},
   };
 }
 

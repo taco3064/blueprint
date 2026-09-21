@@ -113,11 +113,14 @@ async function adoptionPrompt(dir, topology) {
     'Context: @kekkai/blueprint is ALREADY installed in this repo (from a local',
     'tarball) — do not install it from the registry. This repo is disposable.',
     '',
-    renderFieldPrompt({ topology }).trim(),
+    'This is the dedicated greenfield control: the harness staged zero application source files.',
+    'Do not author domain modules or replace preset governance.',
+    '',
+    renderFieldPrompt({ topology, greenfield: true }).trim(),
   ].join('\n');
 }
 
-/** The starter fixture — the vite + TS shape every field batch adopted on. */
+/** A proven-empty application runway: toolchain files, but zero application source files. */
 const STARTER_FILES = {
   'package.json': JSON.stringify(
     {
@@ -159,16 +162,7 @@ export default defineConfig({
   plugins: [react()],
 })
 `,
-  'index.html': '<!doctype html><div id="root"></div><script type="module" src="/src/main.tsx"></script>\n',
-  'src/main.tsx': `import { createRoot } from 'react-dom/client'
-import { App } from './App'
-
-createRoot(document.getElementById('root')!).render(<App />)
-`,
-  'src/App.tsx': `export function App() {
-  return <h1>field starter</h1>
-}
-`,
+  'index.html': '<!doctype html><div id="root"></div>\n',
 };
 
 export function parseArgs(argv) {
@@ -325,6 +319,14 @@ function stageNew(dir) {
   for (const [rel, content] of Object.entries(STARTER_FILES)) {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), content);
+  }
+
+  const sourceFiles = fs.existsSync(path.join(dir, 'src'))
+    ? fs.readdirSync(path.join(dir, 'src')).filter((name) => /\.[cm]?[jt]sx?$/.test(name))
+    : [];
+
+  if (sourceFiles.length !== 0) {
+    throw new Error(`greenfield fixture must stage zero source files; found ${sourceFiles.length}`);
   }
 }
 

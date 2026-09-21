@@ -112,7 +112,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   rejectRetiredArchitectureModule(architecture);
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
-  const { alias, additionalAliases, modules, layers, layerFiles } = architecture;
+  const { alias, additionalAliases, modules, layers, layerFiles, sourceRoot } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw configValidationError({ kind: 'architecture-alias' });
@@ -125,7 +125,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   validateLayers(layers);
   validateModules(modules);
   validateAdditionalAliases(additionalAliases);
-  validateLayerFiles(layerFiles, modules !== undefined);
+  validateLayerFiles(layerFiles, modules !== undefined, sourceRoot);
 }
 
 function validateLayers(layers: LayerDef[]): void {
@@ -221,6 +221,7 @@ function validateAdditionalAliases(
 function validateLayerFiles(
   layerFiles: string | string[] | undefined,
   moduleFirst: boolean,
+  sourceRoot: string | undefined,
 ): void {
   const globs = layerFiles === undefined ? [] : [layerFiles].flat();
 
@@ -233,10 +234,25 @@ function validateLayerFiles(
       throw configValidationError({ kind: 'module-layer-files', glob });
     }
 
+    if (moduleFirst && !modulePlaceholderIsDirectChild(glob, sourceRoot)) {
+      throw configValidationError({ kind: 'module-layer-files-position', glob });
+    }
+
     if (!moduleFirst && MODULE_PLACEHOLDER.test(glob)) {
       throw configValidationError({ kind: 'layer-layer-files', glob });
     }
   }
+}
+
+function modulePlaceholderIsDirectChild(glob: string, sourceRoot = 'src'): boolean {
+  const segments = glob.replaceAll('\\', '/').replace(/^\.\//, '').split('/');
+  const root = sourceRoot.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/$/, '');
+
+  const rooted = root !== '.' && root !== '' && segments.join('/').startsWith(`${root}/`)
+    ? segments.slice(root.split('/').length)
+    : segments;
+
+  return rooted.length > 0 && /^\{\s*module\s*\}$/.test(rooted[0]);
 }
 
 function validateEmit(emit: EmitDef | undefined): void {

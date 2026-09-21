@@ -140,6 +140,7 @@ export {
   renderLayerDirectoryNote,
   renderLegacyCheckpointNote,
   renderLintScriptInstruction,
+  renderNestedLintScriptInstruction,
   renderLintScriptNote,
   renderOptionalToolingNote,
   renderReferenceContractInstruction,

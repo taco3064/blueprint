@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
@@ -404,7 +405,8 @@ describe('wiringCheck · layers with no file to probe', () => {
     });
 
     expect(skipped.ok).toBe(true);
-    expect(skipped.label).toContain('no probe derivable');
+    expect(skipped.label).toBe('emitted rules survive the merged eslint config');
+    expect(skipped.skipped).toContain('no probe derivable');
 
     // A synthetic candidate shaped like a test file would lie (the emitted
     // entries exempt tests) — it is discarded instead.
@@ -423,7 +425,7 @@ describe('wiringCheck · layers with no file to probe', () => {
       load: loader({}),
     });
 
-    expect(discarded.label).toContain('no probe derivable');
+    expect(discarded.skipped).toContain('no probe derivable');
 
     // An ignore pattern swallowing a layer removes only that layer's probe.
     const ignoreViews: Blueprint = {

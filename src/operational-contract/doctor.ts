@@ -237,8 +237,9 @@ function renderWiringCheck(fact: WiringCheckFact): DoctorCheckView {
       };
     case 'wiring-no-probe':
       return {
-        label: `${fact.label} (skipped — no probe derivable from the architecture globs)`,
+        label: fact.label,
         ok: true,
+        skipped: 'no probe derivable from the architecture globs',
       };
     case 'wiring-unresolvable':
       return {

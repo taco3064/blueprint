@@ -63,6 +63,8 @@ export interface UpgradeOptions {
   handoff?: Handoff;
   reconcile?: Reconciler;
   verify?: ApplicationVerifier;
+  /** @internal fault-injection seam for final workflow-artifact retirement. */
+  retire?: (root: string) => void;
 }
 
 interface Context {
@@ -74,12 +76,14 @@ interface Context {
   handoff: Handoff;
   reconcile: Reconciler;
   verify: ApplicationVerifier;
+  retire: (root: string) => void;
 }
 
 function refusal(fact: UpgradeRefusalFact): Error {
   return new Error(renderUpgradeRefusal(fact));
 }
 
+// eslint-disable-next-line complexity
 export async function runUpgrade(cwd: string, options: UpgradeOptions = {}): Promise<number> {
   if (options.complete !== undefined && options.dryRun) {
     throw refusal({ kind: 'complete-dry-run' });
@@ -94,6 +98,7 @@ export async function runUpgrade(cwd: string, options: UpgradeOptions = {}): Pro
     handoff: options.handoff ?? defaultHandoff,
     reconcile: options.reconcile ?? defaultReconciler,
     verify: options.verify ?? verifyApplication,
+    retire: options.retire ?? removePlaybook,
   };
 
   const facts = await gatherUpgradeFacts(cwd, {
@@ -238,7 +243,7 @@ async function continueUpgrade(decision: UpgradeProceed, facts: UpgradeFacts, co
     return 1;
   }
 
-  recordCompletion(facts.root, decision);
+  recordCompletion(facts.root, decision, context.retire);
   context.log(renderUpgradeComplete(decision.source, decision.target));
 
   return 0;
@@ -257,7 +262,11 @@ async function verifyAdoptedApplications(facts: UpgradeFacts, context: Context):
   return passed;
 }
 
-function recordCompletion(root: string, decision: UpgradeProceed): void {
+function recordCompletion(
+  root: string,
+  decision: UpgradeProceed,
+  retire: (root: string) => void,
+): void {
   const current = readLifecycleState(root);
 
   if (current.status !== 'present') {
@@ -280,14 +289,17 @@ function recordCompletion(root: string, decision: UpgradeProceed): void {
     });
   }
 
+  // The lifecycle checkpoint is the durable completion authority. Retire the
+  // temporary work artifact first so an interruption can only leave a pending,
+  // resumable lifecycle — never a completed lifecycle beside unfinished work.
+  retire(root);
+
   writeLifecycleState(root, {
     ...state,
     blueprint: decision.target,
     operations: [...new Set([...state.operations, ...decision.pending.completed])],
     pending: null,
   });
-
-  removePlaybook(root);
 }
 
 function completeOperation(facts: UpgradeFacts, context: Context, id: string): number {

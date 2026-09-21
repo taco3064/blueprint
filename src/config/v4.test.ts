@@ -85,6 +85,7 @@ describe('Blueprint 4.0 architecture validation', () => {
     expect(validateBlueprint(config)).toBe(config);
   });
 
+  // eslint-disable-next-line max-statements
   it('requires both dimensions only for custom module-first layer nets', () => {
     const moduleConfig = blueprint();
 
@@ -100,6 +101,14 @@ describe('Blueprint 4.0 architecture validation', () => {
     }
 
     moduleConfig.architecture.layerFiles = 'src/{module}/{layer}/**/*.ts';
+    expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
+
+    moduleConfig.architecture.sourceRoot = '.';
+    moduleConfig.architecture.layerFiles = 'features/{module}/{layer}/**/*.ts';
+    expect(() => validateBlueprint(moduleConfig)).toThrow(/directly below sourceRoot/);
+
+    moduleConfig.architecture.sourceRoot = 'source';
+    moduleConfig.architecture.layerFiles = 'source/{module}/{layer}/**/*.ts';
     expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
 
     const layerConfig = blueprint();

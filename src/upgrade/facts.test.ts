@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { UPGRADE_CATALOG } from '../lifecycle';
+import { legacyMigrationFacts, migrateLegacyBlueprint } from '../config';
 import type { GitReader } from '../project';
 import { gatherUpgradeFacts } from './facts';
 
@@ -79,4 +80,31 @@ describe('gatherUpgradeFacts', () => {
     expect(facts.checkpoint)
       .toEqual({ kind: 'bootstrap', version: '4.0.0', evidence: 'installed-package' });
   });
+
+  it('recognizes the boolean marker emitted by an older loaded runtime', () => {
+    const marked = {} as never;
+
+    Object.defineProperty(marked, Symbol.for('@kekkai/blueprint/legacy-migration'), {
+      value: true,
+    });
+
+    expect(legacyMigrationFacts(marked)).toEqual({ privateNames: [] });
+  });
+
+  it('preserves legacy checkpoint evidence after the installed runtime normalizes the config',
+    async () => {
+      adopt('.');
+      const normalized = migrateLegacyBlueprint(LEGACY as never).blueprint;
+
+      const facts = await gatherUpgradeFacts(root, {
+        git: git(''), loadConfig: async () => normalized, catalog: UPGRADE_CATALOG,
+      });
+
+      expect(facts.applications[0].facts).toEqual({
+        root: '.', legacyShape: true, legacyKeys: { 'module.private': ['hooks', '3'] },
+      });
+
+      expect(facts.checkpoint)
+        .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+    });
 });

@@ -33,6 +33,15 @@ describe('splitByBaseline', () => {
     expect(split.suppressed).toBe(1);
     expect(split.stale).toBe(1);
   });
+
+  it('counts repeated occurrences of one identity once', () => {
+    const repeated = finding();
+    const baseline = JSON.parse(renderBaseline([repeated, repeated])).findings;
+    const split = splitByBaseline([repeated, { ...repeated }], baseline);
+
+    expect(baseline).toHaveLength(1);
+    expect(split).toEqual({ fresh: [], suppressed: 1, stale: 0 });
+  });
 });
 
 describe('splitByBaseline · identity survives a reworded message', () => {

@@ -17,6 +17,9 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
     guardExtensions: framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto,
     hasTypescript: state.hasTypescript,
     sourceRoot,
-    basePath: state.eslintBasePath,
+    // Every generated/reference config is written in the application root, so
+    // its imports and basePath are application-local. Repository-root merge
+    // instructions render their own coordinate system separately.
+    basePath: undefined,
   });
 }

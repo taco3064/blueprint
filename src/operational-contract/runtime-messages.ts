@@ -393,7 +393,8 @@ export function renderInitStopped(facts: {
   const skipped = facts.skipped.length
     ? `, and ${facts.skipped.length} planned effect(s) did NOT happen:\n${facts.skipped
       .map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}`
-    : ' — nothing else was planned below it';
+    : ' — no later planned effect was skipped; files and lifecycle ownership already printed '
+      + 'above remain persisted';
 
   return message(`${facts.cause}\n\n  init stopped at the ${facts.failedKind} step above. `
     + `Everything printed before it is on disk${skipped}\n\n`

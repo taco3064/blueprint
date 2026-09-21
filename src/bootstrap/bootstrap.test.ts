@@ -310,7 +310,7 @@ describe('runInit · the install step, and what a failed step leaves behind', ()
       },
     });
 
-    await expect(failing).rejects.toThrow('nothing else was planned below it');
+    await expect(failing).rejects.toThrow('no later planned effect was skipped');
   });
 
   it('does not stutter the install label (field issue #34)', async () => {

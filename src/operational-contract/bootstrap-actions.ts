@@ -53,8 +53,8 @@ export function renderOptionalToolingNote(
 ): OperationalText {
   return operationalText(kind === 'dead-code'
     ? 'Dead code (optional): install knip and configure its entry points — it is the '
-    + 'source of truth for dead files and exports, not `blueprint inspect` or the '
-    + 'warn-tier `import/no-unused-modules`.'
+    + 'source of truth for dead files and exports. Blueprint does not provide a dead-code '
+    + 'machine gate; use Knip or another explicit owner.'
     : 'CSS token governance (optional): install stylelint + '
       + '@csstools/stylelint-value-no-unknown-custom-properties, '
       + 'pointing importFrom at your token source file.');
@@ -222,6 +222,18 @@ export function renderLintScriptInstruction(lint: string | null, target: string)
   return operationalText(lint === null
     ? `Your package.json has no \`lint\` script — add one so lint runs the generated rules: "lint": "eslint ${target}".`
     : `Your \`lint\` script runs \`${lint}\` — the structural rules live in the generated eslint config, so lint would stay green while the architecture goes unchecked. Wire it up, e.g. "lint": "${lint} && eslint ${target}".`);
+}
+
+export function renderNestedLintScriptInstruction(
+  basePath: string,
+  target: string,
+): OperationalText {
+  return operationalText('This nested application uses an ancestor ESLint configuration at the '
+    + `repository/toolchain root (application path: ${basePath}). Do not add an app-local `
+    + `"lint": "eslint ${target}" command: it may bypass that config's suppressions ledger. `
+    + 'Integrate a root-run ESLint command that targets this application while preserving the '
+    + 'effective config and suppressions scope, or leave the lint entrypoint as a named unresolved '
+    + 'owner decision. A current ledger alone does not prove another command consumes it.');
 }
 
 interface EslintWiringFacts {

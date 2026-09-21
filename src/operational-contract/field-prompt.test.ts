@@ -19,4 +19,11 @@ describe('field prompt topology', () => {
     expect(prompt).toContain('init --topology <layer-first|module-first> --authoring');
     expect(prompt).not.toContain('{{topology}}');
   });
+
+  it('uses the direct preset runway for the proven-empty greenfield control', () => {
+    const prompt = renderFieldPrompt({ topology: 'module-first', greenfield: true });
+
+    expect(prompt).toContain('init --topology module-first');
+    expect(prompt).not.toContain('--authoring');
+  });
 });

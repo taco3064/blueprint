@@ -7,6 +7,10 @@ interface LegacyUnitShape {
   private?: string[];
 }
 
+export interface LegacyMigrationFacts {
+  privateNames: string[];
+}
+
 type LegacyLayer = LayerDef & { module?: LegacyUnitShape };
 type LegacyArchitecture = ArchitectureDef & {
   module?: LegacyUnitShape;
@@ -38,13 +42,28 @@ export function migrateLegacyBlueprint(
 
   const migrated = { ...blueprint, architecture: { ...currentArchitecture, layers } };
 
-  Object.defineProperty(migrated, legacyMigration, { value: true });
+  Object.defineProperty(migrated, legacyMigration, {
+    value: {
+      privateNames: Array.isArray(architecture.module?.private)
+        ? architecture.module.private.map(String)
+        : [],
+    } satisfies LegacyMigrationFacts,
+  });
 
   return { blueprint: migrated, migrated: true };
 }
 
 export function isLegacyBlueprintMigration(blueprint: Blueprint): boolean {
-  return (blueprint as Blueprint & { [legacyMigration]?: boolean })[legacyMigration] === true;
+  return legacyMigrationFacts(blueprint) !== null;
+}
+
+export function legacyMigrationFacts(blueprint: Blueprint): LegacyMigrationFacts | null {
+  const facts = (blueprint as Blueprint & {
+    [legacyMigration]?: LegacyMigrationFacts | true;
+  })[legacyMigration];
+
+  // Keep compatibility with values normalized by an older in-process copy.
+  return facts === true ? { privateNames: [] } : facts ?? null;
 }
 
 function isLegacyArchitecture(

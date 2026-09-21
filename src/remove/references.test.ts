@@ -63,6 +63,27 @@ describe('TOOL_CONFIG', () => {
 });
 
 describe('referenceConflicts · full removal', () => {
+  it('blocks executable workflow references but ignores workflow comments', () => {
+    write('.github/workflows/ci.yml', [
+      '# run: npx blueprint doctor',
+      'jobs:',
+      '  check:',
+      '    steps:',
+      '      - run: npx blueprint doctor',
+      '',
+    ].join('\n'));
+
+    write('.github/workflows/comment-only.yaml', '# @kekkai/blueprint was removed\n');
+
+    expect(referenceConflicts(facts([application('.')]), plannedFiles([]))).toEqual([{
+      kind: 'reference', path: '.github/workflows/ci.yml', detail: 'script', name: 'workflow',
+    }]);
+
+    expect(referenceConflicts(facts([application('.')]), plannedFiles([{
+      kind: 'delete', path: '.github/workflows/ci.yml', reason: 'workflow',
+    }]))).toEqual([]);
+  });
+
   it('reports Blueprint scripts, imports, and config paths that would survive removal', () => {
     write('package.json', JSON.stringify({
       scripts: {

@@ -142,7 +142,51 @@ describe('module-first to layer-first mapping · recorded origin', () => {
   it('falls back to the deterministic destination without a recorded origin', () => {
     expect(destinationFor()).toBe('src/containers/auth/AuthRoot.ts');
   });
+
+  it('restores a folder-layout router destination from retained origin evidence', () => {
+    const root = fixture();
+
+    writeFile(root, 'src/app/Game.tsx', 'export const game = 1;\n');
+
+    const routerOrigin: LayerToModuleObligation = {
+      ...obligation,
+      origin: {
+        ...obligation.origin,
+        layers: [{ name: 'pages', does: 'routes', layout: 'folder' }],
+        sources: [{
+          role: 'route-composition', unit: 'pages/Game',
+          members: ['src/pages/Game/Game.tsx'],
+        }],
+      },
+      target: {
+        topology: 'module-first',
+        decisions: [{
+          source: 'pages/Game', destinations: ['src/app/Game.tsx'],
+          members: [{ source: 'src/pages/Game/Game.tsx', destination: 'src/app/Game.tsx' }],
+        }],
+      },
+    };
+
+    const withApp = { ...architecture, modules: [
+      { name: 'app', does: 'routing' }, ...(architecture.modules ?? []),
+    ] };
+
+    const evidence = collectModuleToLayerEvidence({
+      root, survey: runSurvey(root, { sourceRoot: 'src', log: () => {} }),
+      architecture: withApp, nextAppRouter: false, origin: routerOrigin,
+    });
+
+    expect(evidence.mappings.find((entry) => entry.source === 'src/app/Game.tsx')?.destination)
+      .toBe('src/pages/Game/Game.tsx');
+  });
 });
+
+function writeFile(root: string, file: string, content: string): void {
+  const target = path.join(root, file);
+
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+}
 
 describe('module-first to layer-first mapping · superseded identities', () => {
   it('leaves a split decision to the deterministic fallback', () => {

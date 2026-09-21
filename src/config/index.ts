@@ -1,5 +1,10 @@
 export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './defineBlueprint';
-export { isLegacyBlueprintMigration, migrateLegacyBlueprint } from './legacy';
+export {
+  isLegacyBlueprintMigration,
+  legacyMigrationFacts,
+  migrateLegacyBlueprint,
+} from './legacy';
+export type { LegacyMigrationFacts } from './legacy';
 export { migrateLegacyConfigSource } from './legacy-source';
 export {
   aliasRoot,

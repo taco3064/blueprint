@@ -116,6 +116,26 @@ afterEach(() => {
 });
 
 describe('module-first to layer-first mapping evidence', () => {
+  it('does not invent an alias destination for an unresolved router placement', () => {
+    const root = fixture({ 'src/app/Login.ts': 'export const login = 1;\n' });
+
+    const appArchitecture = architecture({
+      additionalAliases: { '@router': 'src/app' },
+    });
+
+    const result = collectModuleToLayerEvidence({
+      root,
+      survey: runSurvey(root, { sourceRoot: 'src', log: () => {} }),
+      architecture: appArchitecture,
+      nextAppRouter: false,
+    });
+
+    expect(result.aliasCutovers).toEqual([{
+      alias: '@router', target: 'src/app', disposition: 'rewrite-or-remove',
+      mappedDestinations: [],
+    }]);
+  });
+
   it('maps container roots and both unit layouts while reporting collisions', () => {
     const root = fixture(mappingFiles);
 
@@ -130,9 +150,8 @@ describe('module-first to layer-first mapping evidence', () => {
 
     expect(result.rootWiring).toEqual(['main.ts']);
 
-    expect(result.mappings.map((mapping) => mapping.destination)).toEqual(
-      result.mappings.map((mapping) => mapping.destination)
-        .sort((left, right) => left.localeCompare(right)),
+    expect(result.mappings.map((mapping) => mapping.destination ?? '')).toEqual(
+      result.mappings.map((mapping) => mapping.destination ?? '').sort(),
     );
 
     expect(result.mappings).toEqual(expect.arrayContaining([
@@ -153,17 +172,18 @@ describe('module-first to layer-first mapping evidence', () => {
       }),
       expect.objectContaining({
         source: 'src/app/Login.ts',
-        destination: 'src/pages/Login.ts',
         layout: 'router',
         disposition: 'agent-router-decision',
       }),
       expect.objectContaining({
         source: 'src/app/components/RouteShell.ts',
-        destination: 'src/pages/components/RouteShell.ts',
         layout: 'router',
         disposition: 'agent-router-decision',
       }),
     ]));
+
+    expect(result.mappings.filter((mapping) => mapping.disposition === 'agent-router-decision')
+      .every((mapping) => !Object.hasOwn(mapping, 'destination'))).toBe(true);
 
     expect(result.collisions).toEqual([{
       destination: 'src/hooks/usesession.ts',
