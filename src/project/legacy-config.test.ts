@@ -44,6 +44,19 @@ describe('Blueprint 3.2 config migration', () => {
     ]);
   });
 
+  it('records an empty private-name provenance list when 3.2 declared none', () => {
+    const config = legacyBlueprint();
+
+    const legacyArchitecture = config.architecture as unknown as {
+      module?: { private?: unknown };
+    };
+
+    delete legacyArchitecture.module?.private;
+
+    expect(legacyMigrationFacts(migrateLegacyBlueprint(config).blueprint))
+      .toEqual({ privateNames: [] });
+  });
+
   it('fills 4.0 defaults when only layer-level 3.2 overrides exist', () => {
     const source = {
       framework: 'react',

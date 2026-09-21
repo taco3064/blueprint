@@ -248,11 +248,11 @@ function modulePlaceholderIsDirectChild(glob: string, sourceRoot = 'src'): boole
   const segments = glob.replaceAll('\\', '/').replace(/^\.\//, '').split('/');
   const root = sourceRoot.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/$/, '');
 
-  const rooted = root !== '.' && root !== '' && segments.join('/').startsWith(`${root}/`)
+  const rooted = segments.join('/').startsWith(`${root}/`)
     ? segments.slice(root.split('/').length)
     : segments;
 
-  return rooted.length > 0 && /^\{\s*module\s*\}$/.test(rooted[0]);
+  return /^\{\s*module\s*\}$/.test(rooted[0]);
 }
 
 function validateEmit(emit: EmitDef | undefined): void {
