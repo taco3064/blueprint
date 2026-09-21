@@ -111,6 +111,29 @@ describe('Blueprint 4.0 architecture validation', () => {
     moduleConfig.architecture.layerFiles = 'source/{module}/{layer}/**/*.ts';
     expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
 
+    for (const [sourceRoot, layerFiles] of [
+      ['x./source', 'x./source/{module}/{layer}/**/*.ts'],
+      ['source/nested/', 'source/nested/{module}/{layer}/**/*.ts'],
+      ['.', '{module}/{layer}/**/*.ts'],
+      ['', '{module}/{layer}/**/*.ts'],
+      ['src', 'src/{ module}/{layer}/**/*.ts'],
+      ['src', 'src/{module }/{layer}/**/*.ts'],
+    ]) {
+      moduleConfig.architecture.sourceRoot = sourceRoot;
+      moduleConfig.architecture.layerFiles = layerFiles;
+      expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
+    }
+
+    moduleConfig.architecture.sourceRoot = 'src';
+
+    for (const misplaced of [
+      'src/x{module}/{layer}/**/*.ts',
+      'src/{module}x/{layer}/**/*.ts',
+    ]) {
+      moduleConfig.architecture.layerFiles = misplaced;
+      expect(() => validateBlueprint(moduleConfig)).toThrow(/directly below sourceRoot/);
+    }
+
     const layerConfig = blueprint();
 
     delete layerConfig.architecture.modules;

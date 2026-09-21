@@ -41,6 +41,9 @@ describe('analyze · cycle', () => {
     expect(analyze(scanOf(files), { ...bp, rules: { ...bp.rules, cycles: 'off' } })
       .some((finding) => finding.rule === 'cycle')).toBe(false);
 
+    expect(analyze(scanOf(files), { ...bp, rules: { ...bp.rules, cycles: { tier: 'off' } } })
+      .some((finding) => finding.rule === 'cycle')).toBe(false);
+
     expect(analyze(scanOf(files), { ...bp, rules: { ...bp.rules, cycles: 'warn' } })
       .find((finding) => finding.rule === 'cycle')?.severity).toBe('warn');
   });
