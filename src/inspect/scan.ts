@@ -191,32 +191,28 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
 
   walk(base, files, { base, prefix: sourceRoot === '.' ? '' : sourceRoot, readdir });
 
-  return { topDirs, files, outsideDirs: outsideSourceDirs(root, sourceRoot, readdir) };
+  return { topDirs, files, outsideFiles: outsideSource(root, sourceRoot, readdir) };
 }
 
-function outsideSourceDirs(
+function outsideSource(
   root: string,
   sourceRoot: string,
   readdir: (dir: string) => DirEntry[],
-): string[] {
+): ScannedFile[] {
   if (sourceRoot === '.') {
     return [];
   }
 
   const head = sourceRoot.split('/')[0];
+  const files: ScannedFile[] = [];
 
-  return ordered(root, readdir)
-    .filter((entry) => entry.isDirectory()
-      && entry.name !== head
-      && !NON_SOURCE_DIRS.has(entry.name)
-      && holdsSource(path.join(root, entry.name), readdir))
-    .map((entry) => entry.name);
-}
+  for (const entry of ordered(root, readdir)) {
+    if (entry.isDirectory() && entry.name !== head && !NON_SOURCE_DIRS.has(entry.name)) {
+      walk(path.join(root, entry.name), files, { base: root, prefix: '', readdir });
+    }
+  }
 
-function holdsSource(dir: string, readdir: (dir: string) => DirEntry[]): boolean {
-  return ordered(dir, readdir).some((entry) => entry.isDirectory()
-    ? !NON_SOURCE_DIRS.has(entry.name) && holdsSource(path.join(dir, entry.name), readdir)
-    : SOURCE_EXT.test(entry.name));
+  return files;
 }
 
 const GLOB_META = /[*?[\]{}]/;

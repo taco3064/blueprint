@@ -43,8 +43,15 @@ export function dropTestFiles(
   testFiles: string | string[] | undefined,
 ): ScanResult {
   const patterns = resolveTestFiles(testFiles).architectureExemptions.map(globToRegExp);
+  const governed = scan.files.filter((file) => !isTestFile(file.path, patterns));
 
-  return { ...scan, files: scan.files.filter((file) => !isTestFile(file.path, patterns)) };
+  return scan.outsideFiles === undefined
+    ? { ...scan, files: governed }
+    : {
+        ...scan,
+        files: governed,
+        outsideFiles: scan.outsideFiles.filter((file) => !isTestFile(file.path, patterns)),
+      };
 }
 
 export function dropLayerFilesIgnored(
