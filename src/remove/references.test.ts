@@ -214,6 +214,19 @@ describe('referenceConflicts · comments', () => {
   });
 
   it.each([
+    'vite.config.js',
+    'vite.config.cjs',
+    'vite.config.mjs',
+    'vite.config.ts',
+    'vite.config.cts',
+    'vite.config.mts',
+  ])('does not treat an inert package string in %s as an import', (file) => {
+    write(file, 'export default { packageName: "@kekkai/blueprint" };\n');
+
+    expect(conflicts()).toEqual([]);
+  });
+
+  it.each([
     [
       '.eslintrc.yml',
       '# extends @kekkai/blueprint\nextends: base\n',
@@ -285,6 +298,12 @@ describe('referenceConflicts · surviving source imports', () => {
     expect(conflicts()).toEqual([]);
   });
 
+  it('does not fall back to text matching when application source cannot be parsed', () => {
+    write('src/broken.ts', 'const = "@kekkai/blueprint";\n');
+
+    expect(conflicts()).toEqual([]);
+  });
+
   it('evaluates the content that survives planned deletion or rewriting', () => {
     write('src/deleted.ts', 'import value from "@kekkai/blueprint";\n');
     write('src/rewritten.ts', 'import value from "@kekkai/blueprint";\n');
@@ -293,6 +312,19 @@ describe('referenceConflicts · surviving source imports', () => {
       { kind: 'delete', path: 'src/deleted.ts', reason: 'generated' },
       { kind: 'write', path: 'src/rewritten.ts', content: 'export {};\n', reason: 'edit' },
     ])).toEqual([]);
+  });
+
+  it('blocks an import retained by a planned rewrite', () => {
+    write('src/rewritten.ts', 'export {};\n');
+
+    expect(conflicts([{
+      kind: 'write',
+      path: 'src/rewritten.ts',
+      content: 'import value from "@kekkai/blueprint";\n',
+      reason: 'edit',
+    }])).toEqual([{
+      kind: 'reference', path: 'src/rewritten.ts', detail: 'import',
+    }]);
   });
 });
 

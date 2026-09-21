@@ -103,6 +103,38 @@ describe('assessLintEntrypoint', () => {
 
     expect(assessLintEntrypoint(pkg({ lint: 'npm run missing' })).reason)
       .toBe('eslint-unreachable');
+
+    expect(assessLintEntrypoint(pkg({
+      lint: 'npm run lint:wrapped',
+      'lint:wrapped': 'vsh lint',
+    })).reason).toBe('eslint-opaque');
+  });
+});
+
+describe('assessLintEntrypoint · opaque command classification', () => {
+  it.each([
+    'oxlint',
+    'npx oxlint',
+    'npx   oxlint',
+    'biome',
+    'biome lint',
+    'stylelint "src/**/*.css"',
+    'tsc --noEmit',
+    'vue-tsc --noEmit',
+  ])('proves `%s` is a non-ESLint lint command', (lint) => {
+    expect(assessLintEntrypoint(pkg({ lint })).reason).toBe('eslint-unreachable');
+  });
+
+  it.each([
+    'run oxlint',
+    'npxoxlint',
+    'npx-oxlint',
+    'biomelint',
+    'stylelintx',
+    'tscx',
+    'vue-tscx',
+  ])('keeps the similarly named `%s` wrapper opaque', (lint) => {
+    expect(assessLintEntrypoint(pkg({ lint })).reason).toBe('eslint-opaque');
   });
 });
 
