@@ -137,12 +137,12 @@ describe('assessLintIntegration', () => {
     expect(runLint).not.toHaveBeenCalled();
   });
 
-  it('does not verify evidence measured before the pending dependency install', async () => {
+  it('does not verify evidence measured before a toolchain dependency install', async () => {
     const load = vi.fn(loader());
     const runLint = lint('passed');
 
     const result = await assessLintIntegration(
-      state({ missingDeps: ['@kekkai/blueprint'] }),
+      state({ missingDeps: ['eslint-plugin-import'], applicationMissingDeps: [] }),
       blueprint,
       { scanResult, load, lint: runLint },
     );
