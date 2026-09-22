@@ -3,6 +3,9 @@ name: Docs
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ['Release (tag)']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -12,25 +15,70 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    defaults:
+      run:
+        working-directory: site
     steps:
-      - name: Checkout
+      - name: Checkout documentation publishing tools
         uses: actions/checkout@v7
+        with:
+          path: tooling
+
+      - name: Select the latest published release
+        id: release
+        working-directory: tooling
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/docs-release.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const release = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/docs-release.json', 'utf8'));
+          if (release.draft || release.prerelease || !release.published_at || !/^v\d+\.\d+\.\d+$/.test(release.tag_name)) {
+            throw new Error('Documentation requires a published stable release');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `tag=${release.tag_name}\n`);
+          NODE
+
+      - name: Checkout the released documentation and API source
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ steps.release.outputs.tag }}
+          path: site
+
+      - name: Apply the release badge presentation
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (`v${version}` !== process.env.RELEASE_TAG) throw new Error('Release tag and package version disagree');
+          NODE
+          cp ../tooling/docs/.vitepress/theme/version-identity.ts docs/.vitepress/theme/version-identity.ts
+          cp ../tooling/docs/.vitepress/theme/VersionBadge.vue docs/.vitepress/theme/VersionBadge.vue
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'site/.nvmrc'
           cache: 'npm'
+          cache-dependency-path: site/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build docs (typedoc + vitepress)
+        env:
+          VITE_BP_DOCS_TAG: ${{ steps.release.outputs.tag }}
         run: npm run docs:build
 
       - name: Check internal links (pages + hand-written anchors)
@@ -39,7 +87,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/.vitepress/dist
+          path: site/docs/.vitepress/dist
 
   deploy:
     needs: build
@@ -48,6 +96,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Confirm this is still the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$RELEASE_TAG"
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

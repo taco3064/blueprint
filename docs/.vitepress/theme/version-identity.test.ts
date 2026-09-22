@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { versionIdentity } from './version-identity';
 
 describe('docs site version identity', () => {
+  it.each([
+    ['en-US', 'Documentation for the v4.1.0 release.'],
+    ['zh-TW', '這份文件對應 v4.1.0 正式發布版本。'],
+  ])('%s identifies the release used to build the docs', (lang, title) => {
+    expect(versionIdentity('4.1.0', lang, 'v4.1.0')).toEqual({ label: 'v4.1.0', title });
+  });
+
+  it('refuses a release label that disagrees with the checked-out package', () => {
+    expect(() => versionIdentity('4.2.0', 'en-US', 'v4.1.0')).toThrow(
+      'Documentation tag v4.1.0 does not match package version 4.2.0',
+    );
+  });
+
   it.each(['en-US', 'zh-TW'])('%s names the main snapshot, not the package version', (lang) => {
     const identity = versionIdentity('4.0.0', lang);
 
