@@ -29,6 +29,7 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': null },
     existingSrcDirs: [],
     missingDeps: ['eslint', '@kekkai/blueprint'],
+    applicationMissingDeps: ['@kekkai/blueprint'],
     dependencies: [],
     ...over,
   };
@@ -231,10 +232,16 @@ describe('plan · nested dependency installation', () => {
       packageManager: 'pnpm',
     }), bp);
 
-    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
-      command: 'pnpm add -Dw eslint @kekkai/blueprint',
-      cwd: '/repo',
-    });
+    expect(actions.filter((action) => action.kind === 'install')).toMatchObject([
+      {
+        command: 'pnpm add -D @kekkai/blueprint',
+        cwd: '/repo/apps/web',
+      },
+      {
+        command: 'pnpm add -Dw eslint @kekkai/blueprint',
+        cwd: '/repo',
+      },
+    ]);
   });
 
   it('prints the owned pnpm workspace install under --no-install', () => {
@@ -247,6 +254,10 @@ describe('plan · nested dependency installation', () => {
 
     expect(actions.find((action) => action.kind === 'instruct'
       && action.note.includes('Install skipped'))?.note)
+      .toContain('pnpm add -D @kekkai/blueprint');
+
+    expect(actions.find((action) => action.kind === 'instruct'
+      && action.note.includes('pnpm add -Dw'))?.note)
       .toContain('pnpm add -Dw eslint @kekkai/blueprint');
   });
 
@@ -258,7 +269,8 @@ describe('plan · nested dependency installation', () => {
       packageManager: 'pnpm',
     }), bp);
 
-    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
+    expect(actions.find((action) =>
+      action.kind === 'install' && action.command.includes('eslint @kekkai'))).toMatchObject({
       command: 'pnpm add -D eslint @kekkai/blueprint',
       cwd: '/repo/apps',
     });
@@ -272,7 +284,8 @@ describe('plan · nested dependency installation', () => {
       packageManager: 'yarn',
     }), bp);
 
-    expect(actions.find((action) => action.kind === 'install')).toMatchObject({
+    expect(actions.find((action) =>
+      action.kind === 'install' && action.command.includes('eslint @kekkai'))).toMatchObject({
       command: 'yarn add -D eslint @kekkai/blueprint',
       cwd: '/repo',
     });

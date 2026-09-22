@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import {
+  applicationNeedsBlueprint,
   AUTHORING_FILE,
   writeTransformationAuthority,
   claudeDirState,
@@ -53,7 +54,7 @@ export function transformationActions(
   const command = installCommand(state.packageManager, ['@kekkai/blueprint']);
   const claudeLauncher = emitsClaudeAuthoringLauncher(input.agents);
 
-  const install: Action[] = !state.missingDeps.includes('@kekkai/blueprint')
+  const install: Action[] = !applicationNeedsBlueprint(state)
     ? []
     : input.install !== false
       ? [{ kind: 'install', command, note: renderTransformationInstallNote() }]

@@ -1,6 +1,7 @@
 import { assessLintIntegration, scan } from '../inspect';
 import { resolveArchitecture } from '../config';
 import {
+  applicationNeedsBlueprint,
   CONFIG_FILE,
   detect,
   listSourceDirs,
@@ -361,7 +362,7 @@ function runAuthoring(
 
     tscOut: tscArtifactsOutOfTree(root),
     packageManager: state.packageManager,
-    needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
+    needsInstall: applicationNeedsBlueprint(state),
     install: options.install,
     next: state.hasNext,
     topology,

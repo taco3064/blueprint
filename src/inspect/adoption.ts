@@ -1,10 +1,15 @@
 import type { Blueprint } from '../config';
-import { loadProjectModule } from '../project';
+import { applicationNeedsBlueprint, loadProjectModule } from '../project';
 import type { ProjectState } from '../project';
 import { runLiveLint } from './lint-runtime';
 import { effectiveLintContext } from './doctor';
 import type { ScanResult } from './types';
 import { wiringCheck } from './wiring';
+
+function hasPendingDependencies(state: ProjectState): boolean {
+  return state.missingDeps.length > 0
+    || applicationNeedsBlueprint(state);
+}
 
 export async function assessLintIntegration(
   state: ProjectState,
@@ -32,7 +37,7 @@ export async function assessLintIntegration(
   const effective = effectiveLintContext(state.applicationRoot, state);
 
   if (!effective.assessment.reachable || !effective.coversApplication
-    || state.missingDeps.length > 0) {
+    || hasPendingDependencies(state)) {
     return 'unverified';
   }
 

@@ -3,11 +3,34 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  applicationNeedsBlueprint,
   ALLOWED_CARRIER_PEERS,
   REQUIRED_DEPS,
   STACK_DEPS,
   SUPPORTED_ESLINT_MAJORS,
 } from './install';
+
+describe('applicationNeedsBlueprint', () => {
+  it('uses application ownership when known and the legacy aggregate otherwise', () => {
+    expect(applicationNeedsBlueprint({
+      applicationMissingDeps: ['@kekkai/blueprint'],
+      missingDeps: [],
+    })).toBe(true);
+
+    expect(applicationNeedsBlueprint({
+      applicationMissingDeps: [],
+      missingDeps: ['@kekkai/blueprint'],
+    })).toBe(false);
+
+    expect(applicationNeedsBlueprint({
+      missingDeps: ['@kekkai/blueprint'],
+    })).toBe(true);
+
+    expect(applicationNeedsBlueprint({
+      missingDeps: [],
+    })).toBe(false);
+  });
+});
 
 describe('every carrier init installs can resolve on the adopter\'s stack', () => {
   // `npm install -D <all of them>` is all-or-nothing, so ONE carrier the

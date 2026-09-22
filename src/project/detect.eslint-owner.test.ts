@@ -38,6 +38,7 @@ describe('detect · ancestor eslint ownership', () => {
     expect(detect(app)).toMatchObject({
       dependencyRoot: workspace,
       missingDeps: required,
+      applicationMissingDeps: [],
     });
 
     fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({
@@ -45,6 +46,33 @@ describe('detect · ancestor eslint ownership', () => {
     }));
 
     expect(detect(app).missingDeps).toEqual([]);
+    expect(detect(app).applicationMissingDeps).toEqual([]);
+  });
+
+  it('keeps Blueprint owned by the nested application package boundary', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-application-deps-'));
+    const app = path.join(workspace, 'apps', 'web');
+    const required = [...REQUIRED_DEPS, STACK_DEPS.vue];
+
+    roots.push(workspace);
+    spawnSync('git', ['init'], { cwd: workspace });
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'pnpm-workspace.yaml'), 'packages: [apps/*]\n');
+    fs.writeFileSync(path.join(workspace, 'eslint.config.mjs'), 'export default [];\n');
+
+    fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({
+      devDependencies: Object.fromEntries(required.map((dependency) => [dependency, '*'])),
+    }));
+
+    fs.writeFileSync(path.join(app, 'package.json'), JSON.stringify({
+      dependencies: { vue: '^3' },
+    }));
+
+    expect(detect(app)).toMatchObject({
+      dependencyRoot: workspace,
+      missingDeps: [],
+      applicationMissingDeps: ['@kekkai/blueprint'],
+    });
   });
 });
 

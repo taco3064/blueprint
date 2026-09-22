@@ -297,6 +297,9 @@ export function detect(root: string): ProjectState {
     tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSourceDirs(root),
     missingDeps: required.filter((dep) => !availableDependencies.has(dep)),
+    applicationMissingDeps: context.localPackage.dependencies.includes('@kekkai/blueprint')
+      ? []
+      : ['@kekkai/blueprint'],
     dependencies: deps,
   };
 }
