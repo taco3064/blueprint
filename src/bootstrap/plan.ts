@@ -364,6 +364,7 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
       : []),
   ];
 
+  // Stryker disable next-line ConditionalExpression: empty map already returns [].
   if (!installs.length) {
     return [];
   }

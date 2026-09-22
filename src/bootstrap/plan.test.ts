@@ -224,6 +224,15 @@ describe('plan', () => {
 });
 
 describe('plan · nested dependency installation', () => {
+  it('does not duplicate an install when the dependency root is the application', () => {
+    const actions = plan(state({
+      missingDeps: [],
+      applicationMissingDeps: ['@kekkai/blueprint'],
+    }), bp);
+
+    expect(actions.filter((action) => action.kind === 'install')).toEqual([]);
+  });
+
   it('installs ancestor eslint dependencies at the pnpm workspace root', () => {
     const actions = plan(state({
       applicationRoot: '/repo/apps/web',
