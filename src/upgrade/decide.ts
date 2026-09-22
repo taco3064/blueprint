@@ -84,6 +84,15 @@ function readinessRefusal(input: DecisionInput): UpgradeDecision | null {
     : null;
 }
 
+function stalePlaybookRefusal(facts: UpgradeFacts, target: string): UpgradeDecision | null {
+  const state = facts.state.status === 'present' ? facts.state.state : null;
+
+  return state?.blueprint === target && state.pending === null
+    && facts.upgradePlaybook !== null
+    ? refuse({ kind: 'stale-upgrade-playbook', file: facts.upgradePlaybook })
+    : null;
+}
+
 function installedRefusal(facts: UpgradeFacts, target: string): UpgradeDecision | null {
   const installed = facts.applications
     .flatMap((entry) => entry.installed === null ? [] : [entry]);
@@ -170,6 +179,7 @@ export function decideUpgrade(input: DecisionInput): UpgradeDecision {
   }
 
   const refusal = catalogRefusal(input, running.version)
+    ?? stalePlaybookRefusal(facts, running.version)
     ?? readinessRefusal(input)
     ?? checkpointRefusal(facts)
     ?? historyRefusal(facts, input.catalog);
@@ -265,11 +275,6 @@ function currentUpgrade(
 
   const settled = input.facts.applications
     .every((entry) => entry.installed?.version === target);
-
-  if (input.facts.checkpoint.kind === 'state' && settled
-    && input.facts.upgradePlaybook !== null) {
-    return refuse({ kind: 'stale-upgrade-playbook', file: input.facts.upgradePlaybook });
-  }
 
   return input.facts.checkpoint.kind === 'state' && settled
     ? { kind: 'current', version: target }
