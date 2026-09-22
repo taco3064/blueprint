@@ -72,6 +72,22 @@ const stateCheckpoint = (state: LifecycleState) =>
   ({ kind: 'state', version: state.blueprint!, state }) as const;
 
 describe('decideUpgrade · checkpoint refusals', () => {
+  it('preserves readiness priority when no stale current playbook exists', () => {
+    const workflows = ['blueprint-authoring.md'];
+
+    expect(decide({
+      workflows,
+      unreadable: { application: '.', cause: 'parse failed' },
+    })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'config-unreadable', application: '.', cause: 'parse failed' },
+    });
+
+    expect(decide({ applications: [], workflows })).toEqual({
+      kind: 'refuse', refusal: { kind: 'not-adopted', root: '/repo' },
+    });
+  });
+
   it('names only the applications that have no installed package', () => {
     expect(decide({
       applications: [application('apps/web', null), application('apps/admin', '4.0.0')],
