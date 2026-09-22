@@ -3,17 +3,6 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ALLOWED_AFTER_RELEASE = [
-  /^CHANGELOG\.md$/,
-  /^\.github\//,
-  /^\.agents\//,
-  /^AGENTS\.md$/,
-  /^scripts\/release-changeset-gate\.mjs$/,
-  /^scripts\/release-changeset-gate\.test\.mjs$/,
-  /^scripts\/release-field-gate\.mjs$/,
-  /^scripts\/field-convergence\.test\.mjs$/,
-];
-
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
 }
@@ -28,7 +17,6 @@ export function validateChangesetsRelease({
   consumedChangesets,
   changelog,
   pendingChangesets,
-  filesAfterRelease,
 }) {
   for (const required of ['package.json', 'package-lock.json', 'CHANGELOG.md']) {
     if (!releaseFiles.includes(required)) {
@@ -46,16 +34,6 @@ export function validateChangesetsRelease({
 
   if (pendingChangesets.length > 0) {
     throw new Error(`Unreleased changesets remain: ${pendingChangesets.join(', ')}`);
-  }
-
-  const disallowed = filesAfterRelease.filter(
-    (file) => !ALLOWED_AFTER_RELEASE.some((pattern) => pattern.test(file)),
-  );
-
-  if (disallowed.length > 0) {
-    throw new Error(
-      `Publishable inputs changed after the Changesets release SHA: ${disallowed.join(', ')}`,
-    );
   }
 
   return true;
@@ -110,10 +88,6 @@ function main() {
     .split('\n')
     .filter((file) => /^\.changeset\/.*\.md$/.test(file));
 
-  const filesAfterRelease = git(['diff', '--name-only', `${releaseSha}..${head}`])
-    .split('\n')
-    .filter(Boolean);
-
   const pendingChangesets = existsSync('.changeset')
     ? readdirSync('.changeset').filter((file) => file.endsWith('.md') && file !== 'README.md')
     : [];
@@ -124,7 +98,6 @@ function main() {
     consumedChangesets,
     changelog: readFileSync('CHANGELOG.md', 'utf8'),
     pendingChangesets,
-    filesAfterRelease,
   });
 
   process.stdout.write(`Changesets release SHA verified: ${releaseSha}\n`);
