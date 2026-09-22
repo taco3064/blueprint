@@ -158,8 +158,8 @@ describe('remove outcome messages', () => {
         'Blueprint remove stopped after dependency uninstall because re-materialized targets no '
         + 'longer match the exact state this removal plan authorized:',
         '  ✗ blueprint.config.mjs changed after dependency uninstall',
-        'Nothing was deleted during recovery and the plan was not widened. Review the kept content '
-        + 'before deciding its ownership.',
+        'Nothing was deleted during recovery and the plan was not widened. Review or remove the '
+        + 'listed content manually.',
       ].join('\n'));
 
     expect(renderRemoveRecoveryConflict(
@@ -169,19 +169,17 @@ describe('remove outcome messages', () => {
       'Blueprint remove stopped after dependency uninstall because re-materialized targets no '
       + 'longer match the exact state this removal plan authorized:',
       '  ✗ .blueprint-lifecycle.json changed after dependency uninstall',
-      'Before that later conflict, recovery had already re-applied these originally authorized '
-      + 'actions:',
+      'Before stopping, recovery re-applied these originally authorized actions:',
       '  ✓ blueprint.config.mjs',
-      'The divergent targets were kept and the plan was not widened. Review the kept content '
-      + 'before deciding its ownership.',
+      'The divergent targets were kept and the plan was not widened. Review or remove the listed '
+      + 'content manually.',
     ].join('\n'));
 
     expect(renderRemoveRecoveryFailure(['blueprint.config.mjs still exists'])).toBe([
       'Blueprint remove could not re-establish its authorized terminal state after dependency '
       + 'uninstall:',
       '  ✗ blueprint.config.mjs still exists',
-      'The bounded recovery has stopped. Restore the package before starting a new removal '
-      + 'attempt.',
+      'The bounded recovery has stopped. Review or remove the listed residuals manually.',
     ].join('\n'));
   });
 
@@ -189,7 +187,7 @@ describe('remove outcome messages', () => {
     expect(renderRemoveComplete(['blueprint.config.mjs'])).toBe([
       'Blueprint remove incomplete — these Blueprint artifacts are still present:',
       '  ✗ blueprint.config.mjs',
-      'Remove them, or re-run `npx blueprint remove` if the package is still installed.',
+      'Review or remove the listed artifacts manually.',
     ].join('\n'));
   });
 });
