@@ -238,6 +238,15 @@ describe('decideUpgrade · installed package evidence', () => {
 
     expect(decide({
       ...recorded,
+      workflows: ['blueprint-authoring.md'],
+      upgradePlaybook: 'blueprint-upgrade.md',
+    })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'pending-workflow', files: ['blueprint-authoring.md'] },
+    });
+
+    expect(decide({
+      ...recorded,
       applications: [application('.', '4.1.0'), application('apps/web', null)],
     })).toMatchObject({
       kind: 'proceed',
