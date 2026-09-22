@@ -224,6 +224,18 @@ describe('plan', () => {
 });
 
 describe('plan · nested dependency installation', () => {
+  it('does not invent an application install when ownership data is absent', () => {
+    const actions = plan(state({
+      applicationRoot: '/repo/apps/web',
+      toolchainRoot: '/repo',
+      dependencyRoot: '/repo',
+      missingDeps: [],
+      applicationMissingDeps: undefined,
+    }), bp);
+
+    expect(actions.filter((action) => action.kind === 'install')).toEqual([]);
+  });
+
   it('does not duplicate an install when the dependency root is the application', () => {
     const actions = plan(state({
       missingDeps: [],
