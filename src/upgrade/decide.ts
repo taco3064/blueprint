@@ -85,9 +85,13 @@ function readinessRefusal(input: DecisionInput): UpgradeDecision | null {
 }
 
 function stalePlaybookRefusal(facts: UpgradeFacts, target: string): UpgradeDecision | null {
-  const state = facts.state.status === 'present' ? facts.state.state : null;
+  if (facts.state.status !== 'present') {
+    return null;
+  }
 
-  return state?.blueprint === target && state.pending === null
+  const { state } = facts.state;
+
+  return state.blueprint === target && state.pending === null
     && facts.upgradePlaybook !== null
     ? refuse({ kind: 'stale-upgrade-playbook', file: facts.upgradePlaybook })
     : null;
