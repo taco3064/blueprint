@@ -342,6 +342,9 @@ export {
   renderRemovePlan,
   renderRemovePhaseFailure,
   renderRemovePostconditionFailure,
+  renderRemoveRecovery,
+  renderRemoveRecoveryConflict,
+  renderRemoveRecoveryFailure,
   renderRemoveUninstall,
 } from './remove';
 export type {

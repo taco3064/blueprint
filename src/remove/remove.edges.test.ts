@@ -275,24 +275,9 @@ describe('runRemove · Git and verification edges', () => {
     expect(exists('.blueprint-lifecycle.json')).toBe(false);
     expect(exists('blueprint.config.mjs')).toBe(false);
   });
+});
 
-  it('reports a destructive target that reappears during uninstall', async () => {
-    state({ '.': { provenance: [] } });
-
-    write('package.json', JSON.stringify({
-      devDependencies: { '@kekkai/blueprint': '4.1.0' },
-    }));
-
-    write('blueprint.config.mjs', 'export default {};\n');
-
-    expect(await remove(root, {
-      exec: () => write('blueprint.config.mjs', 'export default {};\n'),
-    })).toBe(1);
-
-    expect(output()).toContain('blueprint.config.mjs still exists');
-    expect(exists('blueprint.config.mjs')).toBe(true);
-  });
-
+describe('runRemove · final Git and document edges', () => {
   it('leaves transformation refs alone when Git does not list them', async () => {
     write('blueprint.config.mjs', 'export default {};\n');
 
@@ -310,32 +295,6 @@ describe('runRemove · Git and verification edges', () => {
       expect(await remove(root, { dryRun: true, git: git(status) })).toBe(0);
       expect(output()).not.toContain('Git ref');
     }
-  });
-
-  it('reports a lifecycle state that reappeared before verification', async () => {
-    state({ '.': { provenance: [] } });
-
-    write('package.json', JSON.stringify({
-      devDependencies: { '@kekkai/blueprint': '4.1.0', eslint: '9' },
-    }));
-
-    write('pnpm-lock.yaml', '');
-    write('blueprint.config.mjs', 'export default {};\n');
-
-    const commands: string[] = [];
-
-    expect(await remove(root, {
-      exec: (command) => {
-        commands.push(command);
-        write('package.json', '{ broken');
-        write('blueprint.config.mjs', 'export default {};\n');
-        state({});
-      },
-    })).toBe(1);
-
-    expect(commands).toEqual(['pnpm remove @kekkai/blueprint']);
-    expect(lines.at(-1)).toContain('✗ .blueprint-lifecycle.json');
-    expect(lines.at(-1)).toContain('✗ blueprint.config.mjs');
   });
 
   it('parses unreadable manifests as empty', () => {

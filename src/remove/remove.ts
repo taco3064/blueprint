@@ -13,15 +13,24 @@ import {
   renderRemovePlan,
   renderRemovePhaseFailure,
   renderRemovePostconditionFailure,
+  renderRemoveRecovery,
+  renderRemoveRecoveryConflict,
+  renderRemoveRecoveryFailure,
   renderRemoveRefusal,
   renderRemoveUninstall,
 } from '../operational-contract';
 import { applicationRemoval } from './application';
 import { applyRemoval, removalPostconditionFailures } from './apply';
+import type { ApplyContext } from './apply';
 import { gatherRemovalFacts, missingStateInstall } from './facts';
 import type { RemovalFacts } from './facts';
 import { planRemoval } from './plan';
 import type { RemovalPlan } from './plan';
+import {
+  captureRemovalRecoveryAuthority,
+  planPostUninstallRecovery,
+} from './recovery';
+import type { RemovalRecoveryAuthority } from './recovery';
 import type { RemovalAction } from './types';
 import { declared } from './uninstall';
 
@@ -112,6 +121,27 @@ function isLifecycleAction(action: RemovalAction): boolean {
   return (action as Partial<Exclude<RemovalAction, { kind: 'ref' }>>).reason === 'lifecycle-state';
 }
 
+function removalTarget(action: RemovalAction): string {
+  return action.kind === 'ref' ? `Git ref ${action.ref}` : action.path;
+}
+
+function recoveryScope(plan: RemovalPlan, root: string): RemovalAction[] {
+  const manifests = new Set(plan.uninstall.map((step) => path.join(step.root, 'package.json')));
+
+  return plan.actions.filter((action) => action.kind !== 'write'
+    || !manifests.has(path.resolve(root, action.path)));
+}
+
+function preparePostUninstallRecovery(
+  plan: RemovalPlan,
+  root: string,
+  context: ApplyContext,
+): { actions: RemovalAction[]; authority: RemovalRecoveryAuthority } {
+  const actions = recoveryScope(plan, root);
+
+  return { actions, authority: captureRemovalRecoveryAuthority(actions, context) };
+}
+
 export function applyVerifiedRemoval(
   actions: RemovalPlan['actions'],
   context: Parameters<typeof applyRemoval>[1],
@@ -130,6 +160,71 @@ export function applyVerifiedRemoval(
   assertRemovalPostconditions(deAdoptionActions, context);
   applyRemoval(lifecycleActions, context);
   assertRemovalPostconditions(lifecycleActions, context);
+}
+
+function assertPostUninstallState(actions: RemovalAction[], context: ApplyContext): void {
+  const failures = removalPostconditionFailures(actions, context);
+
+  if (failures.length) {
+    throw new Error(renderRemoveRecoveryFailure(failures));
+  }
+}
+
+function reapplyRecoveryAction(input: {
+  action: RemovalAction;
+  actions: RemovalAction[];
+  applied: string[];
+  authority: RemovalRecoveryAuthority;
+  context: ApplyContext;
+}): void {
+  const { action, actions, applied, authority, context } = input;
+  const current = planPostUninstallRecovery(authority, context);
+
+  if (current.conflicts.length) {
+    throw new Error(renderRemoveRecoveryConflict(current.conflicts, applied));
+  }
+
+  if (!current.actions.includes(action)) {
+    return;
+  }
+
+  try {
+    applyRemoval([action], context);
+  } catch (error) {
+    assertPostUninstallState(actions, context);
+
+    throw error;
+  }
+
+  applied.push(removalTarget(action));
+}
+
+function recoverAfterUninstall(input: {
+  actions: RemovalAction[];
+  authority: RemovalRecoveryAuthority;
+  context: ApplyContext;
+  log: (line: string) => void;
+}): void {
+  const { actions, authority, context, log } = input;
+  const recovery = planPostUninstallRecovery(authority, context);
+
+  if (recovery.conflicts.length) {
+    throw new Error(renderRemoveRecoveryConflict(recovery.conflicts));
+  }
+
+  if (!recovery.actions.length) {
+    return;
+  }
+
+  log(renderRemoveRecovery(recovery.actions.map(removalTarget)));
+
+  const applied: string[] = [];
+
+  for (const action of recovery.actions) {
+    reapplyRecoveryAction({ action, actions, applied, authority, context });
+  }
+
+  assertPostUninstallState(actions, context);
 }
 
 export async function runRemove(cwd: string, options: RemoveOptions = {}): Promise<number> {
@@ -161,17 +256,20 @@ export async function runRemove(cwd: string, options: RemoveOptions = {}): Promi
     log,
   };
 
+  const recovery = preparePostUninstallRecovery(plan, facts.root, applyContext);
+
   applyVerifiedRemoval(plan.actions, applyContext);
 
   runUninstall(plan.uninstall, log, options.exec ?? defaultExec);
 
-  const remaining = [...new Set([
-    ...leftovers(facts, plan),
-    ...removalPostconditionFailures(
-      plan.actions.filter((action) => action.kind !== 'write'),
-      applyContext,
-    ),
-  ])];
+  recoverAfterUninstall({
+    actions: recovery.actions,
+    authority: recovery.authority,
+    context: applyContext,
+    log,
+  });
+
+  const remaining = leftovers(facts, plan);
 
   log(renderRemoveComplete(remaining));
 
