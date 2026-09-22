@@ -35,6 +35,51 @@ Keep the work uncommitted until the assembled candidate is accepted. When a long
 
 When a remote job will outlive the useful interactive work, follow the shared long-running-work policy. Continue independent steps first; when its result becomes the next dependency, leave a self-contained resume prompt and end the turn. Do not poll merely to keep the turn alive.
 
+## Prepare changed production behavior for mutation testing
+
+Before acceptance, audit only production code changed from the candidate base. Start from the production hunks in `git diff <base>`; do not expand this into a repository-wide mutation review. For every changed predicate, branch, return, collection boundary, fallback, and side-effect block, ask: **if this were replaced by the nearest plausible wrong implementation, which test would fail?**
+
+Mentally exercise at least these mutation directions where the changed line permits them:
+
+- `===` / `!==`;
+- `>` / `>=` and `<` / `<=`;
+- `&&` / `||`;
+- `true` / `false`;
+- `+` / `-`;
+- return-value replacement;
+- conditional removal;
+- block removal;
+- optional or fallback replacement/removal;
+- array and string boundary changes.
+
+Each changed behavior needs distinguishing evidence for all applicable sides:
+
+- a positive case proves the intended action or value;
+- the nearest negative case proves the action, write, deletion, fallback, install, overwrite, or acceptance does **not** occur;
+- a boundary case makes equality, emptiness, absence, first/last index, or fallback behavior explicit.
+
+Treat absence as an observable result. Assert the unchanged file or package, retained user-owned artifact, missing call, missing output, rejected invalid input, or other concrete non-event. A positive call assertion does not cover its adjacent negative path.
+
+For changed behavior, do not rely on `toBeTruthy()`, `toBeFalsy()`, existence-only checks, or similarly broad assertions when an exact result is knowable. Prefer exact values and structures, exact call arguments/counts, and explicit negative assertions that distinguish the correct result from its nearest wrong result.
+
+Record a concise mutation readiness report before Acceptance. Name each changed production behavior, its positive, negative, and boundary evidence, the nearby mutants those tests reject, and any remaining risk. Use this shape:
+
+```text
+Changed production behavior
+
+path/to/source.ts
+- predicate or fallback
+  - positive: test name
+  - negative: test name
+  - boundary: test name
+  - nearby mutants: mutation directions -> rejecting tests
+
+Unprotected mutation risks:
+- none
+```
+
+If a changed behavior lacks distinguishing evidence, add the smallest focused test before assembling the candidate. The report predicts readiness; PR CI remains the mutation authority and may disprove it.
+
 ## Verify the candidate
 
 Use the shared verification and no-progress rules. Run focused checks locally. Before acceptance:

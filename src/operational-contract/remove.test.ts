@@ -5,6 +5,8 @@ import {
   renderRemoveComplete,
   renderRemoveEmptyDirectory,
   renderRemovePlan,
+  renderRemovePhaseFailure,
+  renderRemovePostconditionFailure,
   renderRemoveUninstall,
 } from './remove';
 import type { RemovePlanFact, RemoveReasonFact, RemoveResidueFact } from './remove';
@@ -22,6 +24,12 @@ const plan: RemovePlanFact = {
 };
 
 describe('remove plan report', () => {
+  it('explains an unsafe phase partition without claiming lifecycle changed', () => {
+    expect(renderRemovePhaseFailure())
+      .toBe('Blueprint remove stopped before changing lifecycle authority because its action '
+        + 'phases could not be separated safely. No dependency uninstall ran.');
+  });
+
   it('states an empty plan honestly', () => {
     expect(renderRemovePlan(plan).split('\n')).toEqual([
       'Blueprint remove — plan',
@@ -121,6 +129,16 @@ describe('remove plan report', () => {
 });
 
 describe('remove outcome messages', () => {
+  it('names failed postconditions and the skipped uninstall boundary', () => {
+    expect(renderRemovePostconditionFailure(['docs/a.md still exists'])).toBe([
+      'Blueprint remove stopped before dependency uninstall because the requested state was not '
+      + 'established:',
+      '  ✗ docs/a.md still exists',
+      'Nothing after this verification barrier ran. Fix the listed state and re-run '
+      + '`npx blueprint remove`.',
+    ].join('\n'));
+  });
+
   it('lists leftovers when removal is incomplete', () => {
     expect(renderRemoveComplete(['blueprint.config.mjs'])).toBe([
       'Blueprint remove incomplete — these Blueprint artifacts are still present:',

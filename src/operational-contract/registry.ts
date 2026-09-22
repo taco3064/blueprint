@@ -110,6 +110,7 @@ export const OPERATIONAL_SURFACES = [
     factProviders: ['bootstrap state', 'project detection', 'resolved topology'],
     consumers: [
       'src/bootstrap/agent.ts',
+      'src/bootstrap/apply.ts',
       'src/bootstrap/authoring-launcher.ts',
       'src/bootstrap/bootstrap.ts',
       'src/bootstrap/contain.ts',

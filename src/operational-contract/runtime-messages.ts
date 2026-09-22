@@ -374,6 +374,12 @@ export function renderActionLine(
   return message(`  ${mark} ${kind}: ${note}`);
 }
 
+export function renderDestructiveActionFailure(path: string): OperationalText {
+  return message(`Removal did not establish the requested state: ${path} still exists. `
+    + 'The action was not recorded as applied; fix the filesystem condition and re-run the '
+    + 'command.');
+}
+
 export function renderInstallStarting(note: OperationalText, command: string): OperationalText {
   return message(`  → install: ${note}\n`
     + `      ${command}\n`

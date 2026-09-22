@@ -145,6 +145,21 @@ export function renderRemoveUninstall(command: string, manifest: string): Operat
     + 'left needs the package');
 }
 
+export function renderRemovePostconditionFailure(targets: readonly string[]): OperationalText {
+  return operationalText([
+    'Blueprint remove stopped before dependency uninstall because the requested state was not '
+    + 'established:',
+    ...targets.map((target) => `  ✗ ${target}`),
+    'Nothing after this verification barrier ran. Fix the listed state and re-run '
+    + '`npx blueprint remove`.',
+  ]);
+}
+
+export function renderRemovePhaseFailure(): OperationalText {
+  return operationalText('Blueprint remove stopped before changing lifecycle authority because '
+    + 'its action phases could not be separated safely. No dependency uninstall ran.');
+}
+
 export function renderRemoveComplete(leftovers: readonly string[]): OperationalText {
   return operationalText(leftovers.length
     ? [

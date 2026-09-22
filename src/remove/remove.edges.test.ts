@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withPlanIdentity } from '../lifecycle';
 import type { Blueprint } from '../config';
 import type { GitReader } from '../project';
-import { runRemove } from './remove';
+import { applyVerifiedRemoval, runRemove } from './remove';
 import type { RemoveOptions } from './remove';
 import { parseManifest } from './documents';
 
@@ -49,6 +49,22 @@ function remove(cwd: string, patch: Partial<RemoveOptions> = {}): Promise<number
     ...patch,
   });
 }
+
+const phaseActions = [
+  { kind: 'delete' as const, path: 'blueprint.config.mjs', reason: 'config' as const },
+  {
+    kind: 'delete' as const,
+    path: '.blueprint-lifecycle.json',
+    reason: 'lifecycle-state' as const,
+  },
+];
+
+const phaseContext = () => ({
+  root,
+  boundaries: [root],
+  git: () => ({ status: 0, stdout: '', stderr: '' }),
+  log: () => {},
+});
 
 describe('runRemove · scope edges', () => {
   it('selects the adopted application that contains the working directory', async () => {
@@ -208,6 +224,75 @@ describe('runRemove · evidence edges', () => {
 });
 
 describe('runRemove · Git and verification edges', () => {
+  it('fails closed when de-adoption enters the lifecycle phase', () => {
+    expect(() => applyVerifiedRemoval(phaseActions, phaseContext(), () => true))
+      .toThrow('stopped before changing lifecycle authority');
+  });
+
+  it('fails closed when lifecycle authority enters the de-adoption phase', () => {
+    expect(() => applyVerifiedRemoval(phaseActions, phaseContext(), () => false))
+      .toThrow('stopped before changing lifecycle authority');
+  });
+
+  it('fails closed when an action is absent from both removal phases', () => {
+    const decisions = [false, false, false, true];
+
+    expect(() => applyVerifiedRemoval([
+      ...phaseActions,
+    ], phaseContext(), () => decisions.shift() ?? true))
+      .toThrow('stopped before changing lifecycle authority');
+  });
+
+  it('stops before uninstall when an applied target reappears at the barrier', async () => {
+    state({ '.': { provenance: [] } });
+
+    write('package.json', JSON.stringify({
+      devDependencies: { '@kekkai/blueprint': '4.1.0' },
+    }));
+
+    write('blueprint.config.mjs', 'export default {};\n');
+    const commands: string[] = [];
+
+    await expect(remove(root, {
+      exec: (command) => void commands.push(command),
+      log: (line) => {
+        lines.push(line);
+
+        if (line.includes('✓ delete blueprint.config.mjs')) {
+          write('blueprint.config.mjs', 'export default {};\n');
+        }
+      },
+    })).rejects.toThrow('blueprint.config.mjs still exists');
+
+    expect(commands).toEqual([]);
+    expect(exists('.blueprint-lifecycle.json')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(true);
+
+    expect(await remove(root, {
+      exec: () => write('package.json', '{}'),
+    })).toBe(0);
+
+    expect(exists('.blueprint-lifecycle.json')).toBe(false);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+
+  it('reports a destructive target that reappears during uninstall', async () => {
+    state({ '.': { provenance: [] } });
+
+    write('package.json', JSON.stringify({
+      devDependencies: { '@kekkai/blueprint': '4.1.0' },
+    }));
+
+    write('blueprint.config.mjs', 'export default {};\n');
+
+    expect(await remove(root, {
+      exec: () => write('blueprint.config.mjs', 'export default {};\n'),
+    })).toBe(1);
+
+    expect(output()).toContain('blueprint.config.mjs still exists');
+    expect(exists('blueprint.config.mjs')).toBe(true);
+  });
+
   it('leaves transformation refs alone when Git does not list them', async () => {
     write('blueprint.config.mjs', 'export default {};\n');
 

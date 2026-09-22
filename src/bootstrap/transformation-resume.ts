@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import type { Blueprint } from '../config';
 import { verifyTransformationObligation } from '../inspect';
 import {
@@ -11,11 +14,12 @@ import {
 } from '../project';
 import type { ProjectState } from '../project';
 import {
+  renderDestructiveActionFailure,
   renderTransformationObligationError,
   renderTransformationRetireNote, renderActionLine,
 } from '../operational-contract';
 import type { Action } from './types';
-import { apply, defaultExec } from './apply';
+import { apply, defaultExec, pathExists } from './apply';
 
 export function transformationRetirement(input: {
   root: string;
@@ -90,18 +94,46 @@ export async function completeTransformationRetirement(
 
   const obligation = readTransformationObligation(root)!;
 
-  const cleanup = context.retirement.filter((action) =>
-    action.path === TRANSFORMATION_OBLIGATION_FILE);
+  const obligationSource = readTexts(root, [TRANSFORMATION_OBLIGATION_FILE])[
+    TRANSFORMATION_OBLIGATION_FILE
+  ]!;
 
-  const trailing = context.retirement.filter((action) => !cleanup.includes(action));
+  const cleanup = context.retirement.find((action) =>
+    action.path === TRANSFORMATION_OBLIGATION_FILE) ?? {
+    kind: 'rm' as const,
+    path: TRANSFORMATION_OBLIGATION_FILE,
+    note: renderTransformationRetireNote(TRANSFORMATION_OBLIGATION_FILE),
+  };
+
+  const trailing = context.retirement.filter((action) => action !== cleanup);
   const actions = await scaffold(trailing);
 
-  writeTransformationAuthority(root, obligation, { status: 'completed' });
+  for (const file of [AUTHORING_FILE, COMMAND_FILE]) {
+    if (pathExists(path.join(root, file))) {
+      throw new Error(renderDestructiveActionFailure(file));
+    }
+  }
 
-  apply(root, cleanup, {
+  apply(root, [cleanup], {
     exec: defaultExec,
     onApplied: (action) => context.log(renderActionLine(action.kind, action.note, 'applied')),
   });
 
-  return [...actions, ...cleanup];
+  completeAuthority(root, obligation, obligationSource);
+
+  return [...actions, cleanup];
+}
+
+function completeAuthority(
+  root: string,
+  obligation: NonNullable<ReturnType<typeof readTransformationObligation>>,
+  obligationSource: string,
+): void {
+  try {
+    writeTransformationAuthority(root, obligation, { status: 'completed' });
+  } catch (error) {
+    fs.writeFileSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE), obligationSource);
+
+    throw error;
+  }
 }
