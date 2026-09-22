@@ -225,6 +225,10 @@ describe('upgrade refusals', () => {
       { kind: 'installed-newer', application: 'apps/web', installed: '4.2.0', target: '4.1.0' },
       'apps/web resolves @kekkai/blueprint 4.2.0, which is newer than the running 4.1.0',
     ],
+    [
+      { kind: 'stale-upgrade-playbook', file: 'blueprint-upgrade.md' },
+      'Review it and remove it manually before running upgrade again',
+    ],
   ])('explains %j', (fact, fragment) => {
     expect(renderUpgradeRefusal(fact)).toContain(fragment);
   });

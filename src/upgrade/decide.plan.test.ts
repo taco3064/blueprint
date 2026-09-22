@@ -55,6 +55,7 @@ function decide(facts: Partial<UpgradeFacts>, target = '4.1.0') {
       checkpoint: { kind: 'not-installed' },
       git: { repository: true, changes: [] },
       workflows: [],
+      upgradePlaybook: null,
       unreadable: null,
       ...facts,
     },
@@ -227,6 +228,15 @@ describe('decideUpgrade · installed package evidence', () => {
 
     expect(decide({
       ...recorded,
+      applications: [application('.', '4.1.0')],
+      upgradePlaybook: 'blueprint-upgrade.md',
+    })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'stale-upgrade-playbook', file: 'blueprint-upgrade.md' },
+    });
+
+    expect(decide({
+      ...recorded,
       applications: [application('.', '4.1.0'), application('apps/web', null)],
     })).toMatchObject({
       kind: 'proceed',
@@ -234,7 +244,11 @@ describe('decideUpgrade · installed package evidence', () => {
     });
 
     for (const installed of ['4.0.0', null]) {
-      expect(decide({ ...recorded, applications: [application('.', installed)] })).toMatchObject({
+      expect(decide({
+        ...recorded,
+        applications: [application('.', installed)],
+        upgradePlaybook: 'blueprint-upgrade.md',
+      })).toMatchObject({
         kind: 'proceed',
         mode: 'start',
         source: '4.1.0',
@@ -274,6 +288,7 @@ describe('decideUpgrade · installed package evidence', () => {
   it('establishes state for an unrecorded adoption already on the running release', () => {
     expect(decide({
       checkpoint: { kind: 'bootstrap', version: '4.1.0', evidence: 'installed-package' },
+      upgradePlaybook: 'blueprint-upgrade.md',
     })).toEqual({
       kind: 'proceed',
       mode: 'start',

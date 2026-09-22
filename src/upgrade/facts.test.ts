@@ -68,6 +68,19 @@ describe('gatherUpgradeFacts', () => {
       });
 
     expect(facts.git).toEqual({ repository: true, changes: ['a.ts', 'docs/b.md'] });
+    expect(facts.upgradePlaybook).toBeNull();
+  });
+
+  it('reports a repository-root upgrade playbook separately from active workflows', async () => {
+    adopt('.');
+    write('blueprint-upgrade.md', '# stale\n');
+
+    const facts = await gatherUpgradeFacts(root, {
+      git: git(''), loadConfig: async () => CURRENT, catalog: UPGRADE_CATALOG,
+    });
+
+    expect(facts.upgradePlaybook).toBe('blueprint-upgrade.md');
+    expect(facts.workflows).toEqual([]);
   });
 
   it('treats a config without an architecture as current', async () => {

@@ -11,6 +11,7 @@ import {
   manifestOwner,
   readLifecycleState,
   sourceCheckpoint,
+  UPGRADE_PLAYBOOK_FILE,
 } from '../lifecycle';
 import type {
   ApplicationFacts,
@@ -50,6 +51,7 @@ export interface UpgradeFacts {
   checkpoint: SourceCheckpoint;
   git: { repository: boolean; changes: string[] };
   workflows: string[];
+  upgradePlaybook: string | null;
   unreadable: { application: string; cause: string } | null;
 }
 
@@ -158,6 +160,9 @@ export async function gatherUpgradeFacts(cwd: string, effects: FactEffects): Pro
     }),
     git: gitFacts(root, git),
     workflows: workflows(root, applications),
+    upgradePlaybook: fs.existsSync(path.join(root, UPGRADE_PLAYBOOK_FILE))
+      ? UPGRADE_PLAYBOOK_FILE
+      : null,
     unreadable,
   };
 }
