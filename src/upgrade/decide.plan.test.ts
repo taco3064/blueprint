@@ -123,6 +123,7 @@ describe('decideUpgrade · plans', () => {
       applications: [application('.', '3.2.0')],
       state: { status: 'present', state },
       checkpoint: stateCheckpoint(state),
+      upgradePlaybook: 'blueprint-upgrade.md',
     })).toEqual({
       kind: 'proceed',
       mode: 'start',
