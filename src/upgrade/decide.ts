@@ -93,10 +93,16 @@ function stalePlaybookRefusal(facts: UpgradeFacts, target: string): UpgradeDecis
 
   return state.blueprint === target && state.pending === null
     && facts.upgradePlaybook !== null
-    ? facts.workflows.length
-      ? refuse({ kind: 'pending-workflow', files: facts.workflows })
-      : refuse({ kind: 'stale-upgrade-playbook', file: facts.upgradePlaybook })
+    ? refuse({ kind: 'stale-upgrade-playbook', file: facts.upgradePlaybook })
     : null;
+}
+
+function preflightRefusal(input: DecisionInput, target: string): UpgradeDecision | null {
+  const stale = stalePlaybookRefusal(input.facts, target);
+
+  return stale !== null && !input.facts.workflows.length
+    ? stale
+    : readinessRefusal(input);
 }
 
 function installedRefusal(facts: UpgradeFacts, target: string): UpgradeDecision | null {
@@ -185,8 +191,7 @@ export function decideUpgrade(input: DecisionInput): UpgradeDecision {
   }
 
   const refusal = catalogRefusal(input, running.version)
-    ?? stalePlaybookRefusal(facts, running.version)
-    ?? readinessRefusal(input)
+    ?? preflightRefusal(input, running.version)
     ?? checkpointRefusal(facts)
     ?? historyRefusal(facts, input.catalog);
 

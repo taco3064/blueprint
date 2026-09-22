@@ -254,15 +254,6 @@ describe('decideUpgrade · installed package evidence', () => {
 
     expect(decide({
       ...recorded,
-      workflows: ['blueprint-authoring.md'],
-      upgradePlaybook: 'blueprint-upgrade.md',
-    })).toEqual({
-      kind: 'refuse',
-      refusal: { kind: 'pending-workflow', files: ['blueprint-authoring.md'] },
-    });
-
-    expect(decide({
-      ...recorded,
       applications: [application('.', '4.1.0'), application('apps/web', null)],
     })).toMatchObject({
       kind: 'proceed',
@@ -280,7 +271,40 @@ describe('decideUpgrade · installed package evidence', () => {
       });
     }
   });
+});
 
+describe('decideUpgrade · stale residue precedence', () => {
+  it('preserves readiness priority for active workflows beside stale residue', () => {
+    const state = lifecycle({ blueprint: '4.1.0' });
+
+    const recorded = {
+      state: { status: 'present' as const, state },
+      checkpoint: stateCheckpoint(state),
+      workflows: ['blueprint-authoring.md'],
+      upgradePlaybook: 'blueprint-upgrade.md',
+    };
+
+    expect(decide(recorded)).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'pending-workflow', files: ['blueprint-authoring.md'] },
+    });
+
+    expect(decide({
+      ...recorded,
+      unreadable: { application: '.', cause: 'parse failed' },
+    })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'config-unreadable', application: '.', cause: 'parse failed' },
+    });
+
+    expect(decide({ ...recorded, applications: [] })).toEqual({
+      kind: 'refuse',
+      refusal: { kind: 'not-adopted', root: '/repo' },
+    });
+  });
+});
+
+describe('decideUpgrade · installed package conflicts', () => {
   it('refuses to move an application back to an older running package', () => {
     const state = lifecycle({ blueprint: '4.1.0' });
 
