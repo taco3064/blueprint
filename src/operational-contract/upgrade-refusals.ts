@@ -17,6 +17,7 @@ export type UpgradeRefusalFact
     | { kind: 'downgrade'; source: string; target: string }
     | { kind: 'invalid-catalog'; problems: string[] }
     | { kind: 'pending-workflow'; files: string[] }
+    | { kind: 'stale-upgrade-playbook'; file: string }
     | { kind: 'git-required' }
     | { kind: 'dirty-worktree'; changes: string[] }
     | { kind: 'config-unreadable'; application: string; cause: string }
@@ -89,6 +90,9 @@ const REFUSALS: { [K in UpgradeRefusalFact['kind']]: Renderer<K> } = {
   'pending-workflow': (fact) => `a Blueprint workflow is still in progress (${fact.files.join(', ')}). `
     + 'Finish the authoring or topology transformation it describes, or remove it deliberately, '
     + `then run the upgrade. ${RECOVERY}`,
+  'stale-upgrade-playbook': (fact) => `${fact.file} remains even though the Blueprint lifecycle `
+    + 'is current. Review it and remove it manually before running upgrade again; Blueprint '
+    + `preserved the file because it cannot prove whether it contains unfinished or user-edited work. ${RECOVERY}`,
   'git-required': () => 'starting an upgrade requires a Git worktree so every dependency, config, '
     + `and generated-file change stays recoverable. Initialize or enter the repository first. ${RECOVERY}`,
   'dirty-worktree': (fact) => `starting an upgrade requires a clean Git worktree; uncommitted: `

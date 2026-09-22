@@ -27,6 +27,7 @@ describe('decideUpgrade · defense against a resolution the catalog check did no
       checkpoint: { kind: 'bootstrap', version: '4.0.0', evidence: 'installed-package' },
       git: { repository: true, changes: [] },
       workflows: [],
+      upgradePlaybook: null,
       unreadable: null,
     };
 
@@ -62,6 +63,7 @@ describe('decideUpgrade · defense against a resolution the catalog check did no
       },
       git: { repository: true, changes: [] },
       workflows: [],
+      upgradePlaybook: null,
       unreadable: null,
     };
 

@@ -266,6 +266,11 @@ function currentUpgrade(
   const settled = input.facts.applications
     .every((entry) => entry.installed?.version === target);
 
+  if (input.facts.checkpoint.kind === 'state' && settled
+    && input.facts.upgradePlaybook !== null) {
+    return refuse({ kind: 'stale-upgrade-playbook', file: input.facts.upgradePlaybook });
+  }
+
   return input.facts.checkpoint.kind === 'state' && settled
     ? { kind: 'current', version: target }
     : proceed(input, {
