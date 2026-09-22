@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { withPlanIdentity } from '../lifecycle';
 import type { GitReader } from '../project';
 import { runUpgrade } from './upgrade';
 import type { UpgradeOptions } from './upgrade';
@@ -133,5 +134,39 @@ describe('runUpgrade · current lifecycle', () => {
     expect(fs.readFileSync(path.join(root, 'blueprint-upgrade.md'), 'utf8')).toBe(stale);
     expect(fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf8')).toBe(before);
     expect(lines).toEqual([]);
+  });
+
+  it('resumes a same-target pending plan instead of treating its playbook as stale', async () => {
+    const pending = withPlanIdentity({
+      from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [],
+    });
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1,
+      blueprint: '4.1.0',
+      provenance: 'complete',
+      operations: [],
+      pending,
+      applications: {},
+    }));
+
+    write('blueprint-upgrade.md', '# active\n');
+
+    const retire = vi.fn();
+
+    expect(await upgrade({
+      reconcile: async () => {},
+      verify: async (_root, application) => ({
+        application,
+        inspect: { ok: true, findings: 0 },
+        doctor: { verdict: 'complete', failed: [], skipped: [] },
+      }),
+      retire,
+    })).toBe(0);
+
+    expect(retire).toHaveBeenCalledExactlyOnceWith(root);
+
+    expect(JSON.parse(fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf8')))
+      .toMatchObject({ blueprint: '4.1.0', pending: null });
   });
 });
