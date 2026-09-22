@@ -48,10 +48,19 @@ describe('recovery provenance', () => {
       digest: { sha512: crypto.createHash('sha512').update(bytes).digest('hex') },
     }]);
 
-    expect(buildDefinition.resolvedDependencies.map((entry) => entry.digest)).toEqual([
-      { gitCommit: recovery.manifest.headSha },
-      { gitCommit: recovery.toolSha },
-      { sha256: recovery.manifest.sha256 },
+    expect(buildDefinition.resolvedDependencies).toEqual([
+      {
+        uri: `git+${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}@${env.GITHUB_REF}`,
+        digest: { gitCommit: env.GITHUB_SHA },
+      },
+      {
+        uri: `git+https://github.com/taco3064/blueprint@${recovery.manifest.headSha}`,
+        digest: { gitCommit: recovery.manifest.headSha },
+      },
+      {
+        uri: `${recovery.manifest.workflowUrl}/artifacts/456#kekkai-blueprint-4.1.0.tgz`,
+        digest: { sha256: recovery.manifest.sha256 },
+      },
     ]);
 
     expect(buildDefinition.externalParameters.recovery).toEqual({

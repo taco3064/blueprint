@@ -68,8 +68,8 @@ export function recoveryProvenanceStatement(recovery, bytes, env) {
           },
         },
         resolvedDependencies: [
-          { uri: `git+${repositoryUrl}@${manifest.headSha}`, digest: { gitCommit: manifest.headSha } },
           { uri: `git+${repositoryUrl}@refs/heads/main`, digest: { gitCommit: toolSha } },
+          { uri: `git+${repositoryUrl}@${manifest.headSha}`, digest: { gitCommit: manifest.headSha } },
           {
             uri: `${manifest.workflowUrl}/artifacts/${artifact.id}#kekkai-blueprint-${manifest.version}.tgz`,
             digest: { sha256: manifest.sha256 },
