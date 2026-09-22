@@ -5,6 +5,8 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { emitLint } from '../emit/lint';
+import { runInit } from '../bootstrap';
+import { extractImports } from '../inspect';
 import { vuePreset } from '../presets';
 import { GENERATED_ESLINT_BANNER } from '../project';
 import { cli, read, rm, write } from './conformance';
@@ -44,9 +46,20 @@ function expectRootReadyReference(reference: string): void {
 
 function expectNestedDependencyOwnership(output: string, app: string): void {
   expect(output).toContain('pnpm add -Dw');
+  expect(output).toContain('pnpm add -D @kekkai/blueprint');
 
   expect(read(app, 'AGENTS.md'))
     .toContain('../../node_modules/@kekkai/blueprint/agent-contract.md');
+}
+
+function extraneousImports(source: string, dependencies: Record<string, string>): string[] {
+  return extractImports(source, 'blueprint.config.mjs')
+    .map((reference) => reference.specifier)
+    .filter((specifier) => !specifier.startsWith('.') && !specifier.startsWith('node:'))
+    .map((specifier) => specifier.startsWith('@')
+      ? specifier.split('/').slice(0, 2).join('/')
+      : specifier.split('/')[0])
+    .filter((specifier) => dependencies[specifier] === undefined);
 }
 
 afterEach(() => {
@@ -56,6 +69,60 @@ afterEach(() => {
 });
 
 describe('nested application eslint ownership', () => {
+  it('declares Blueprint in the app and lint tooling at the ancestor root', async () => {
+    const root = tempRoot('bp-eslint-boundary-');
+    const app = applicationRoot(root);
+    const commands: { command: string; cwd: string }[] = [];
+
+    seedNestedApp(root, app, 'export default [];\n');
+
+    await runInit(app, {
+      topology: 'layer-first',
+      log: () => {},
+      exec: (command, cwd) => {
+        commands.push({ command, cwd });
+
+        const manifestPath = path.join(cwd, 'package.json');
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as {
+          devDependencies?: Record<string, string>;
+        };
+
+        const dependencies = command.split(' ').filter((part) =>
+          part.startsWith('@kekkai/') || part.startsWith('@eslint-')
+          || part.startsWith('eslint') || part === 'typescript-eslint'
+          || part === 'vue-eslint-parser');
+
+        manifest.devDependencies = {
+          ...manifest.devDependencies,
+          ...Object.fromEntries(dependencies.map((dependency) => [dependency, '*'])),
+        };
+
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+      },
+    });
+
+    expect(commands).toEqual([
+      { command: 'pnpm add -D @kekkai/blueprint', cwd: app },
+      {
+        command: 'pnpm add -Dw @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments'
+          + ' @stylistic/eslint-plugin eslint-plugin-import-x vue-eslint-parser',
+        cwd: root,
+      },
+    ]);
+
+    const applicationManifest = JSON.parse(read(app, 'package.json') ?? '{}') as {
+      devDependencies?: Record<string, string>;
+    };
+
+    const applicationConfig = read(app, 'blueprint.config.mjs') ?? '';
+    const applicationDependencies = applicationManifest.devDependencies ?? {};
+
+    expect(applicationConfig).toContain('from \'@kekkai/blueprint\'');
+    expect(applicationManifest.devDependencies).toHaveProperty('@kekkai/blueprint');
+    expect(extraneousImports(applicationConfig, applicationDependencies)).toEqual([]);
+  });
+
   it('keeps the ancestor config authoritative and emits its application base path', async () => {
     const root = tempRoot('bp-eslint-owner-');
     const app = path.join(root, 'apps', 'web');

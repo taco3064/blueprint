@@ -19,3 +19,9 @@ export const ALLOWED_CARRIER_PEERS: Record<string, string[]> = {
 
   'eslint-plugin-import-x': ['@typescript-eslint/utils', 'eslint-import-resolver-node'],
 };
+
+export function applicationNeedsBlueprint(
+  state: { applicationMissingDeps?: string[]; missingDeps: string[] },
+): boolean {
+  return (state.applicationMissingDeps ?? state.missingDeps).includes('@kekkai/blueprint');
+}

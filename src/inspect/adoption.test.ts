@@ -152,6 +152,21 @@ describe('assessLintIntegration', () => {
     expect(runLint).not.toHaveBeenCalled();
   });
 
+  it('does not verify evidence before the application owns Blueprint', async () => {
+    const load = vi.fn(loader());
+    const runLint = lint('passed');
+
+    const result = await assessLintIntegration(
+      state({ missingDeps: [], applicationMissingDeps: ['@kekkai/blueprint'] }),
+      blueprint,
+      { scanResult, load, lint: runLint },
+    );
+
+    expect(result).toBe('unverified');
+    expect(load).not.toHaveBeenCalled();
+    expect(runLint).not.toHaveBeenCalled();
+  });
+
   it('requires live merge-survival evidence before running project lint', async () => {
     const runLint = lint('passed');
 

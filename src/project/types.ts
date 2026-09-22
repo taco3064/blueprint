@@ -62,5 +62,7 @@ export interface ProjectState {
 
   missingDeps: string[];
 
+  applicationMissingDeps?: string[];
+
   dependencies: string[];
 }

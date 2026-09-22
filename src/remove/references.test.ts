@@ -304,6 +304,18 @@ describe('referenceConflicts · surviving source imports', () => {
     expect(conflicts()).toEqual([]);
   });
 
+  it('keeps a real Blueprint import blocking removal when later syntax cannot be parsed', () => {
+    write('src/broken.ts', [
+      'import { defineBlueprint } from "@kekkai/blueprint";',
+      'const broken =',
+      '',
+    ].join('\n'));
+
+    expect(conflicts()).toEqual([{
+      kind: 'reference', path: 'src/broken.ts', detail: 'import',
+    }]);
+  });
+
   it('evaluates the content that survives planned deletion or rewriting', () => {
     write('src/deleted.ts', 'import value from "@kekkai/blueprint";\n');
     write('src/rewritten.ts', 'import value from "@kekkai/blueprint";\n');
@@ -321,6 +333,23 @@ describe('referenceConflicts · surviving source imports', () => {
       kind: 'write',
       path: 'src/rewritten.ts',
       content: 'import value from "@kekkai/blueprint";\n',
+      reason: 'edit',
+    }])).toEqual([{
+      kind: 'reference', path: 'src/rewritten.ts', detail: 'import',
+    }]);
+  });
+
+  it('blocks a planned rewrite whose real Blueprint import survives a parse failure', () => {
+    write('src/rewritten.ts', 'export {};\n');
+
+    expect(conflicts([{
+      kind: 'write',
+      path: 'src/rewritten.ts',
+      content: [
+        'import value from "@kekkai/blueprint";',
+        'const broken =',
+        '',
+      ].join('\n'),
       reason: 'edit',
     }])).toEqual([{
       kind: 'reference', path: 'src/rewritten.ts', detail: 'import',

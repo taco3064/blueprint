@@ -13,7 +13,7 @@ export type { TransformationObligationResult } from './transformation-obligation
 export { analyze, detectCycles } from './analyze';
 export { dropTestFiles, globToRegExp } from './filter';
 export { buildUnitGraph, positionKey, resolveSegments, stripAlias } from './resolve';
-export { importAnalysis, scan } from './scan';
+export { extractImports, importAnalysis, scan } from './scan';
 
 export { expectedCarriers } from './wiring';
 export type { GateStatus, LayerBans, RulesOptions } from './rules';

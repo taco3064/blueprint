@@ -12,7 +12,12 @@ export {
   VITE_FILES,
 } from './detect';
 export type { ClaudeDirState } from './detect';
-export { REQUIRED_DEPS, STACK_DEPS, SUPPORTED_ESLINT_MAJORS } from './install';
+export {
+  applicationNeedsBlueprint,
+  REQUIRED_DEPS,
+  STACK_DEPS,
+  SUPPORTED_ESLINT_MAJORS,
+} from './install';
 export { describeUnreadable, parseJsonc, unreadableTsconfigs } from './jsonc';
 export type { JsoncFailure, JsoncResult, UnreadableConfig } from './jsonc';
 export {

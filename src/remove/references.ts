@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { emitLint } from '../emit/lint';
-import { scan } from '../inspect';
+import { extractImports, scan } from '../inspect';
 import { PACKAGE_NAME } from '../lifecycle';
 import { analyzeModuleImports } from '../plugin';
 import { withoutComments } from './comments';
@@ -143,7 +143,15 @@ function sourceImportConflicts(
         return [];
       }
 
-      if (!importsBlueprint(remaining, file)) {
+      const analysis = analyzeModuleImports(remaining, file);
+
+      const specifiers = analysis.parseError
+        ? (planned.has(file) ? extractImports(remaining, file) : source.imports)
+            .map((reference) => reference.specifier)
+        : analysis.specifiers;
+
+      if (!specifiers.some((specifier) =>
+        specifier === PACKAGE_NAME || specifier.startsWith(`${PACKAGE_NAME}/`))) {
         return [];
       }
 

@@ -347,31 +347,44 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
   const deps = state.missingDeps;
   const dependencyRoot = state.dependencyRoot ?? state.applicationRoot;
 
+  const applicationDeps = dependencyRoot === state.applicationRoot
+    ? []
+    : state.applicationMissingDeps ?? [];
+
   const workspaceRoot = state.packageManager === 'pnpm'
     && dependencyRoot === state.toolchainRoot
     && dependencyRoot !== state.applicationRoot;
 
-  const command = installCommand(state.packageManager, deps, workspaceRoot);
+  const installs = [
+    ...(applicationDeps.length
+      ? [{ deps: applicationDeps, cwd: state.applicationRoot, workspaceRoot: false }]
+      : []),
+    ...(deps.length
+      ? [{ deps, cwd: dependencyRoot, workspaceRoot }]
+      : []),
+  ];
 
-  if (!deps.length) {
+  if (!installs.length) {
     return [];
   }
 
   if (options.install === false) {
-    return [{
+    return installs.map((install) => ({
       kind: 'instruct',
-      note: renderInstallSkippedForPlan(command),
+      note: renderInstallSkippedForPlan(
+        installCommand(state.packageManager, install.deps, install.workspaceRoot),
+      ),
       defers: 'install',
-    }];
+    }));
   }
 
-  return [{
+  return installs.map((install) => ({
     kind: 'install',
-    command,
-    note: renderDependencyInstallNote(deps, SUPPORTED_ESLINT_MAJORS),
-    dependencies: deps,
-    cwd: dependencyRoot,
-  }];
+    command: installCommand(state.packageManager, install.deps, install.workspaceRoot),
+    note: renderDependencyInstallNote(install.deps, SUPPORTED_ESLINT_MAJORS),
+    dependencies: install.deps,
+    cwd: install.cwd,
+  }));
 }
 
 function hasMarker(text: string): boolean {

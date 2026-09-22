@@ -11,7 +11,12 @@ import {
   renderTransformationReady,
   renderTransformationWriteNote,
 } from '../operational-contract';
-import { AUTHORING_FILE, claudeDirState, retainedTransformationOrigin } from '../project';
+import {
+  applicationNeedsBlueprint,
+  AUTHORING_FILE,
+  claudeDirState,
+  retainedTransformationOrigin,
+} from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
 import { collectModuleToLayerEvidence, runSurvey } from '../survey';
 import type { ModuleToLayerEvidence, SurveyResult } from '../survey';
@@ -42,7 +47,7 @@ export function moduleToLayerActions(input: ModuleToLayerActionInput): Action[] 
   const command = installCommand(state.packageManager, ['@kekkai/blueprint']);
   const claudeLauncher = emitsClaudeAuthoringLauncher(input.agents);
 
-  const install: Action[] = !state.missingDeps.includes('@kekkai/blueprint')
+  const install: Action[] = !applicationNeedsBlueprint(state)
     ? []
     : input.install !== false
       ? [{ kind: 'install', command, note: renderTransformationInstallNote() }]
