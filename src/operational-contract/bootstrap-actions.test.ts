@@ -18,7 +18,9 @@ import {
   renderTemplateCleanupNote,
 } from './bootstrap-actions';
 import type { OperationalText } from './operational-contract';
-import { renderGitProbeFallback, renderInitBanner } from './runtime-messages';
+import {
+  renderDestructiveActionFailure, renderGitProbeFallback, renderInitBanner,
+} from './runtime-messages';
 import {
   renderTransformationInstallNote,
   renderTransformationReady,
@@ -76,6 +78,13 @@ describe('bootstrap operational text construction', () => {
 });
 
 describe('bootstrap operational text follows supplied facts', () => {
+  it('keeps failed destructive effects actionable', () => {
+    expect(renderDestructiveActionFailure('blueprint-authoring.md'))
+      .toBe('Removal did not establish the requested state: blueprint-authoring.md still exists. '
+        + 'The action was not recorded as applied; fix the filesystem condition and re-run the '
+        + 'command.');
+  });
+
   it('keeps Git probe fallback causes distinct', () => {
     expect(renderGitProbeFallback('worktree-status')).toContain('status could not be read');
     expect(renderGitProbeFallback('recoverable-head')).toContain('recoverable HEAD');

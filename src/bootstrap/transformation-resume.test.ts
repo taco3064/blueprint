@@ -112,7 +112,10 @@ it('completes only after a successful non-dry-run scaffold', async () => {
 
   expect(await completeTransformationRetirement(root, {
     retirement: [], log: () => {},
-  }, apply)).toEqual([]);
+  }, apply)).toEqual([{
+    kind: 'rm', path: TRANSFORMATION_OBLIGATION_FILE,
+    note: renderTransformationRetireNote(TRANSFORMATION_OBLIGATION_FILE),
+  }]);
 
   expect(() => assertTransformationAuthority(root, null)).not.toThrow();
   expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
@@ -122,31 +125,37 @@ it('cleans playbooks before completing authority and removes the obligation last
   const content = record();
   const obligation = readTransformationObligation(root)!;
 
-  const retirement = [TRANSFORMATION_OBLIGATION_FILE, project.AUTHORING_FILE].map((file) => ({
+  const retirement = [
+    project.AUTHORING_FILE, project.COMMAND_FILE, TRANSFORMATION_OBLIGATION_FILE,
+  ].map((file) => ({
     kind: 'rm' as const, path: file, note: renderTransformationRetireNote(file),
   }));
 
   fs.writeFileSync(path.join(root, project.AUTHORING_FILE), 'playbook');
+  fs.mkdirSync(path.dirname(path.join(root, project.COMMAND_FILE)), { recursive: true });
+  fs.writeFileSync(path.join(root, project.COMMAND_FILE), 'command');
 
   const scaffold = vi.fn(async (trailing) => {
-    expect(trailing).toEqual([retirement[1]]);
+    expect(trailing).toEqual(retirement.slice(0, 2));
 
     expect(fs.readFileSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE), 'utf8'))
       .toBe(content);
 
     expect(() => assertTransformationAuthority(root, null)).toThrow();
     fs.rmSync(path.join(root, project.AUTHORING_FILE));
+    fs.rmSync(path.join(root, project.COMMAND_FILE));
 
     return trailing;
   });
 
   expect(await completeTransformationRetirement(root, {
     retirement, log: () => {},
-  }, scaffold)).toEqual([retirement[1], retirement[0]]);
+  }, scaffold)).toEqual(retirement);
 
   expect(scaffold).toHaveBeenCalledOnce();
   expect(fs.existsSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE))).toBe(false);
   expect(fs.existsSync(path.join(root, project.AUTHORING_FILE))).toBe(false);
+  expect(fs.existsSync(path.join(root, project.COMMAND_FILE))).toBe(false);
   expect(() => assertTransformationAuthority(root, null)).not.toThrow();
   expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
 });
@@ -198,7 +207,7 @@ it('retries JSON cleanup using completed authority without losing its decisions'
 
   expect(fs.readFileSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE), 'utf8')).toBe(content);
   expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
-  expect(() => assertTransformationAuthority(root, null)).not.toThrow();
+  expect(() => assertTransformationAuthority(root, null)).toThrow();
   remove.mockRestore();
   const log = vi.fn();
 
@@ -207,4 +216,46 @@ it('retries JSON cleanup using completed authority without losing its decisions'
 
   expect(fs.existsSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE))).toBe(false);
   expect(log).toHaveBeenCalledOnce();
+});
+
+it('does not complete authority when obligation removal returns without deleting', async () => {
+  const content = record();
+  const obligation = readTransformationObligation(root)!;
+
+  const retirement = [{
+    kind: 'rm' as const, path: TRANSFORMATION_OBLIGATION_FILE,
+    note: renderTransformationRetireNote(TRANSFORMATION_OBLIGATION_FILE),
+  }];
+
+  const remove = vi.spyOn(fs, 'rmSync').mockImplementationOnce(() => {});
+  const log = vi.fn();
+
+  await expect(completeTransformationRetirement(
+    root,
+    { retirement, log },
+    vi.fn().mockResolvedValue([]),
+  )).rejects.toThrow(`${TRANSFORMATION_OBLIGATION_FILE} still exists`);
+
+  expect(fs.readFileSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE), 'utf8')).toBe(content);
+  expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
+  expect(() => assertTransformationAuthority(root, null)).toThrow();
+  expect(log).not.toHaveBeenCalled();
+  remove.mockRestore();
+});
+
+it.each([
+  project.AUTHORING_FILE,
+  project.COMMAND_FILE,
+])('does not complete authority while %s remains', async (file) => {
+  record();
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), 'playbook');
+
+  await expect(completeTransformationRetirement(root, {
+    retirement: [], log: () => {},
+  }, vi.fn().mockResolvedValue([]))).rejects.toThrow(`${file} still exists`);
+
+  expect(() => assertTransformationAuthority(root, null)).toThrow();
+  expect(fs.existsSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE))).toBe(true);
+  expect(fs.existsSync(path.join(root, file))).toBe(true);
 });

@@ -261,6 +261,7 @@ export {
 export type { GlobReachFact, LintGateNoteId } from './lint';
 export {
   renderActionLine,
+  renderDestructiveActionFailure,
   renderAgentCommand,
   renderAgentCommandOutput,
   renderAgentLaunchFailure,
@@ -339,6 +340,8 @@ export {
   renderRemoveComplete,
   renderRemoveEmptyDirectory,
   renderRemovePlan,
+  renderRemovePhaseFailure,
+  renderRemovePostconditionFailure,
   renderRemoveUninstall,
 } from './remove';
 export type {

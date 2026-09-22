@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { apply } from './apply';
+import { apply, pathExists } from './apply';
 import type { Action } from './types';
 import type { OperationalText } from '../operational-contract';
 
@@ -97,6 +97,47 @@ describe('apply · removing init\'s own output', () => {
     );
 
     expect(fs.existsSync(scaffold)).toBe(false);
+  });
+
+  it('does not report a removal whose effect leaves the target present', () => {
+    const file = path.join(root, 'blueprint-authoring.md');
+    const applied: string[] = [];
+
+    fs.writeFileSync(file, 'decisions');
+
+    expect(() => apply(root, [{
+      kind: 'rm', path: 'blueprint-authoring.md', note: note('retire decisions'),
+    }], {
+      exec: noExec,
+      remove: () => {},
+      onApplied: (action) => applied.push(action.kind),
+    })).toThrow('blueprint-authoring.md still exists');
+
+    expect(fs.readFileSync(file, 'utf8')).toBe('decisions');
+    expect(applied).toEqual([]);
+  });
+
+  it('treats an already-absent target as verified with a no-op remover', () => {
+    const applied: string[] = [];
+
+    apply(root, [{ kind: 'rm', path: 'gone.md', note: note('already gone') }], {
+      exec: noExec,
+      remove: () => {},
+      onApplied: (action) => applied.push(action.kind),
+    });
+
+    expect(applied).toEqual(['rm']);
+  });
+
+  it('does not treat an unreadable target as absent', () => {
+    const failure = Object.assign(new Error('denied'), { code: 'EACCES' });
+
+    const lstat = vi.spyOn(fs, 'lstatSync').mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    expect(() => pathExists(path.join(root, 'blocked'))).toThrow(failure);
+    lstat.mockRestore();
   });
 });
 

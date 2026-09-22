@@ -11,15 +11,18 @@ import {
   renderRemoveComplete,
   renderRemoveConflicts,
   renderRemovePlan,
+  renderRemovePhaseFailure,
+  renderRemovePostconditionFailure,
   renderRemoveRefusal,
   renderRemoveUninstall,
 } from '../operational-contract';
 import { applicationRemoval } from './application';
-import { applyRemoval } from './apply';
+import { applyRemoval, removalPostconditionFailures } from './apply';
 import { gatherRemovalFacts, missingStateInstall } from './facts';
 import type { RemovalFacts } from './facts';
 import { planRemoval } from './plan';
 import type { RemovalPlan } from './plan';
+import type { RemovalAction } from './types';
 import { declared } from './uninstall';
 
 export interface RemoveOptions {
@@ -82,14 +85,56 @@ function runUninstall(
   }
 }
 
-export async function runRemove(cwd: string, options: RemoveOptions = {}): Promise<number> {
-  const log = options.log ?? ((line: string) => console.log(line));
-  const git = options.git ?? defaultGitReader;
+function assertRemovalPostconditions(
+  actions: RemovalPlan['actions'],
+  context: Parameters<typeof removalPostconditionFailures>[1],
+): void {
+  const failures = removalPostconditionFailures(actions, context);
+
+  if (failures.length) {
+    throw new Error(renderRemovePostconditionFailure(failures));
+  }
+}
+
+async function prepareRemoval(
+  cwd: string,
+  options: RemoveOptions,
+  git: GitReader,
+): Promise<{ facts: RemovalFacts; plan: RemovalPlan }> {
   const facts = await gatherRemovalFacts(cwd, { git, loadConfig: options.loadConfig });
 
   refuseUnsafeFacts(facts, git);
 
-  const plan = planRemoval(facts, git);
+  return { facts, plan: planRemoval(facts, git) };
+}
+
+function isLifecycleAction(action: RemovalAction): boolean {
+  return (action as Partial<Exclude<RemovalAction, { kind: 'ref' }>>).reason === 'lifecycle-state';
+}
+
+export function applyVerifiedRemoval(
+  actions: RemovalPlan['actions'],
+  context: Parameters<typeof applyRemoval>[1],
+  classifyLifecycle: (action: RemovalAction) => boolean = isLifecycleAction,
+): void {
+  const lifecycleActions = actions.filter(classifyLifecycle);
+  const deAdoptionActions = actions.filter((action) => !classifyLifecycle(action));
+
+  if (lifecycleActions.some((action) => !isLifecycleAction(action))
+    || deAdoptionActions.some(isLifecycleAction)
+    || lifecycleActions.length + deAdoptionActions.length !== actions.length) {
+    throw new Error(renderRemovePhaseFailure());
+  }
+
+  applyRemoval(deAdoptionActions, context);
+  assertRemovalPostconditions(deAdoptionActions, context);
+  applyRemoval(lifecycleActions, context);
+  assertRemovalPostconditions(lifecycleActions, context);
+}
+
+export async function runRemove(cwd: string, options: RemoveOptions = {}): Promise<number> {
+  const { log = (line: string) => console.log(line), git = defaultGitReader } = options;
+  const { facts, plan } = await prepareRemoval(cwd, options, git);
 
   log(renderRemovePlan({
     dryRun: Boolean(options.dryRun),
@@ -109,16 +154,24 @@ export async function runRemove(cwd: string, options: RemoveOptions = {}): Promi
     return 0;
   }
 
-  applyRemoval(plan.actions, {
+  const applyContext = {
     root: facts.root,
     boundaries: [facts.root, ...facts.scope.map((application) => application.root)],
     git,
     log,
-  });
+  };
+
+  applyVerifiedRemoval(plan.actions, applyContext);
 
   runUninstall(plan.uninstall, log, options.exec ?? defaultExec);
 
-  const remaining = leftovers(facts, plan);
+  const remaining = [...new Set([
+    ...leftovers(facts, plan),
+    ...removalPostconditionFailures(
+      plan.actions.filter((action) => action.kind !== 'write'),
+      applyContext,
+    ),
+  ])];
 
   log(renderRemoveComplete(remaining));
 

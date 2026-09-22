@@ -44,7 +44,14 @@ const git: GitReader = (args) => {
     return { status: 0, stdout: args[1] === '--show-toplevel' ? root : 'true', stderr: '' };
   }
 
-  return { status: 0, stdout: args[0] === 'for-each-ref' ? `${args[2]}\n` : '', stderr: '' };
+  const deleted = gitCalls.some((call) =>
+    call[0] === 'update-ref' && call[1] === '-d' && call[2] === args[2]);
+
+  return {
+    status: 0,
+    stdout: args[0] === 'for-each-ref' && !deleted ? `${args[2]}\n` : '',
+    stderr: '',
+  };
 };
 
 function remove(cwd: string, patch: Partial<RemoveOptions> = {}): Promise<number> {
@@ -149,6 +156,34 @@ describe('runRemove · repository scope', () => {
 });
 
 describe('runRemove · the lifecycle authority during a scoped removal', () => {
+  it('keeps the complete authority until a failed scoped removal can be retried', async () => {
+    adoptWorkspace();
+    const application = path.join(root, 'apps/web');
+
+    await expect(remove(application, {
+      log: (line) => {
+        lines.push(line);
+
+        if (line.includes('✓ delete apps/web/blueprint.config.mjs')) {
+          write('apps/web/blueprint.config.mjs', CONFIG);
+        }
+      },
+    })).rejects.toThrow('apps/web/blueprint.config.mjs still exists');
+
+    const authority = JSON.parse(fs.readFileSync(
+      path.join(root, '.blueprint-lifecycle.json'), 'utf8',
+    ));
+
+    expect(Object.keys(authority.applications)).toEqual(['apps/admin', 'apps/web']);
+    expect(await remove(application)).toBe(0);
+
+    const narrowed = JSON.parse(fs.readFileSync(
+      path.join(root, '.blueprint-lifecycle.json'), 'utf8',
+    ));
+
+    expect(Object.keys(narrowed.applications)).toEqual(['apps/admin']);
+  });
+
   it('replaces the state only with the complete narrowed state, through its draft', async () => {
     adoptWorkspace();
 
