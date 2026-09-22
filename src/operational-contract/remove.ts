@@ -160,6 +160,46 @@ export function renderRemovePhaseFailure(): OperationalText {
     + 'its action phases could not be separated safely. No dependency uninstall ran.');
 }
 
+export function renderRemoveRecovery(targets: readonly string[]): OperationalText {
+  return operationalText([
+    'Dependency uninstall re-materialized exact copies of targets already authorized by this '
+    + 'removal plan. Re-applying those actions once:',
+    ...targets.map((target) => `  ↻ ${target}`),
+  ]);
+}
+
+export function renderRemoveRecoveryConflict(
+  targets: readonly string[],
+  applied: readonly string[] = [],
+): OperationalText {
+  return operationalText([
+    'Blueprint remove stopped after dependency uninstall because re-materialized targets no '
+    + 'longer match the exact state this removal plan authorized:',
+    ...targets.map((target) => `  ✗ ${target}`),
+    ...(applied.length
+      ? [
+          'Before that later conflict, recovery had already re-applied these originally authorized '
+          + 'actions:',
+          ...applied.map((target) => `  ✓ ${target}`),
+          'The divergent targets were kept and the plan was not widened. Review the kept content '
+          + 'before deciding its ownership.',
+        ]
+      : [
+          'Nothing was deleted during recovery and the plan was not widened. Review the kept '
+          + 'content before deciding its ownership.',
+        ]),
+  ]);
+}
+
+export function renderRemoveRecoveryFailure(targets: readonly string[]): OperationalText {
+  return operationalText([
+    'Blueprint remove could not re-establish its authorized terminal state after dependency '
+    + 'uninstall:',
+    ...targets.map((target) => `  ✗ ${target}`),
+    'The bounded recovery has stopped. Restore the package before starting a new removal attempt.',
+  ]);
+}
+
 export function renderRemoveComplete(leftovers: readonly string[]): OperationalText {
   return operationalText(leftovers.length
     ? [
