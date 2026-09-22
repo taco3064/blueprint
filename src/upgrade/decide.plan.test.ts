@@ -248,13 +248,9 @@ describe('decideUpgrade · installed package evidence', () => {
         ...recorded,
         applications: [application('.', installed)],
         upgradePlaybook: 'blueprint-upgrade.md',
-      })).toMatchObject({
-        kind: 'proceed',
-        mode: 'start',
-        source: '4.1.0',
-        target: '4.1.0',
-        pending: { from: '4.1.0', to: '4.1.0', operations: [] },
-        installs: [{ manifest: '.', command: 'npm install -D @kekkai/blueprint@4.1.0' }],
+      })).toEqual({
+        kind: 'refuse',
+        refusal: { kind: 'stale-upgrade-playbook', file: 'blueprint-upgrade.md' },
       });
     }
   });
