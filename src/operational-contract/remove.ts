@@ -178,15 +178,14 @@ export function renderRemoveRecoveryConflict(
     ...targets.map((target) => `  ✗ ${target}`),
     ...(applied.length
       ? [
-          'Before that later conflict, recovery had already re-applied these originally authorized '
-          + 'actions:',
+          'Before stopping, recovery re-applied these originally authorized actions:',
           ...applied.map((target) => `  ✓ ${target}`),
-          'The divergent targets were kept and the plan was not widened. Review the kept content '
-          + 'before deciding its ownership.',
+          'The divergent targets were kept and the plan was not widened. Review or remove the '
+          + 'listed content manually.',
         ]
       : [
-          'Nothing was deleted during recovery and the plan was not widened. Review the kept '
-          + 'content before deciding its ownership.',
+          'Nothing was deleted during recovery and the plan was not widened. Review or remove the '
+          + 'listed content manually.',
         ]),
   ]);
 }
@@ -196,7 +195,7 @@ export function renderRemoveRecoveryFailure(targets: readonly string[]): Operati
     'Blueprint remove could not re-establish its authorized terminal state after dependency '
     + 'uninstall:',
     ...targets.map((target) => `  ✗ ${target}`),
-    'The bounded recovery has stopped. Restore the package before starting a new removal attempt.',
+    'The bounded recovery has stopped. Review or remove the listed residuals manually.',
   ]);
 }
 
@@ -205,7 +204,7 @@ export function renderRemoveComplete(leftovers: readonly string[]): OperationalT
     ? [
         'Blueprint remove incomplete — these Blueprint artifacts are still present:',
         ...leftovers.map((file) => `  ✗ ${file}`),
-        'Remove them, or re-run `npx blueprint remove` if the package is still installed.',
+        'Review or remove the listed artifacts manually.',
       ]
     : 'Blueprint removed: no proven Blueprint config, lifecycle, generated, managed, or dependency '
       + 'footprint remains in scope. Review anything listed as kept, then run the project\'s own '

@@ -180,10 +180,6 @@ function reapplyRecoveryAction(input: {
   const { action, actions, applied, authority, context } = input;
   const current = planPostUninstallRecovery(authority, context);
 
-  if (current.conflicts.length) {
-    throw new Error(renderRemoveRecoveryConflict(current.conflicts, applied));
-  }
-
   if (!current.actions.includes(action)) {
     return;
   }
@@ -208,11 +204,11 @@ function recoverAfterUninstall(input: {
   const { actions, authority, context, log } = input;
   const recovery = planPostUninstallRecovery(authority, context);
 
-  if (recovery.conflicts.length) {
-    throw new Error(renderRemoveRecoveryConflict(recovery.conflicts));
-  }
-
   if (!recovery.actions.length) {
+    if (recovery.conflicts.length) {
+      throw new Error(renderRemoveRecoveryConflict(recovery.conflicts));
+    }
+
     return;
   }
 
@@ -222,6 +218,12 @@ function recoverAfterUninstall(input: {
 
   for (const action of recovery.actions) {
     reapplyRecoveryAction({ action, actions, applied, authority, context });
+  }
+
+  const final = planPostUninstallRecovery(authority, context);
+
+  if (final.conflicts.length) {
+    throw new Error(renderRemoveRecoveryConflict(final.conflicts, applied));
   }
 
   assertPostUninstallState(actions, context);

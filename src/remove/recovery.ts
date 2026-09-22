@@ -127,12 +127,17 @@ export function planPostUninstallRecovery(
   const pending = authority.entries.filter(({ action }) =>
     removalPostconditionFailures([action], context).length > 0);
 
-  const conflicts = pending.flatMap((entry) => safeToReplay(entry, snapshot(entry.action, context))
+  const evaluated = pending.map((entry) => ({
+    entry,
+    safe: safeToReplay(entry, snapshot(entry.action, context)),
+  }));
+
+  const conflicts = evaluated.flatMap(({ entry, safe }) => safe
     ? []
     : [`${target(entry.action)} changed after dependency uninstall`]);
 
   return {
-    actions: conflicts.length ? [] : pending.map(({ action }) => action),
+    actions: evaluated.flatMap(({ entry, safe }) => safe ? [entry.action] : []),
     conflicts,
   };
 }

@@ -207,9 +207,11 @@ describe('runRemove · Git ref recovery', () => {
 describe('runRemove · divergent post-uninstall content', () => {
   it('keeps a divergent target that reappears during uninstall', async () => {
     arrange();
+    const commands: string[] = [];
 
     await expect(remove({
-      exec: () => {
+      exec: (command) => {
+        commands.push(command);
         write('package.json', '{}');
         write('blueprint.config.mjs', 'export default { userOwned: true };\n');
       },
@@ -218,7 +220,39 @@ describe('runRemove · divergent post-uninstall content', () => {
     expect(fs.readFileSync(path.join(root, 'blueprint.config.mjs'), 'utf8'))
       .toBe('export default { userOwned: true };\n');
 
+    expect(commands).toEqual(['npm uninstall @kekkai/blueprint']);
     expect(lines.filter((line) => line.includes('✓ delete blueprint.config.mjs'))).toHaveLength(1);
+  });
+
+  it('cleans an exact target and lists an adjacent divergent target', async () => {
+    arrange();
+    const commands: string[] = [];
+
+    const failure = await remove({
+      exec: (command) => {
+        commands.push(command);
+        write('package.json', '{}');
+        write('blueprint.config.mjs', 'export default {};\n');
+        write('.blueprint-lifecycle.json', '{"userOwned":true}\n');
+      },
+    }).then(() => null, (error: unknown) => error as Error);
+
+    expect(failure?.message).toBe([
+      'Blueprint remove stopped after dependency uninstall because re-materialized targets no '
+      + 'longer match the exact state this removal plan authorized:',
+      '  ✗ .blueprint-lifecycle.json changed after dependency uninstall',
+      'Before stopping, recovery re-applied these originally authorized actions:',
+      '  ✓ blueprint.config.mjs',
+      'The divergent targets were kept and the plan was not widened. Review or remove the listed '
+      + 'content manually.',
+    ].join('\n'));
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+
+    expect(fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf8'))
+      .toBe('{"userOwned":true}\n');
+
+    expect(commands).toEqual(['npm uninstall @kekkai/blueprint']);
   });
 
   it('keeps content that diverges during recovery narration', async () => {
@@ -267,11 +301,10 @@ describe('runRemove · action-by-action revalidation', () => {
       'Blueprint remove stopped after dependency uninstall because re-materialized targets no '
       + 'longer match the exact state this removal plan authorized:',
       '  ✗ .blueprint-lifecycle.json changed after dependency uninstall',
-      'Before that later conflict, recovery had already re-applied these originally authorized '
-      + 'actions:',
+      'Before stopping, recovery re-applied these originally authorized actions:',
       '  ✓ blueprint.config.mjs',
-      'The divergent targets were kept and the plan was not widened. Review the kept content '
-      + 'before deciding its ownership.',
+      'The divergent targets were kept and the plan was not widened. Review or remove the listed '
+      + 'content manually.',
     ].join('\n'));
 
     expect(exists('blueprint.config.mjs')).toBe(false);
@@ -311,6 +344,7 @@ describe('runRemove · action-by-action revalidation', () => {
 describe('runRemove · bounded recovery failures', () => {
   it('reports a failed bounded replay after dependency uninstall', async () => {
     arrange();
+    const commands: string[] = [];
 
     const removeSync = fs.rmSync;
     let configRemovals = 0;
@@ -328,13 +362,15 @@ describe('runRemove · bounded recovery failures', () => {
     });
 
     await expect(remove({
-      exec: () => {
+      exec: (command) => {
+        commands.push(command);
         write('package.json', '{}');
         write('blueprint.config.mjs', 'export default {};\n');
       },
     })).rejects.toThrow('could not re-establish its authorized terminal state');
 
     expect(exists('blueprint.config.mjs')).toBe(true);
+    expect(commands).toEqual(['npm uninstall @kekkai/blueprint']);
   });
 
   it('preserves a terminal state when recovery narration fails', async () => {

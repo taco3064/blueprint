@@ -77,7 +77,7 @@ describe('post-uninstall removal recovery authority', () => {
     write('src/pages/user.ts', 'export {};\n');
 
     expect(planPostUninstallRecovery(authority, context())).toEqual({
-      actions: [],
+      actions: [actions[0]],
       conflicts: ['src/pages changed after dependency uninstall'],
     });
   });
