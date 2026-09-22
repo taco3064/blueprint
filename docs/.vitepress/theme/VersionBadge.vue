@@ -4,7 +4,9 @@ import { useData } from 'vitepress';
 import { versionIdentity } from './version-identity';
 
 const { lang } = useData();
-const identity = computed(() => versionIdentity(__BP_VERSION__, lang.value));
+const identity = computed(() => versionIdentity(
+  __BP_VERSION__, lang.value, import.meta.env.VITE_BP_DOCS_TAG,
+));
 </script>
 
 <template>
