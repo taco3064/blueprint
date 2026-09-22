@@ -4,6 +4,24 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Full main SHA that passed the complete field matrix
+        required: true
+        type: string
+      candidate_run_id:
+        description: Successful CI run that packed this exact candidate
+        required: true
+        type: string
+      tag:
+        description: Stable release tag matching the candidate version
+        required: true
+        type: string
+      publish:
+        description: Publish the verified original tarball and create its tag/release
+        default: false
+        type: boolean
 
 permissions:
   # write: the publish step also cuts the GitHub Release for this tag
@@ -12,9 +30,86 @@ permissions:
   # read: the field gate follows the exact tag commit's status to its ticket comment
   statuses: read
   issues: read
+  actions: read
+
+concurrency:
+  group: blueprint-release-publication
+  cancel-in-progress: false
 
 jobs:
+  recover:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Verify original CI artifact and candidate release gates
+        run: node scripts/release-recovery.mjs prepare
+
+      - name: Check original tarball publication without publishing
+        run: |
+          TARBALL=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/blueprint-release-recovery/recovery.json")).tarball')
+          npm publish "$TARBALL" --dry-run --ignore-scripts
+
+      - name: Install provenance signer outside the candidate
+        if: inputs.publish
+        run: npm install --prefix "$RUNNER_TEMP/provenance-tools" --ignore-scripts --no-audit --no-fund sigstore@4.1.1
+
+      - name: Sign candidate and publisher provenance
+        if: inputs.publish
+        run: |
+          export SIGSTORE_MODULE="$RUNNER_TEMP/provenance-tools/node_modules/sigstore/dist/index.js"
+          node scripts/release-recovery-provenance.mjs "$RUNNER_TEMP/blueprint-release-recovery/recovery.json" "$RUNNER_TEMP/blueprint-release-recovery/provenance.json"
+
+      - uses: actions/setup-node@v7
+        if: inputs.publish
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Reverify and publish the original candidate
+        if: inputs.publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          node scripts/release-recovery.mjs verify
+          SHA=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/blueprint-release-recovery/recovery.json")).manifest.headSha')
+          TAG=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/blueprint-release-recovery/recovery.json")).tag')
+          TARBALL=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/blueprint-release-recovery/recovery.json")).tarball')
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA"
+          fi
+          node scripts/release-recovery.mjs verify
+          npm publish "$TARBALL" --ignore-scripts --access public --provenance-file "$RUNNER_TEMP/blueprint-release-recovery/provenance.json"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/blueprint-release-recovery/release-notes.md"
+          fi
+
+      - name: Preserve recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-recovery-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/blueprint-release-recovery/recovery.json
+            ${{ runner.temp }}/blueprint-release-recovery/release-notes.md
+            ${{ runner.temp }}/blueprint-release-recovery/provenance.json
+
   publish:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
