@@ -79,6 +79,10 @@ function readinessRefusal(input: DecisionInput): UpgradeDecision | null {
     return refuse({ kind: 'not-adopted', root: facts.root });
   }
 
+  return null;
+}
+
+function workflowRefusal(facts: UpgradeFacts): UpgradeDecision | null {
   return facts.workflows.length
     ? refuse({ kind: 'pending-workflow', files: facts.workflows })
     : null;
@@ -183,6 +187,7 @@ export function decideUpgrade(input: DecisionInput): UpgradeDecision {
   }
 
   const refusal = catalogRefusal(input, running.version)
+    ?? workflowRefusal(facts)
     ?? stalePlaybookRefusal(facts, running.version)
     ?? readinessRefusal(input)
     ?? checkpointRefusal(facts)

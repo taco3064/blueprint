@@ -136,6 +136,37 @@ describe('runUpgrade · current lifecycle', () => {
     expect(lines).toEqual([]);
   });
 
+  it('keeps an active workflow authoritative and preserves every artifact', async () => {
+    const artifacts = {
+      'blueprint-upgrade.md': '# stale\nuser-owned detail\n',
+      'blueprint-authoring.md': '# active authoring\n',
+      'blueprint-transformation.json': '{"active":true}\n',
+    };
+
+    for (const [file, content] of Object.entries(artifacts)) {
+      write(file, content);
+    }
+
+    const before = fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf8');
+    const exec = vi.fn();
+    const handoff = vi.fn(() => 0);
+
+    await expect(upgrade({ exec, handoff })).rejects.toThrow(
+      'a Blueprint workflow is still in progress (blueprint-authoring.md, '
+      + 'blueprint-transformation.json)',
+    );
+
+    expect(exec).not.toHaveBeenCalled();
+    expect(handoff).not.toHaveBeenCalled();
+
+    for (const [file, content] of Object.entries(artifacts)) {
+      expect(fs.readFileSync(path.join(root, file), 'utf8')).toBe(content);
+    }
+
+    expect(fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf8')).toBe(before);
+    expect(lines).toEqual([]);
+  });
+
   it('resumes a same-target pending plan instead of treating its playbook as stale', async () => {
     const pending = withPlanIdentity({
       from: '4.1.0', to: '4.1.0', migrations: [], operations: [], completed: [],
