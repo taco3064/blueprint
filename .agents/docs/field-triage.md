@@ -82,6 +82,10 @@ CHANGELOG entries and GitHub releases remain human-facing history. They are neve
 
 Run `npx changeset version`, hoist the release-framing entry above the generated change headings, commit, and merge the version change to `main`. That new commit receives its own packed candidate and must pass the final complete field matrix. Only then create and push the tag.
 
+Version preparation establishes the release version and consumes its changesets; it does not freeze product inputs. Field findings may require product, documentation, or verification repairs after that commit. Land those repairs through the normal PR process, update the current release's changelog when its claims change, and validate the new main CI candidate. Repairs within the same unpublished version do not require unversioning and re-versioning. A version change or unreleased changeset still requires Changesets preparation.
+
+The final candidate that passes the complete field matrix is the release freeze point. The Changesets gate proves the version's origin, consumed changesets, matching changelog section, and absence of pending changesets. The field gate independently requires full convergence on the exact tag target. Passing the Changesets gate alone never authorizes publication, and a later commit cannot inherit an earlier candidate's field status, including a commit that changes only release tooling.
+
 The tag workflow re-runs lint, typecheck, tests, build, and distribution verification. Before `npm publish`, it queries `blueprint/field-convergence` on the exact tag target and follows its convergence-ticket link. It requires a machine-readable comment proving the same SHA, full scope, complete matrix, success, and zero release blockers. A closed ticket, prior SHA, affected replay, missing status, or stale report cannot publish.
 
 The workflow preserves npm provenance and generates the GitHub Release from the matching changelog section without overwriting an existing hand-written release.
