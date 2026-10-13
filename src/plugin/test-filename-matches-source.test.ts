@@ -151,6 +151,10 @@ describe('classified test suites', () => {
     { allowAspectSuffix: 'yes' },
     { suiteRoots: [{ directory: 'test', kind: 'unit' }] },
     { suiteRoots: [{ directory: 'test' }] },
+    { suiteRoots: [
+      { directory: 'test', kind: 'integration' },
+      { directory: 'test', kind: 'integration' },
+    ] },
     { allowEverything: true },
   ])('rejects invalid rule options %j', (options) => {
     expect(() => messages('journey.test.ts', options)).toThrow();

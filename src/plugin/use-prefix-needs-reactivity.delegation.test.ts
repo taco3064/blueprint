@@ -125,6 +125,17 @@ describe('delegated hook evidence', () => {
     { 'data.ts': 'import { useState } from "react"; export const useData '
       + '= () => ({ useState: () => 1 }).useState();' },
   ])('keeps missing, fake, uncalled and cyclic delegation as an error: %j', (files) => {
+    const exists = fs.existsSync;
+    let reads = 0;
+
+    vi.spyOn(fs, 'existsSync').mockImplementation((file) => {
+      if (++reads > 20) {
+        throw new Error('Delegation repeated resolution without making progress');
+      }
+
+      return exists(file);
+    });
+
     const result = check(files);
 
     expect(result).toHaveLength(1);

@@ -1,6 +1,7 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { ESLint } from 'eslint';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Blueprint } from '../config';
 import { emitLint } from '../emit/lint';
 import { makeRepo, rm, write } from './conformance';
@@ -52,6 +53,8 @@ function fixture(options: { sourceRoot?: string; basePath?: string; absolute?: b
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
+
   for (const root of roots.splice(0)) {
     rm(root);
   }
@@ -122,6 +125,17 @@ describe('MF composed hook canonical alias evidence', () => {
     const { directory, collection, source, eslint } = fixture();
 
     write(directory, collection, implementation);
+    const exists = fs.existsSync;
+    let reads = 0;
+
+    vi.spyOn(fs, 'existsSync').mockImplementation((file) => {
+      if (++reads > 40) {
+        throw new Error('Delegation repeated resolution without making progress');
+      }
+
+      return exists(file);
+    });
+
     const [result] = await eslint.lintFiles([source]);
 
     expect(result.messages.map(({ ruleId: id, severity }) => ({ ruleId: id, severity })))

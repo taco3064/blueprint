@@ -197,3 +197,12 @@ it('accepts one reactive initializer among multiple root declarations', () => {
     'import {useData} from "./data"; export const other = () => 1, useView = () => useData();'))
     .toBe(true);
 });
+
+it('does not read a source file for an unresolved delegate', () => {
+  const read = vi.spyOn(fs, 'readFileSync');
+
+  expect(evidence({}, 'import { useData } from "missing"; '
+  + 'export const useView = () => useData();')).toBe(false);
+
+  expect(read).not.toHaveBeenCalled();
+});
