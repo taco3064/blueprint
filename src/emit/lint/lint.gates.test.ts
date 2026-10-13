@@ -395,3 +395,27 @@ describe('emitLint · TypeScript-aware unusedVars', () => {
     expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
   });
 });
+
+describe('emitLint · test classification options', () => {
+  it('forwards classification options without changing severity or test scope', () => {
+    const options = {
+      allowAspectSuffix: true,
+      suiteRoots: [{ directory: 'test/integration', kind: 'integration' }],
+    };
+
+    const custom = defineBlueprint({
+      ...blueprint,
+      rules: { testFilename: { tier: 'error', ...options } },
+    });
+
+    const entry = emitLint(custom)
+      .find((item) => item.rules?.['blueprint/test-filename-matches-source']);
+
+    expect(entry?.rules?.['blueprint/test-filename-matches-source']).toEqual(['error', options]);
+
+    expect(entry?.files).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}',
+      '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+  });
+});

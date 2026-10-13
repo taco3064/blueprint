@@ -35,7 +35,6 @@ const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
 const NO_OPTIONS = [
   'no-deep-watch',
   'no-typedef-only-file',
-  'test-filename-matches-source',
   'use-prefix-needs-reactivity',
 ] as const;
 
@@ -102,6 +101,34 @@ describe('plugin', () => {
         type: 'object',
         properties: { prefix: { type: 'string' } },
         additionalProperties: false,
+      },
+    ]);
+  });
+
+  it('pins test-filename classification options to the adopter contract', () => {
+    expect(plugin.rules?.['test-filename-matches-source']?.meta?.schema).toEqual([
+      {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          allowAspectSuffix: { type: 'boolean' },
+          suiteRoots: {
+            type: 'array',
+            uniqueItems: true,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['directory', 'kind'],
+              properties: {
+                directory: {
+                  type: 'string',
+                  pattern: '^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_-]+(?:/[A-Za-z0-9_.-]+)*$',
+                },
+                kind: { enum: ['integration', 'contract', 'e2e'] },
+              },
+            },
+          },
+        },
       },
     ]);
   });

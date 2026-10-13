@@ -53,7 +53,8 @@ const GATE_NOTES: Record<LintGateNoteId, string> = {
   fixtureImports: 'fixture globs folded into the structural import bans',
   deepWatch: 'Vue only — never emits on React',
   usePrefix: 'on its target layer (default hooks)',
-  usePrefixReactivity: 'composing-only hooks are a known false positive',
+  usePrefixReactivity: 'direct calls and traceable relative delegates; '
+    + 'unresolved imports remain diagnostic',
   testFilename: 'test files only',
   typedefOnlyFile: '.js files only',
   cycles: 'on-demand/CI diagnosis only — a baseline grandfathers recorded findings; '

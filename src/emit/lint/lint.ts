@@ -1,4 +1,5 @@
 import type { ESLint, Linter } from 'eslint';
+import { testFilenameEntry } from './test-filename';
 import {
   renderCodeStylePluginError,
   renderSelfOnlyReexport,
@@ -323,20 +324,6 @@ function sharedEntry(
         }
       : {}),
     rules: shared,
-  }];
-}
-
-function testFilenameEntry(rules: Blueprint['rules'], testGlobs: string[]): LintConfigEntry[] {
-  const testFilename = activeSetting(rules?.testFilename);
-
-  if (!testFilename || !testGlobs.length) {
-    return [];
-  }
-
-  return [{
-    files: testGlobs,
-    plugins: { blueprint: plugin },
-    rules: { 'blueprint/test-filename-matches-source': testFilename.tier },
   }];
 }
 

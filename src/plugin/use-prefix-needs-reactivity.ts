@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
+import { delegatedReactivity } from './delegated-reactivity';
 
 const REACTIVE_API = new Set([
 
@@ -17,13 +18,14 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'Check use-prefixed files for direct reactive or lifecycle API calls.',
+      description: 'Check use-prefixed files for direct or traceable reactive or lifecycle calls.',
     },
     schema: [],
     messages: {
       pure:
-        '⚠ "{{base}}" has no directly recognised reactive/lifecycle API call in this file. '
-        + 'This check does not follow delegated hooks and does not prove the function is pure. '
+        '"{{base}}" has no recognised reactive/lifecycle API call '
+        + 'in this file or its traced delegates. '
+        + 'Relative imports are traced; unresolved imports do not prove the function is pure. '
         + 'Inspect the called hooks before changing behavior; only if it is a pure helper, '
         + 'drop the prefix and move it where pure helpers live.',
     },
@@ -56,7 +58,9 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
         }
       },
       'Program:exit'(node) {
-        if (!reactive) {
+        if (!reactive && !delegatedReactivity(
+          context.filename, context.sourceCode.text, REACTIVE_API,
+        )) {
           context.report({ node, messageId: 'pure', data: { base } });
         }
       },
