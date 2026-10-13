@@ -35,7 +35,6 @@ const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
 const NO_OPTIONS = [
   'no-deep-watch',
   'no-typedef-only-file',
-  'use-prefix-needs-reactivity',
 ] as const;
 
 describe('plugin', () => {
@@ -71,6 +70,19 @@ describe('plugin', () => {
     // The empty schema is what makes eslint reject `['error', {…}]` on this
     // rule, rather than accept a setting it will never read.
     expect(plugin.rules?.[id]?.meta?.schema).toEqual([]);
+  });
+
+  it('pins delegated hook resolution to the configured source-root contract', () => {
+    expect(plugin.rules?.['use-prefix-needs-reactivity']?.meta?.schema).toEqual([{
+      type: 'object',
+      properties: {
+        alias: { type: 'string', minLength: 1 },
+        sourceRoot: { type: 'string', minLength: 1 },
+        basePath: { type: 'string' },
+      },
+      required: ['alias', 'sourceRoot'],
+      additionalProperties: false,
+    }]);
   });
 
   it('pins relative-escape options to the shape adopters are validated against', () => {

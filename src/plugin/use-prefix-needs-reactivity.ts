@@ -20,12 +20,22 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
     docs: {
       description: 'Check use-prefixed files for direct or traceable reactive or lifecycle calls.',
     },
-    schema: [],
+    schema: [{
+      type: 'object',
+      properties: {
+        alias: { type: 'string', minLength: 1 },
+        sourceRoot: { type: 'string', minLength: 1 },
+        basePath: { type: 'string' },
+      },
+      required: ['alias', 'sourceRoot'],
+      additionalProperties: false,
+    }],
     messages: {
       pure:
         '"{{base}}" has no recognised reactive/lifecycle API call '
         + 'in this file or its traced delegates. '
-        + 'Relative imports are traced; unresolved imports do not prove the function is pure. '
+        + 'Relative and configured canonical alias imports are traced; '
+        + 'unresolved imports do not prove the function is pure. '
         + 'Inspect the called hooks before changing behavior; only if it is a pure helper, '
         + 'drop the prefix and move it where pure helpers live.',
     },
@@ -39,6 +49,17 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
     if (!/^use[A-Z]/.test(base)) {
       return {};
     }
+
+    const options = context.options[0] as {
+      alias: string;
+      sourceRoot: string;
+      basePath?: string;
+    } | undefined;
+
+    const resolution = options && {
+      alias: options.alias,
+      root: path.resolve(context.cwd, options.basePath ?? '.', options.sourceRoot),
+    };
 
     let reactive = false;
 
@@ -59,7 +80,7 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
       },
       'Program:exit'(node) {
         if (!reactive && !delegatedReactivity(
-          context.filename, context.sourceCode.text, REACTIVE_API,
+          context.filename, context.sourceCode.text, { apis: REACTIVE_API, resolution },
         )) {
           context.report({ node, messageId: 'pure', data: { base } });
         }

@@ -256,7 +256,10 @@ function sharedRules(blueprint: Blueprint, options: EmitLintOptions): Linter.Rul
       : {}),
     ...(deepWatch && framework !== 'react' ? { 'blueprint/no-deep-watch': deepWatch.tier } : {}),
     ...(usePrefixReactivity
-      ? { 'blueprint/use-prefix-needs-reactivity': usePrefixReactivity.tier }
+      ? { 'blueprint/use-prefix-needs-reactivity': [usePrefixReactivity.tier, scopeLintOptions({
+          alias: blueprint.architecture.alias,
+          sourceRoot: resolveArchitecture(blueprint.architecture).sourceRoot,
+        }, options.basePath)] }
       : {}),
   };
 }

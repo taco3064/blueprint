@@ -28,7 +28,9 @@ function evidence(files: Record<string, string>, source = app, filename = 'useVi
     fs.writeFileSync(destination, content);
   }
 
-  return delegatedReactivity(path.join(directory, filename), source, new Set(['useState']));
+  return delegatedReactivity(path.join(directory, filename), source, {
+    apis: new Set(['useState']),
+  });
 }
 
 it('does not mistake a bare package import for a same-named adjacent module', () => {

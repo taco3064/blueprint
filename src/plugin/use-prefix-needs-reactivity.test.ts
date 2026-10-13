@@ -127,7 +127,7 @@ it('does not declare a composition of imported hooks pure', () => {
   );
 
   expect(out).toHaveLength(1);
-  expect(out[0]).toContain('Relative imports are traced');
+  expect(out[0]).toContain('Relative and configured canonical alias imports are traced');
   expect(out[0]).toContain('Inspect the called hooks before changing behavior');
   expect(out[0]).not.toContain('it is a pure function');
 });

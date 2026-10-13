@@ -170,7 +170,10 @@ describe('emitLint · the embedded plugin rides the entries that carry its rules
 
     const shared = config.find((item) => item.rules?.['blueprint/use-prefix-needs-reactivity']);
 
-    expect(shared?.rules?.['blueprint/use-prefix-needs-reactivity']).toBe('warn');
+    expect(shared?.rules?.['blueprint/use-prefix-needs-reactivity']).toEqual([
+      'warn', { alias: blueprint.architecture.alias, sourceRoot: 'src' },
+    ]);
+
     expect(shared?.plugins?.blueprint).toBeDefined();
 
     const typedef = config.find((item) => item.rules?.['blueprint/no-typedef-only-file']);

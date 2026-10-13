@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { findVariable, getInnermostScope } from '@eslint-community/eslint-utils';
 import parser from '@typescript-eslint/parser';
+import { resolveDelegate } from './delegate-resolution';
+import type { DelegateResolution } from './delegate-resolution';
 import type { Scope } from 'eslint';
 
 interface Node {
@@ -44,7 +46,6 @@ class ExportBinding {
 
 type ExportResolution = ExportBinding | null;
 
-const EXTENSIONS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs'];
 const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
 
 class Delegation {
@@ -53,9 +54,11 @@ class Delegation {
   private exportsActive = new Set<string>();
 
   private apis: ReadonlySet<string>;
+  private resolution: DelegateResolution | undefined;
 
-  constructor(apis: ReadonlySet<string>) {
+  constructor(apis: ReadonlySet<string>, resolution?: DelegateResolution) {
     this.apis = apis;
+    this.resolution = resolution;
   }
 
   load(file: string, text?: string): Module | null {
@@ -86,23 +89,9 @@ class Delegation {
   }
 
   resolve(module: Module, specifier: string): Module | null {
-    if (!specifier.startsWith('.')) {
-      return null;
-    }
+    const target = resolveDelegate(module.filename, specifier, this.resolution);
 
-    const target = path.resolve(path.dirname(module.filename), specifier);
-
-    for (const base of [target, path.join(target, 'index')]) {
-      for (const extension of EXTENSIONS) {
-        const candidate = `${base}${extension}`;
-
-        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-          return this.load(candidate);
-        }
-      }
-    }
-
-    return null;
+    return target === null ? null : this.load(target);
   }
 
   exported(module: Module, name: string): boolean {
@@ -210,9 +199,11 @@ class Delegation {
       return new ExportBinding(module, null);
     }
 
-    return String(parent.source!.value).startsWith('.')
-      ? this.remoteBinding(module, parent.source!, name)
-      : new ExportBinding(module, node);
+    const specifier = String(parent.source!.value);
+
+    return specifier === 'react' || specifier === 'vue'
+      ? new ExportBinding(module, node)
+      : this.remoteBinding(module, parent.source!, name);
   }
 
   starBinding(module: Module, name: string): ExportResolution {
@@ -349,9 +340,9 @@ class Delegation {
 export function delegatedReactivity(
   filename: string,
   source: string,
-  apis: ReadonlySet<string>,
+  options: { apis: ReadonlySet<string>; resolution?: DelegateResolution },
 ): boolean {
-  const delegation = new Delegation(apis);
+  const delegation = new Delegation(options.apis, options.resolution);
   const module = delegation.load(path.resolve(filename), source);
 
   return module !== null && module.ast.body!.some((statement) => {

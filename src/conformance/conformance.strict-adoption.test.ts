@@ -74,7 +74,7 @@ describe('strict LF adoption with composed hooks and classified tests', () => {
     const hookConfig = await eslint.calculateConfigForFile(path.join(directory, hookFile));
     const testConfig = await eslint.calculateConfigForFile(path.join(directory, contractFile));
 
-    expect(hookConfig.rules[hookRule]).toEqual([2]);
+    expect(hookConfig.rules[hookRule]).toEqual([2, { alias: '~app', sourceRoot: 'src' }]);
 
     expect(testConfig.rules[testRule]).toEqual([2, {
       allowAspectSuffix: true,

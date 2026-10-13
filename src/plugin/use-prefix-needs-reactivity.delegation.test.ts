@@ -134,7 +134,7 @@ describe('delegated hook evidence', () => {
 });
 
 it('fails closed when the root source cannot be parsed', () => {
-  expect(delegatedReactivity('useView.ts', 'not valid !', new Set())).toBe(false);
+  expect(delegatedReactivity('useView.ts', 'not valid !', { apis: new Set() })).toBe(false);
 });
 
 it('does not invent a default export through export-star', () => {
@@ -369,4 +369,12 @@ it('rejects recursive arrow hooks without repeated traversal', () => {
   expect(check({ 'data.ts': 'export const useData = () => useData();' }))
     .toEqual([expect.objectContaining({ severity: 2,
       ruleId: 'blueprint/use-prefix-needs-reactivity' })]);
+});
+
+it.each([
+  ['react', 'useState'], ['vue', 'ref'],
+])('retains actual %s primitive bindings through local export aliases', (framework, primitive) => {
+  expect(check({
+    'data.ts': `import { ${primitive} as useData } from "${framework}"; export { useData };`,
+  })).toEqual([]);
 });
