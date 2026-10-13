@@ -182,3 +182,16 @@ it.each(terminalBindings)('retains terminal identity for star ambiguity: %s', (t
     })).toBe(false);
   }
 });
+
+it('traces a default import reexported under a named hook binding', () => {
+  expect(evidence({
+    'data.ts': 'import live from "./inner"; export {live as useData};',
+    'inner.ts': 'import {useState} from "react"; export default () => useState(0);',
+  })).toBe(true);
+});
+
+it('accepts one reactive initializer among multiple root declarations', () => {
+  expect(evidence({ 'data.ts': reactive },
+    'import {useData} from "./data"; export const other = () => 1, useView = () => useData();'))
+    .toBe(true);
+});

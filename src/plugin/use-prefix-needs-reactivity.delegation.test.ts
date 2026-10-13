@@ -2,13 +2,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Linter } from 'eslint';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { plugin } from './plugin';
 import { delegatedReactivity } from './delegated-reactivity';
 
 const roots: string[] = [];
 
 afterEach(() => {
+  vi.restoreAllMocks();
+
   for (const root of roots.splice(0)) {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -114,7 +116,6 @@ describe('delegated hook evidence', () => {
       + 'useData() { const unused = () => useState(0); return '
       + '1; }' },
     { 'data.ts': 'export const useData = () => useMissing();' },
-    { 'data.ts': 'export const useData = () => useData();' },
     { 'data.ts': 'export { useData } from "./other";',
       'other.ts': 'export { useData } from "./data";' },
     { 'data.ts': 'export * from "./other";', 'other.ts': 'export * from "./data";' },
@@ -142,6 +143,8 @@ it('does not invent a default export through export-star', () => {
 });
 
 it('terminates local alias cycles and uninitialized variables', () => {
+  boundRepeatedNodes();
+
   expect(check({}, 'const first = second; const second = first;'
   + ' let missing; export const useView = () => first() || missing();')).toHaveLength(1);
 });
@@ -339,4 +342,31 @@ it.each([
       ruleId: 'blueprint/use-prefix-needs-reactivity',
     });
   }
+});
+
+function boundRepeatedNodes() {
+  const add = Set.prototype.add;
+  const visits = new WeakMap<object, number>();
+
+  vi.spyOn(Set.prototype, 'add').mockImplementation(function (this: Set<unknown>, value: unknown) {
+    if (typeof value === 'object' && value !== null && 'type' in value) {
+      const count = (visits.get(value) ?? 0) + 1;
+
+      visits.set(value, count);
+
+      if (count > 4) {
+        throw new Error('Recursive delegation revisited the same node without making progress');
+      }
+    }
+
+    return add.call(this, value);
+  });
+}
+
+it('rejects recursive arrow hooks without repeated traversal', () => {
+  boundRepeatedNodes();
+
+  expect(check({ 'data.ts': 'export const useData = () => useData();' }))
+    .toEqual([expect.objectContaining({ severity: 2,
+      ruleId: 'blueprint/use-prefix-needs-reactivity' })]);
 });

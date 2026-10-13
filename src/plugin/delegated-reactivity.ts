@@ -32,12 +32,17 @@ interface Module {
   keys: Record<string, readonly string[] | undefined>;
 }
 
-interface ExportBinding {
+class ExportBinding {
   module: Module;
-  node: Node;
+  node: Node | null;
+
+  constructor(module: Module, node: Node | null) {
+    this.module = module;
+    this.node = node;
+  }
 }
 
-type ExportResolution = ExportBinding | 'ambiguous' | null;
+type ExportResolution = ExportBinding | null;
 
 const EXTENSIONS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs'];
 const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
@@ -61,7 +66,6 @@ class Delegation {
     try {
       const parsed = parser.parseForESLint(text ?? fs.readFileSync(file, 'utf8'), {
         filePath: file, ecmaVersion: 'latest', sourceType: 'module',
-        jsx: /\.[jt]sx$/.test(file),
       });
 
       const module = {
@@ -104,10 +108,7 @@ class Delegation {
   exported(module: Module, name: string): boolean {
     const binding = this.exportBinding(module, name);
 
-    return binding !== null
-      // Stryker disable next-line ConditionalExpression: sentinel has no node; expression is false.
-      && binding !== 'ambiguous'
-      && this.expression(binding.module, binding.node);
+    return binding !== null && this.expression(binding.module, binding.node);
   }
 
   exportBinding(module: Module, name: string): ExportResolution {
@@ -121,7 +122,7 @@ class Delegation {
     const explicit = module.ast.body!.find((statement) => explicitExport(statement, name));
 
     const binding = explicit
-      ? (this.explicitBinding(module, explicit, name) ?? { module, node: explicit })
+      ? (this.explicitBinding(module, explicit, name) ?? new ExportBinding(module, null))
       : this.starBinding(module, name);
 
     this.exportsActive.delete(key);
@@ -135,7 +136,7 @@ class Delegation {
     }
 
     if (statement.type === 'ExportAllDeclaration') {
-      return { module, node: statement };
+      return new ExportBinding(module, null);
     }
 
     const declaration = statement.declaration;
@@ -181,7 +182,7 @@ class Delegation {
     const definition = variable?.defs[0];
 
     if (variable?.references.some((reference) => reference.isWrite() && !reference.init)) {
-      return { module, node: definition!.name as unknown as Node };
+      return new ExportBinding(module, null);
     }
 
     if (definition?.type === 'ImportBinding') {
@@ -191,7 +192,7 @@ class Delegation {
       }, node);
     }
 
-    return { module, node: (definition?.name as unknown as Node | undefined) ?? node };
+    return new ExportBinding(module, (definition?.name as unknown as Node | undefined) ?? node);
   }
 
   localImportBinding(
@@ -206,12 +207,12 @@ class Delegation {
       : declaration.imported?.name;
 
     if (!name || !validImport(declaration, parent)) {
-      return { module, node };
+      return new ExportBinding(module, null);
     }
 
     return String(parent.source!.value).startsWith('.')
       ? this.remoteBinding(module, parent.source!, name)
-      : { module, node };
+      : new ExportBinding(module, node);
   }
 
   starBinding(module: Module, name: string): ExportResolution {
@@ -229,13 +230,8 @@ class Delegation {
 
       const candidate = this.remoteBinding(module, statement.source!, name);
 
-      // Stryker disable next-line ConditionalExpression,BlockStatement: merges retain sentinel.
-      if (candidate === 'ambiguous') {
-        return candidate;
-      }
-
       if (candidate && binding && candidate.node !== binding.node) {
-        return 'ambiguous';
+        return new ExportBinding(module, null);
       }
 
       binding = candidate ?? binding;
@@ -298,7 +294,7 @@ class Delegation {
     return target !== null && this.exported(target, name);
   }
 
-  expression(module: Module, node: Node): boolean {
+  expression(module: Module, node: Node | null): boolean {
     if (!node || this.active.has(node)) {
       return false;
     }
