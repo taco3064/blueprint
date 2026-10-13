@@ -23,23 +23,11 @@ function sourceExists(dir: string, base: string): boolean {
 }
 
 function hasSource(dir: string, base: string, allowAspectSuffix: boolean | undefined): boolean {
-  let candidate = base;
+  const candidates = allowAspectSuffix
+    ? base.split('.').map((_, index, segments) => segments.slice(0, index + 1).join('.'))
+    : [base];
 
-  while (candidate) {
-    if (sourceExists(dir, candidate)) {
-      return true;
-    }
-
-    const separator = candidate.lastIndexOf('.');
-
-    if (!allowAspectSuffix || separator <= 0) {
-      break;
-    }
-
-    candidate = candidate.slice(0, separator);
-  }
-
-  return false;
+  return candidates.some((candidate) => candidate !== '' && sourceExists(dir, candidate));
 }
 
 export const testFilenameMatchesSource: Rule.RuleModule = {

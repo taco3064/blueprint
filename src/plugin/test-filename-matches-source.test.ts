@@ -191,3 +191,16 @@ describe('source sibling identity', () => {
     expect(messages('.hidden.test.ts', { allowAspectSuffix: true })).toHaveLength(1);
   });
 });
+
+it('does not invent a partial name after exhausting a basename without separators', () => {
+  fs.writeFileSync(path.join(root, 'Car.ts'), '');
+
+  expect(messages('Card.test.ts', { allowAspectSuffix: true })).toHaveLength(1);
+});
+
+it('never matches an empty source basename for hidden or empty test basenames', () => {
+  fs.writeFileSync(path.join(root, '.ts'), '');
+
+  expect(messages('.Card.test.ts', { allowAspectSuffix: true })).toHaveLength(1);
+  expect(messages('.test.ts', { allowAspectSuffix: true })).toHaveLength(1);
+});

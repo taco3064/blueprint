@@ -419,3 +419,12 @@ describe('emitLint · test classification options', () => {
     ]);
   });
 });
+
+it('keeps a tier-only test-filename setting scalar rather than emitting empty options', () => {
+  const custom = defineBlueprint({ ...blueprint, rules: { testFilename: { tier: 'error' } } });
+
+  const entry = emitLint(custom)
+    .find((item) => item.rules?.['blueprint/test-filename-matches-source']);
+
+  expect(entry?.rules?.['blueprint/test-filename-matches-source']).toBe('error');
+});

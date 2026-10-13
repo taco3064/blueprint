@@ -318,3 +318,25 @@ it.each([
   expect(result.map(({ ruleId, severity }) => ({ ruleId, severity })))
     .toEqual([{ ruleId: 'blueprint/use-prefix-needs-reactivity', severity: 2 }]);
 });
+
+it.each([
+  'export const {useData} = {useData: () => 1};',
+  'export let useData = () => 1; useData = () => 2;',
+  'export * as useData from "./inner";',
+  'export {useData} from "./missing";',
+])('reports ambiguous noncallable star exports as errors: %s', (terminal) => {
+  for (const order of [['pure', 'inner'], ['inner', 'pure']]) {
+    const messages = check({
+      'data.ts': order.map((name) => `export * from "./${name}";`).join(''),
+      'pure.ts': terminal,
+      'inner.ts': reactive,
+    });
+
+    expect(messages).toHaveLength(1);
+
+    expect(messages[0]).toMatchObject({
+      severity: 2,
+      ruleId: 'blueprint/use-prefix-needs-reactivity',
+    });
+  }
+});

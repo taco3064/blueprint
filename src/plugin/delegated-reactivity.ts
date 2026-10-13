@@ -61,7 +61,7 @@ class Delegation {
     try {
       const parsed = parser.parseForESLint(text ?? fs.readFileSync(file, 'utf8'), {
         filePath: file, ecmaVersion: 'latest', sourceType: 'module',
-        jsx: /\.[jt]sx$/.test(file), range: true, loc: true,
+        jsx: /\.[jt]sx$/.test(file),
       });
 
       const module = {
@@ -104,7 +104,9 @@ class Delegation {
   exported(module: Module, name: string): boolean {
     const binding = this.exportBinding(module, name);
 
-    return binding !== null && binding !== 'ambiguous'
+    return binding !== null
+      // Stryker disable next-line ConditionalExpression: sentinel has no node; expression is false.
+      && binding !== 'ambiguous'
       && this.expression(binding.module, binding.node);
   }
 
@@ -119,7 +121,7 @@ class Delegation {
     const explicit = module.ast.body!.find((statement) => explicitExport(statement, name));
 
     const binding = explicit
-      ? this.explicitBinding(module, explicit, name)
+      ? (this.explicitBinding(module, explicit, name) ?? { module, node: explicit })
       : this.starBinding(module, name);
 
     this.exportsActive.delete(key);
@@ -128,8 +130,12 @@ class Delegation {
   }
 
   explicitBinding(module: Module, statement: Node, name: string): ExportResolution {
-    if (statement.exportKind === 'type' || statement.type === 'ExportAllDeclaration') {
+    if (statement.exportKind === 'type') {
       return null;
+    }
+
+    if (statement.type === 'ExportAllDeclaration') {
+      return { module, node: statement };
     }
 
     const declaration = statement.declaration;
@@ -159,7 +165,7 @@ class Delegation {
     const node = declaration.id ?? declaration.declarations!
       .find((item) => bindsName(item.id!, name))!.id!;
 
-    return node.type === 'Identifier' ? this.localBinding(module, node) : null;
+    return this.localBinding(module, node);
   }
 
   remoteBinding(module: Module, source: Node, name: string): ExportResolution {
@@ -169,18 +175,14 @@ class Delegation {
   }
 
   localBinding(module: Module, node: Node): ExportResolution {
-    if (node.type !== 'Identifier') {
-      return { module, node };
-    }
-
     const scope = getInnermostScope(module.scope, node as never);
     const variable = findVariable(scope, node as never);
 
-    if (variable?.references.some((reference) => reference.isWrite() && !reference.init)) {
-      return null;
-    }
-
     const definition = variable?.defs[0];
+
+    if (variable?.references.some((reference) => reference.isWrite() && !reference.init)) {
+      return { module, node: definition!.name as unknown as Node };
+    }
 
     if (definition?.type === 'ImportBinding') {
       return this.localImportBinding(module, {
@@ -204,7 +206,7 @@ class Delegation {
       : declaration.imported?.name;
 
     if (!name || !validImport(declaration, parent)) {
-      return null;
+      return { module, node };
     }
 
     return String(parent.source!.value).startsWith('.')
@@ -227,6 +229,7 @@ class Delegation {
 
       const candidate = this.remoteBinding(module, statement.source!, name);
 
+      // Stryker disable next-line ConditionalExpression,BlockStatement: merges retain sentinel.
       if (candidate === 'ambiguous') {
         return candidate;
       }
@@ -316,7 +319,7 @@ class Delegation {
 
   memberCall(module: Module, callee: Node): boolean {
     return callee.type === 'MemberExpression' && !callee.computed
-      && callee.object!.type === 'Identifier' && callee.property!.type === 'Identifier'
+      && callee.property!.type === 'Identifier'
       && this.imported(module, callee.object!, callee.property!.name);
   }
 
@@ -328,7 +331,7 @@ class Delegation {
     if (node.type === 'CallExpression') {
       const callee = node.callee!;
 
-      if (callee.type === 'Identifier' && this.imported(module, callee)) {
+      if (this.imported(module, callee)) {
         return true;
       }
 
@@ -359,7 +362,8 @@ export function delegatedReactivity(
     const declaration = statement.declaration ?? statement;
 
     return delegation.expression(module, declaration)
-      || (declaration.declarations ?? []).some((item) => delegation.expression(module, item.init!));
+      || (declaration.declarations?.some((item) =>
+        delegation.expression(module, item.init!)) ?? false);
   });
 }
 
