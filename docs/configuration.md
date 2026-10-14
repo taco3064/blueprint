@@ -13,7 +13,7 @@ export default defineBlueprint({
     alias: '~app',
     layers: [
       { name: 'pages', does: 'Route composition.' },
-      { name: 'components', does: 'Reusable UI.' },
+      { name: 'components', does: 'Presentation UI, including feature-private components.' },
       { name: 'services', does: 'Network access.', owns: ['axios'] },
     ],
   },
@@ -93,7 +93,7 @@ architecture: {
   alias: '~app',
   layers: [
     { name: 'pages', does: 'Routes and page composition.' },
-    { name: 'components', does: 'Reusable UI.' },
+    { name: 'components', does: 'Presentation UI, including feature-private components.' },
     { name: 'services', does: 'Network primitives.' },
   ],
 }

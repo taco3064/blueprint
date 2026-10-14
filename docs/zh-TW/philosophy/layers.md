@@ -60,8 +60,8 @@ Module-first 會在每個一般模組內重複使用下方的分層契約。模�
 
 **`components`**
 
-- 職責 — 可重用的介面元件，以呈現為主，可呼叫 hook
-- 禁止 — 操作路由、直接呼叫 service、持有應用程式狀態
+- 職責 — 負責介面呈現，包含只有一處使用的功能私有元件；可呼叫 hook、持有暫時性的呈現狀態
+- 禁止 — 操作路由、直接呼叫 service、持有應用程式或使用案例的狀態、協調使用案例流程
 
 **`hooks`**
 
@@ -115,12 +115,19 @@ components/
 ```
 
 - `index` 是 unit 對外的**門面**，外面只認得這個入口
-- 私有子元件就放在模組裡（例如 container 底下的 `ProfileTab`）——<br>
-  「先私有，真的需要共享再上提」是自然的成長路徑，不用一開始就預測
+- 私有子元件可以留在所屬單元內（例如 container 底下的 `ProfileTab`）；<br>
+  負責呈現的單元也可以放在 `components/`，即使目前只有一處使用。<br>
+  是否重用決定要不要移到共用或公開位置，不決定它屬於哪一層
 - 實作檔用「unit 名」命名：<br>
   要是全都叫 `Component.tsx`，編輯器的分頁跟快速開啟根本認不出誰是誰
 
-`components` 跟 `containers` 怎麼分，一句話：**「換一個功能場景，它還能用嗎？」**<br>
-能，就是 components（可重用、不綁資料）；<br>
-綁了特定功能的資料、流程或增刪查改，就是 containers。<br>
-**containers 負責把 components 跟資料接起來；components 完全不知道 containers 的存在。**
+`components` 跟 `containers` 要依職責區分：**「它負責介面呈現，還是主導使用案例？」**<br>
+像 `MatchScoreCard` 這類特定功能的顯示元件，即使只有一處使用，也仍然是 component。<br>
+使用領域名稱或只有一處使用，都不會讓它變成 container。<br>
+Component 可以持有暫時性的呈現狀態，例如區塊展開、滑鼠停留或選單開啟；<br>
+應用程式狀態、工作流程轉換、資料增刪查改與導覽，則屬於 container 位置的職責。<br>
+**Containers 負責把 components 跟資料接起來；components 不主導 container 的使用案例。**
+
+在 module-first 中，功能私有的呈現元件放在所屬模組的 `components` 層，
+不放在模組根目錄，也不需要公開給其他模組。
+在 layer-first 中，`components` 同樣可以保留功能歸屬，不必透過共用入口匯出。

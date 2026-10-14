@@ -66,6 +66,13 @@ export function renderModuleFirstMethod(
     '5. Derive the technical layers that repeat inside ordinary modules (for example '
     + '`components`, `hooks`, `services`, and `lib`) from the actual code. Declare one inner-layer '
     + 'flow shared by the modules; do not create parallel global layer folders.',
+    '   For React/Vue, classify presentation by responsibility, not reuse or consumer count. '
+    + 'A feature-private, single-consumer presenter belongs under its module’s `components` '
+    + 'layer, not at the module root; it needs no cross-module public export. Props/view-model '
+    + 'rendering, display formatting, callbacks/events, and ephemeral UI state (open/closed, '
+    + 'tabs, focus, input drafts) do not alone make it a container. Application/use-case state, '
+    + 'service IO, routing, workflow sequencing, and application-level branches remain '
+    + 'orchestration responsibilities. Reuse informs shared/public promotion, not role.',
     '6. Derive direct `dependsOn` edges from the real cross-module imports of the decided '
     + 'ownership; report counter-direction edges as debt instead of inventing edges. Report '
     + 'cycles only when a declared non-off Blueprint gate or an existing house detector measured '

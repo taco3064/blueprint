@@ -161,6 +161,25 @@ function decisions(state: ProjectTransformationFact): string {
     '   Qualify or regroup colliding names by domain evidence; never invent numeric suffixes.',
     '2. Follow each measured destination. Decide whether ambiguous fallback module-root code',
     '   needs splitting or consolidation, and whether providers or route support belong elsewhere.',
+    ...(!state.hasNext
+      ? [
+          '   For React/Vue, classify presentation by responsibility, not reuse or consumer count.',
+          '   A feature-private, single-consumer presenter belongs in '
+          + '`components`, preserving feature',
+          '   ownership without requiring a shared barrel export. '
+          + 'Props/view-model rendering, display',
+          '   formatting, callbacks/events, and ephemeral UI state '
+          + '(open/closed, tabs, focus, input',
+          '   drafts) do not alone make it a container. Application/use-case '
+          + 'state, service IO, routing,',
+          '   workflow sequencing, and application-level branches remain '
+          + 'container responsibilities.',
+          '   Reuse informs shared/public promotion, not role. If a measured '
+          + 'root fallback points to',
+          '   `containers`, record the responsibility-based correction before '
+          + 'approving the destination.',
+        ]
+      : []),
     '3. Abort rather than normalize an invalid or hybrid tree whose identity cannot be proven.',
     ...router,
   ].join('\n');

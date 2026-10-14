@@ -246,3 +246,34 @@ describe('layer-first to module-first playbook', () => {
     expect(result).toContain('#### app/dashboard (app seed)');
   });
 });
+
+describe.each(['react', 'vue'] as const)('presentation placement for %s', (framework) => {
+  it.each([
+    'classify presentation by responsibility, not reuse or consumer count',
+    'feature-private, single-consumer presenter',
+    'Props/view-model rendering',
+    'callbacks/events',
+    'ephemeral UI state (open/closed, tabs, focus, input',
+    'workflow sequencing, and application-level branches',
+    'Reuse informs shared/public promotion, not role',
+    'without requiring a cross-module public export',
+    'do not alone justify a module-root/container position',
+    'use-case state, service IO, routing',
+  ])('keeps the semantic decision: %s', (decision) => {
+    const result = layerToModuleBrief({
+      evidence: evidence(), preflight, findings: [], state: state({ framework }),
+      install: 'npm install', cleanup: 'nothing',
+    });
+
+    expect(result.replace(/\s+/g, ' ')).toContain(decision);
+  });
+});
+
+it('does not apply React/Vue presentation placement to Next.js', () => {
+  const result = layerToModuleBrief({
+    evidence: evidence(), preflight, findings: [], state: state({ hasNext: true }),
+    install: 'npm install', cleanup: 'nothing',
+  });
+
+  expect(result).not.toContain('classify presentation by responsibility');
+});
