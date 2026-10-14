@@ -75,6 +75,16 @@ export const scenarios = [
     ],
     expectedInitialDebt: [{
       severity: 'error',
+      rule: 'deep-import',
+      path: 'src/app/Login.ts',
+      subject: '~app/auth/AuthRoot',
+    }, {
+      severity: 'warn',
+      rule: 'no-entry',
+      path: 'src/auth',
+      subject: '',
+    }, {
+      severity: 'error',
       rule: 'undeclared-folder',
       path: 'src/legacy',
       subject: '',
@@ -138,7 +148,17 @@ export const scenarios = [
     preservedRoute: null,
     expectedSourceCount: 5,
     markers: ['wiring', 'shopRoute', 'root', 'catalog'],
-    expectedInitialDebt: [],
+    expectedInitialDebt: [{
+      severity: 'error',
+      rule: 'deep-import',
+      path: 'src/app/Shop.vue',
+      subject: '~app/shop/ShopRoot',
+    }, {
+      severity: 'warn',
+      rule: 'no-entry',
+      path: 'src/shop',
+      subject: '',
+    }],
     expectedPostTransformFindings: [{
       severity: 'info',
       rule: 'missing-layer',
@@ -205,7 +225,17 @@ export const scenarios = [
     preservedRoute: 'src/app/login/page.tsx',
     expectedSourceCount: 3,
     markers: ['nextRoute', 'nextRoot', 'nextPanel'],
-    expectedInitialDebt: [],
+    expectedInitialDebt: [{
+      severity: 'error',
+      rule: 'deep-import',
+      path: 'src/app/login/page.tsx',
+      subject: '~app/auth/AuthRoot',
+    }, {
+      severity: 'warn',
+      rule: 'no-entry',
+      path: 'src/auth',
+      subject: '',
+    }],
     expectedPostTransformFindings: [{
       severity: 'info',
       rule: 'missing-layer',

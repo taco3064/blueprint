@@ -47,12 +47,16 @@ afterEach(() => {
 
 it.each([
   { framework: undefined, detected: 'react', mapped: true, dispatch: true },
+  { framework: undefined, detected: 'vue', mapped: true, dispatch: 'empty' },
   { framework: 'vue', detected: 'react', mapped: true, dispatch: false },
   { framework: undefined, detected: 'react', mapped: false, dispatch: false },
   { framework: undefined, detected: 'vue', mapped: true, dispatch: false },
   { framework: undefined, detected: null, mapped: true, dispatch: false },
 ] satisfies {
-  framework: Framework | undefined; detected: Framework | null; mapped: boolean; dispatch: boolean;
+  framework: Framework | undefined;
+  detected: Framework | null;
+  mapped: boolean;
+  dispatch: boolean | 'empty';
 }[])('mapping framework $framework / detected $detected / dispatch $dispatch', async ({
   framework, detected, mapped, dispatch,
 }) => {
@@ -70,10 +74,12 @@ it.each([
 
   const actions = dispatch
     ? await runTopologyTransformation({
-        ...input, repositoryBlueprints: [{
-          applicationRoot: root, architecture, topology: 'module-first',
-          blueprint: { framework: 'vue', architecture },
-        }],
+        ...input, repositoryBlueprints: dispatch === 'empty'
+          ? []
+          : [{
+              applicationRoot: root, architecture, topology: 'module-first',
+              blueprint: { framework: 'vue', architecture },
+            }],
       })
     : await runModuleToLayerTransformation(input);
 

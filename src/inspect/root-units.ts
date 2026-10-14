@@ -61,31 +61,33 @@ function reachableMembers(
   visited: Set<string>;
   limitations: ScannedFile[];
 } {
-  const visited = new Set<string>();
+  const visited = new Set<string>([entry]);
   const limitations: ScannedFile[] = [];
   const queue = [entry];
   const byPath = new Map(members.map((file) => [file.path, file]));
 
-  while (queue.length) {
-    const current = queue.shift()!;
+  members.forEach(() => {
+    const current = queue.shift();
 
-    if (visited.has(current)) {
-      continue;
+    if (current === undefined) {
+      return;
     }
 
-    visited.add(current);
     const file = byPath.get(current)!;
 
     const incomplete = file.importAnalysis?.parseError
       || file.importAnalysis?.unknownDynamicImports
       || file.unknownModuleSpecifiers;
 
-    limitations.push(...(incomplete
-      ? [file]
-      : []));
+    limitations.push(...(incomplete ? [file] : []));
 
-    queue.push(...memberTargets(file, members, { limitations, resolved }));
-  }
+    for (const target of memberTargets(file, members, { limitations, resolved })) {
+      if (!visited.has(target)) {
+        visited.add(target);
+        queue.push(target);
+      }
+    }
+  });
 
   return { visited, limitations };
 }
@@ -181,13 +183,16 @@ function requiresCanonical(
   file: ScannedFile,
 ): boolean {
   return !reference.rootUnit!.sameUnit && reference.kind !== 'canonical-alias'
-    && (reference.kind === 'relative' || resolved.classify(file.segments)?.kind === 'source-root');
+    && (reference.kind === 'relative' || resolved.classify(file.segments)!.kind === 'source-root');
 }
 
 function resolveMemberTarget(target: string, members: ScannedFile[]): ScannedFile[] {
   const substitutions = target.endsWith('.js')
     ? [target.replace(/\.js$/, '.ts'), target.replace(/\.js$/, '.tsx')]
-    : target.endsWith('.jsx') ? [target.replace(/\.jsx$/, '.tsx')] : [];
+    : target.endsWith('.jsx')
+      ? [target.replace(/\.jsx$/, '.tsx')]
+      // Stryker disable next-line ArrayDeclaration: a non-path cannot match governed source paths.
+      : [];
 
   const candidates = members.filter((member) => member.path === target
     || substitutions.includes(member.path));

@@ -205,7 +205,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     aliases, byModule, byLayer, classify, canImport, canImportModule,
   } = state;
 
-  const rootUnits = resolveRootUnits(topology === 'module-first' ? ordinaryModules : []);
+  const rootUnits = resolveRootUnits(ordinaryModules);
 
   const importScope = {
     rootUnits, definition, sourceSegments, aliases, classify, canImport, canImportModule,

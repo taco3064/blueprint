@@ -109,10 +109,14 @@ describe('resolveArchitecture · import contract', () => {
       .toMatchObject({ kind: 'relative', crossesBoundary: false });
 
     expect(resolved.resolveImport(importer, 'react'))
-      .toMatchObject({ kind: 'external', target: null, dependency: null });
+      .toMatchObject({
+        kind: 'external', target: null, dependency: null, canonicalSpecifier: null, rootUnit: null,
+      });
 
     expect(resolved.resolveImport(importer, '~outside/value'))
-      .toMatchObject({ kind: 'external', target: null, dependency: null });
+      .toMatchObject({
+        kind: 'external', target: null, dependency: null, canonicalSpecifier: null, rootUnit: null,
+      });
 
     expect(resolved.resolveImport('src/index.ts', '~app/billing/hooks/useBill'))
       .toMatchObject({ crossesBoundary: true, dependency: null });
