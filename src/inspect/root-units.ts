@@ -187,12 +187,14 @@ function requiresCanonical(
 }
 
 function resolveMemberTarget(target: string, members: ScannedFile[]): ScannedFile[] {
+  // Stryker disable next-line ArrayDeclaration: a non-path cannot match governed source paths.
+  const noSubstitutions: string[] = [];
+
   const substitutions = target.endsWith('.js')
     ? [target.replace(/\.js$/, '.ts'), target.replace(/\.js$/, '.tsx')]
     : target.endsWith('.jsx')
       ? [target.replace(/\.jsx$/, '.tsx')]
-      // Stryker disable next-line ArrayDeclaration: a non-path cannot match governed source paths.
-      : [];
+      : noSubstitutions;
 
   const candidates = members.filter((member) => member.path === target
     || substitutions.includes(member.path));
