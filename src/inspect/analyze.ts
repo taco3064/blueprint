@@ -156,12 +156,17 @@ function importFindings(
     layer: fileLayer,
   };
 
-  const missingRootRefs = (file.moduleSpecifiers ?? [])
-    .filter((specifier) => !file.imports.some((ref) => ref.specifier === specifier)
-      && resolved.resolveImport(file.segments, specifier).rootUnit !== null)
-    .map((specifier) => ({ specifier, names: [], isExport: false }));
+  const rootRefs = file.moduleSpecifiers
+    ?.filter((specifier) => resolved.resolveImport(file.segments, specifier).rootUnit !== null)
+    .map((specifier) => ({
+      specifier,
+      // Stryker disable next-line ArrayDeclaration: root references bypass package ownership.
+      names: [],
+      // Stryker disable next-line BooleanLiteral: root targets cannot be selfOnly layer re-exports.
+      isExport: false,
+    })) ?? [];
 
-  return [...file.imports, ...missingRootRefs].flatMap((ref) => refFindings(file, ref, context));
+  return [...file.imports, ...rootRefs].flatMap((ref) => refFindings(file, ref, context));
 }
 
 function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {

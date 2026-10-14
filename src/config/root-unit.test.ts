@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveArchitecture } from './resolved';
+import { resolveRootUnitImport } from './root-unit';
 import type { ArchitectureDef, Framework } from './types';
 
 function architecture(sourceRoot = 'src'): ArchitectureDef {
@@ -180,5 +181,50 @@ describe('root-unit import boundary metadata', () => {
 
     expect(resolved.resolveImport('src/shop/index.ts', '~app/shared/Page').dependency)
       .toMatchObject({ allowed: true });
+  });
+});
+
+describe('root-unit boundary nullable inputs', () => {
+  const resolved = resolveArchitecture(architecture());
+
+  const scope = {
+    units: resolved.rootUnits,
+    layers: ['components'],
+    importerSegments: ['shop', 'index.ts'],
+  };
+
+  it('has no source target for null or empty targets', () => {
+    expect(resolveRootUnitImport(scope, null, null)).toBeNull();
+    expect(resolveRootUnitImport(scope, null, [])).toBeNull();
+  });
+
+  it('does not treat missing importer context as a same-unit import', () => {
+    expect(resolveRootUnitImport(scope, null, ['shop'])).toEqual({
+      target: resolved.rootUnits[0], bare: true, sameUnit: false,
+    });
+  });
+
+  it('does not treat a module position as a root member', () => {
+    const importer = { kind: 'module' as const, module: resolved.modules[0] };
+
+    expect(resolveRootUnitImport(scope, importer, ['shop', 'Page'])).toEqual({
+      target: resolved.rootUnits[0], bare: false, sameUnit: false,
+    });
+  });
+
+  it('does not treat an inner layer position as a root member', () => {
+    const importer = resolved.classify(['shop', 'components']);
+
+    expect(resolveRootUnitImport(scope, importer, ['shop', 'Page'])).toEqual({
+      target: resolved.rootUnits[0], bare: false, sameUnit: false,
+    });
+  });
+
+  it('keeps dotted direct files private beside the exact index entry', () => {
+    const members = ['src/shop/index.helper.ts', 'src/shop/index.d.ts', 'src/shop/index.tsx'];
+
+    expect(resolved.rootUnits[0].resolve(members, 'react')).toEqual({
+      members, entries: ['src/shop/index.tsx'], entry: 'src/shop/index.tsx',
+    });
   });
 });

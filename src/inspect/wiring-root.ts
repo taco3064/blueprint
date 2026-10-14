@@ -19,7 +19,9 @@ export function sourceRootProbeSites(
   const held = ignores.map(globToRegExp);
   const source = dropTestFiles(scanResult, blueprint.architecture.testFiles).files;
 
-  const hit = source.find((file) => nets.some((net) => net.test(file.path))
+  const hit = source.find((file) =>
+    // Stryker disable next-line MethodExpression: sourceRootFiles always supplies exactly one glob.
+    nets.some((net) => net.test(file.path))
     && !held.some((ignore) => ignore.test(file.path)));
 
   return hit ? [{ layer: null, globs, hit: hit.path }] : [];

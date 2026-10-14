@@ -39,6 +39,7 @@ export function checkRootImport(
       context.report({ node, messageId: 'rootAlias', data: { specifier } });
     }
 
+    // Stryker disable next-line BooleanLiteral: same-root fallthrough has no layer or denied flow.
     return true;
   }
 

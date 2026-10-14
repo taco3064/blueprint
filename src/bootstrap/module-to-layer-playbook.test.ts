@@ -358,3 +358,21 @@ it('renders restoration evidence and leaves missing provenance unresolved', () =
   expect(result).not.toContain('Decision reason: undefined');
   expect(result).not.toContain('unresolved router placement decision');
 });
+
+it('emits only the measured destination and structure when provenance metadata is absent', () => {
+  const result = moduleToLayerBrief({
+    evidence: evidence({ mappings: [{
+      source: 'src/shop/index.ts', destination: 'src/containers/shop/index.ts',
+      module: 'shop', layer: 'containers', layout: 'container', disposition: 'move',
+    }] }),
+    preflight, findings: [], state: state(), install: 'npm install', cleanup: 'nothing',
+  });
+
+  const table = result.split('## Complete structural destination table\n\n')[1]
+    .split('\n\n')[0];
+
+  expect(table.split('\n')).toEqual([
+    '- `src/shop/index.ts` → `src/containers/shop/index.ts`',
+    '  (shop; containers; container; move)',
+  ]);
+});

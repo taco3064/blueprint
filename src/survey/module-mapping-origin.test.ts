@@ -184,6 +184,52 @@ describe('retained origin layout', () => {
     });
   });
 
+  it('does not merge distinct Unicode destinations through uppercase expansion', () => {
+    const record = origin();
+    const first = record.target.decisions[0];
+    const second = record.target.decisions[1];
+
+    first.members[0].destination = 'src/babyoasis/straße.tsx';
+    first.destinations[0] = first.members[0].destination;
+    second.members[0].destination = 'src/babyoasis/STRASSE.tsx';
+    second.destinations[0] = second.members[0].destination;
+
+    expect(restoration(record, first.members[0].destination)).toEqual({
+      destination: 'src/containers/Account/Screen.tsx',
+      restoration: 'restored-from-origin', originUnit: 'containers/Account',
+    });
+
+    expect(restoration(record, second.members[0].destination)).toEqual({
+      destination: 'src/containers/Baby/Screen.tsx',
+      restoration: 'restored-from-origin', originUnit: 'containers/Baby',
+    });
+  });
+
+  it.each(['../outside.ts', '/outside.ts', 'src/../outside.ts', 'other/Screen.tsx'])(
+    'excludes invalid destination %s from the complete member index', (destination) => {
+      const record = origin();
+
+      record.target.decisions[0].members[0].destination = destination;
+      record.target.decisions[0].destinations[0] = destination;
+
+      expect([...originContainerUnits(record, 'src').keys()]).toEqual([
+        'src/babyoasis/logic.ts', 'src/babyoasis/Baby.tsx',
+      ]);
+    },
+  );
+
+  it('rejects parent traversal when the recorded source root is the application root', () => {
+    const record = origin();
+
+    record.origin.sourceRoot = '.';
+    record.target.decisions[0].members[0].destination = '../outside.ts';
+    record.target.decisions[0].destinations[0] = '../outside.ts';
+
+    expect([...originContainerUnits(record, '.').keys()]).toEqual([
+      'src/babyoasis/logic.ts', 'src/babyoasis/Baby.tsx',
+    ]);
+  });
+
   it('relocates a recorded source root without inventing a new unit identity', () => {
     const record = origin();
     const entries = [...originContainerUnits(record, '.')];

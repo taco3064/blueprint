@@ -7,6 +7,7 @@ import type { Blueprint } from '../config';
 import { reactPreset, vuePreset } from '../presets';
 import { collectModuleToLayerEvidence, collectTransformationEvidence, runSurvey } from '../survey';
 import { emitHandbook } from '../emit/docs';
+import { renderUnit } from '../operational-contract';
 import { layerToModuleBrief } from './transformation-playbook';
 import { moduleToLayerBrief } from './module-to-layer-playbook';
 
@@ -104,4 +105,13 @@ describe('config to transformation guidance authority', () => {
     expect(text).toContain('reserved recursive `app` tree is exempt');
     expect(emitHandbook(reactPreset())).not.toContain('Exactly one supported `index.*`');
   });
+});
+
+it('ends a layer-first unit section at the declared layer table', () => {
+  const text = renderUnit({
+    alias: '~app', layers: [{ name: 'views', does: 'presentation', layout: 'file' }],
+  });
+
+  expect(text).toContain('| `views` | `file` | — |');
+  expect(text.split('| `views` | `file` | — |')[1]).toBe('');
 });

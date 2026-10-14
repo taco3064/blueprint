@@ -57,7 +57,9 @@ export function resolveRootUnits(modules: ResolvedModule[]): ResolvedRootUnit[] 
           return null;
         }
 
-        const entries = members.filter((file) => file.slice(prefix.length).replace(/\.[^.]+$/, '') === 'index');
+        const entries = members.filter((file) =>
+          file.slice(prefix.length, file.lastIndexOf('.')) === 'index',
+        );
 
         return { members, entries, entry: entries.length === 1 ? entries[0] : null };
       },
@@ -70,13 +72,13 @@ export function resolveRootUnitImport(
   importer: ResolvedSourcePosition | null,
   target: string[] | null,
 ): ResolvedRootUnitImport | null {
-  if (!target || target.length < 1 || target.length > 2) {
+  if (!target || target.length > 2) {
     return null;
   }
 
   const unit = scope.units.find((candidate) => candidate.module.name === target[0]);
 
-  if (!unit || (target.length === 2 && scope.layers.includes(target[1]))) {
+  if (!unit || scope.layers.includes(target[1])) {
     return null;
   }
 
