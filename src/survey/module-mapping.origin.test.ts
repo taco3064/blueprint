@@ -53,7 +53,7 @@ const obligation: LayerToModuleObligation = {
     sourceRoot: 'src',
     framework: 'react',
     router: null,
-    layers: [{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }],
+    layers: [{ name: 'containers', does: 'screens', layout: 'folder', mustNot: ['hold routing'] }],
     sources: [{
       role: 'container-seed',
       unit: 'containers/AuthScreen',
@@ -110,7 +110,9 @@ describe('module-first to layer-first mapping · recorded origin', () => {
       nextAppRouter: false,
       origin: obligation,
     }).architectureBasis.layers)
-      .toEqual([{ name: 'containers', does: 'screens', mustNot: ['hold routing'] }]);
+      .toEqual([{
+        name: 'containers', does: 'screens', layout: 'folder', mustNot: ['hold routing'],
+      }]);
   });
 
   it('reads a record whose source root was the application root', () => {
@@ -219,7 +221,7 @@ function writeFile(root: string, file: string, content: string): void {
 }
 
 describe('module-first to layer-first mapping · superseded identities', () => {
-  it('leaves a split decision to the deterministic fallback', () => {
+  it('restores a proven member when its unit was split across modules', () => {
     expect(destinationFor({
       ...obligation,
       origin: {
@@ -250,10 +252,10 @@ describe('module-first to layer-first mapping · superseded identities', () => {
           ],
         }],
       },
-    })).toBe('src/containers/auth/AuthRoot.ts');
+    })).toBe('src/containers/AuthScreen/AuthRoot.ts');
   });
 
-  it('treats an explicit merge as superseding both original identities', () => {
+  it('retains each original identity through an explicit module merge', () => {
     expect(destinationFor({
       ...obligation,
       origin: {
@@ -292,7 +294,7 @@ describe('module-first to layer-first mapping · superseded identities', () => {
           },
         ],
       },
-    })).toBe('src/containers/auth/AuthRoot.ts');
+    })).toBe('src/containers/AuthScreen/AuthRoot.ts');
   });
 });
 
@@ -308,7 +310,7 @@ describe('module-first to layer-first mapping · records that name no container 
           members: ['src/containers/AuthScreen/AuthRoot.ts'],
         }],
       },
-    })).toBe('src/containers/auth/AuthRoot.ts');
+    })).toBeUndefined();
   });
 
   it('reads no identity when every member landed outside the recorded source root', () => {
@@ -325,7 +327,7 @@ describe('module-first to layer-first mapping · records that name no container 
           }],
         }],
       },
-    })).toBe('src/containers/auth/AuthRoot.ts');
+    })).toBeUndefined();
   });
 
   it('resolves by the members that stayed inside the recorded source root', () => {

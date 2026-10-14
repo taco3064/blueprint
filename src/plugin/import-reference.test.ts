@@ -80,6 +80,7 @@ describe('analyzeModuleImports', () => {
     ].join('\n');
 
     expect(analyzeModuleImports(source, 'source.ts')).toEqual({
+      unknown: 0,
       specifiers: [
         '@kekkai/blueprint',
         '@kekkai/blueprint/operational-contract',
@@ -93,16 +94,16 @@ describe('analyzeModuleImports', () => {
   it('ignores a shadowed require and reports malformed source', () => {
     expect(analyzeModuleImports(
       'function load(require) { return require("@kekkai/blueprint"); }',
-    )).toEqual({ specifiers: [] });
+    )).toEqual({ specifiers: [], unknown: 0 });
 
     expect(analyzeModuleImports('const =', 'broken.ts')).toMatchObject({
-      specifiers: [], parseError: expect.any(String),
+      specifiers: [], unknown: 0, parseError: expect.any(String),
     });
   });
 
-  it('ignores module references whose specifier is only known at runtime', () => {
+  it('counts module references whose specifier is only known at runtime', () => {
     expect(analyzeModuleImports('const target = runtime(); import(target);'))
-      .toEqual({ specifiers: [] });
+      .toEqual({ specifiers: [], unknown: 1 });
   });
 });
 

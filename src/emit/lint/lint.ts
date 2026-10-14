@@ -21,6 +21,7 @@ import {
 } from './patterns';
 import type { EmitLintOptions, LintConfig, LintConfigEntry, PackageRule } from './types';
 import { scopeLintEntries, scopeLintOptions } from './scope';
+import { sourceRootImportEntries } from './root';
 import { buildGlobalRule, containerImportEntries } from './container';
 import { aliasSubtreeSpecifier, buildModuleContainerRestrictions, moduleImportScope }
   from './structural';
@@ -96,6 +97,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ...ignoreConfig,
     ...containerConfigs,
     ...layerConfigs,
+    ...sourceRootImportEntries(blueprint, severity, options),
     escapeEntry,
     ...ruleGateEntries(blueprint, resolved.testFiles, options),
   ].filter((entry) => entry.files === undefined || entry.files.length > 0), options.basePath);

@@ -145,6 +145,42 @@ not be empty, duplicated, self-referential, or cyclic.
 `app` is optional and reserved. It models recursive router-composition source at the container
 position; it is not an ordinary domain module and does not repeat the shared layers.
 
+### Ordinary module root units
+
+An ordinary module with immediate governed source files is one structural unit addressed by
+its directory. It has exactly one supported `index.*` entry; all other direct source members
+are private. External callers use the bare module alias (`~app/checkout`), never `/index` or a
+private filename. Private members must be transitively reachable through imports/re-exports
+from the entry. Inspect reports `orphan-root-file` for proven unreachable members, including
+disconnected cycles; parse failures and runtime-dependent imports remain analysis limitations.
+Missing or ambiguous entries must be resolved before orphan analysis can prove membership.
+
+Declared inner-layer descendants remain separate units. A module with only inner layers needs
+no root entry or empty barrel. Arbitrary child folders remain undeclared. Same-root relative
+imports are permitted; crossings retain canonical alias and layer-entry rules. Inner layers
+cannot import upward to the root. The reserved recursive `app` tree is exempt from these root
+entry/private/orphan checks. Dependency identity remains the module/container, not private files.
+
+Upgrading an older adoption across 4.2 requires manual `review-module-root-unit` confirmation.
+An already valid root has a no-move path. Blueprint never chooses exports or synthesizes an
+application API. Layer-first applications record that no module-root migration is needed.
+Only unchanged canonical React/Vue preset guidance recommends `components` for presentation.
+Every custom architecture requires an owner decision, even a `components` name or an apparently
+unique `views.does` description. The runtime does not resolve responsibility prose, add a layer,
+or edit the adopter's responsibilities. Private or single-consumer code is not thereby orchestration.
+
+For LF → MF, retain original member paths, unit identities, layer definitions and custom entry
+names in the transformation origin and exact member decisions. A merged MF root still retains
+all contributing LF units. For MF → LF, valid retained origin restores each proven member to
+its original unit, preserving entries such as `Screen`. The MF `index` requirement cannot rename
+a historic LF entry. Only without retained origin may `containers/<module>` be proposed as a
+fallback, subject to owner, collision and target-entry review. Incomplete, conflicting or unmapped
+origin requires a decision; do not silently fall back, drop members or fabricate absent units.
+New MF-only members require ownership decisions. Verify unique and complete destinations,
+case-insensitive collisions, exports, rewritten references and final LF entry/dependency rules.
+Historic restoration and semantic presentation placement are separate reviews: surface a conflict
+instead of overwriting proven provenance. A bounded path verifier cannot prove arbitrary API edits.
+
 ### Layer fields
 
 - **`name`**

@@ -66,7 +66,12 @@ export function renderModuleFirstMethod(
     '5. Derive the technical layers that repeat inside ordinary modules (for example '
     + '`components`, `hooks`, `services`, and `lib`) from the actual code. Declare one inner-layer '
     + 'flow shared by the modules; do not create parallel global layer folders.',
-    '   For React/Vue, classify presentation by responsibility, not reuse or consumer count. '
+    '   Only unchanged canonical React/Vue preset guidance recommends `components`. For every '
+    + 'custom architecture, placement requires owner decision: neither a `components` name '
+    + 'nor unique `views.does` presentation prose resolves an owner at runtime. Do not add '
+    + 'a layer or edit responsibilities to satisfy this guidance.',
+    '   Within that canonical preset only, for React/Vue, classify presentation by '
+    + 'responsibility, not reuse or consumer count. '
     + 'A feature-private, single-consumer presenter belongs under its module’s `components` '
     + 'layer, not at the module root; it needs no cross-module public export. Props/view-model '
     + 'rendering, display formatting, callbacks/events, and ephemeral UI state (open/closed, '
@@ -105,8 +110,16 @@ export function renderModuleFirstSemantics(): string {
     + 'top-level folders. Their order defines the one-way inner-layer flow.',
     '- A module\'s root files take the container position: they may import every inner layer of '
     + 'their own module and of reachable modules, through unit entries.',
+    '- The module directory is one root-unit address. Its immediate governed source files '
+    + 'share exactly one supported `index.*` external entry; siblings are private members. '
+    + 'Import the bare module alias, never `/index` or a private member path. Private members '
+    + 'must be transitively reachable from the entry; an unconnected cycle is still orphaned.',
+    '- A module containing only declared inner layers needs no root entry or empty barrel. '
+    + 'Declared layer descendants are separate positions, not root members; arbitrary child '
+    + 'directories remain undeclared. Inner layers cannot import upward into the root unit.',
     '- `app/**` is the reserved router-composition container position in a module-first tree; its '
-    + 'recursive route segments are not ordinary domain modules.',
+    + 'recursive route segments are not ordinary domain modules; no root entry/private/orphan '
+    + 'contract applies to this reserved tree.',
     '- Relative imports stay within a unit. Imports crossing a module or inner-layer boundary '
     + 'must use the canonical source-root alias.',
     `- ${renderTestFilesOperational('core', 'en')} Never add fake modules or layers merely to `

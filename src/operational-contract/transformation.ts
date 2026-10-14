@@ -101,6 +101,9 @@ export interface ModuleToLayerEvidenceFact {
     layer: string;
     layout: 'folder' | 'file' | 'container' | 'router';
     disposition: 'move' | 'agent-router-decision' | 'preserve-next-route';
+    restoration?: 'restored-from-origin' | 'fallback-no-origin' | 'requires-decision';
+    originUnit?: string;
+    reason?: string;
   }[];
   collisions: { destination: string; sources: string[] }[];
   orphans: string[];

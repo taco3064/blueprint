@@ -125,6 +125,19 @@ export function renderUnit(architecture: ArchitectureDef): string {
     + 'file units are one file each.',
     '',
     table(['Layer', 'Unit layout', 'Entry'], rows),
+    ...(resolved.topology === 'module-first'
+      ? [
+          '',
+          'Each ordinary module with immediate governed root source is one root unit addressed by '
+          + 'the module directory. Exactly one supported `index.*` is its external entry; direct '
+          + 'siblings are private members, transitively reachable from that entry. A disconnected '
+          + 'private cycle is orphaned. Import the bare module alias, never `/index` or a '
+          + 'member path.',
+          'Declared inner-layer descendants remain separate units. A layer-only module needs no '
+          + 'root entry or empty barrel. Inner layers cannot import upward to the module root. '
+          + 'The reserved recursive `app` tree is exempt from root entry/private/orphan checks.',
+        ]
+      : []),
   ].join('\n');
 }
 

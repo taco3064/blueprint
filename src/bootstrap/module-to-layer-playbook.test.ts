@@ -216,7 +216,10 @@ describe('module-first to layer-first playbook', () => {
 
     expect(result).toContain('Every listed destination is authoritative');
     expect(result).toContain('a retained layer-first origin restores');
-    expect(result).toContain('`containers/<module>` is only the fallback');
+
+    expect(result).toContain('`containers/<module>` is a proposed fallback only when '
+      + 'no retained LF origin exists.');
+
     expect(result).toContain('retained origin destination with the generic');
     expect(result).not.toContain('map ordinary module roots below `containers/<module>`');
   });
@@ -330,4 +333,28 @@ it('does not apply React/Vue presentation placement to Next.js', () => {
 
   expect(result).not.toContain('classify presentation by responsibility');
   expect(result).not.toContain('Stryker was here');
+});
+
+it('renders restoration evidence and leaves missing provenance unresolved', () => {
+  const result = moduleToLayerBrief({
+    evidence: evidence({ mappings: [{
+      source: 'src/shop/index.ts', destination: 'src/containers/Cart/Screen.ts',
+      module: 'shop', layer: 'containers', layout: 'container', disposition: 'move',
+      restoration: 'restored-from-origin', originUnit: 'containers/Cart',
+    }, {
+      source: 'src/shop/new.ts', module: 'shop', layer: 'containers',
+      layout: 'container', disposition: 'move', restoration: 'requires-decision',
+      reason: 'unmapped-member',
+    }] }),
+    preflight, findings: [], state: state(), install: 'npm install', cleanup: 'nothing',
+  });
+
+  expect(result).toContain('Restoration: restored-from-origin');
+  expect(result).toContain('Original LF unit: containers/Cart');
+  expect(result).toContain('Restoration: requires-decision');
+  expect(result).toContain('Decision reason: unmapped-member');
+  expect(result).toContain('`src/shop/new.ts` → **unresolved placement decision**');
+  expect(result).not.toContain('Original LF unit: undefined');
+  expect(result).not.toContain('Decision reason: undefined');
+  expect(result).not.toContain('unresolved router placement decision');
 });

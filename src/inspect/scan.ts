@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { analyzeDynamicImports } from '../plugin';
+import { analyzeDynamicImports, analyzeModuleImports } from '../plugin';
 import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -167,11 +167,14 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
 
       const source = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
       const extracted = extractImportAnalysis(source, rel);
+      const modules = analyzeModuleImports(source, rel);
 
       files.push({
         path: prefix ? `${prefix}/${rel}` : rel,
         segments: rel.split('/'),
         imports: extracted.imports,
+        moduleSpecifiers: modules.specifiers,
+        unknownModuleSpecifiers: modules.unknown,
         importAnalysis: extracted.analysis,
       });
     }

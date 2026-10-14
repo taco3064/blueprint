@@ -12,7 +12,7 @@ export type FindingMessageFact
     | { kind: 'relative-escape-entry'; specifier: string; entry: string }
     | { kind: 'relative-escape-layer'; specifier: string }
     | { kind: 'canonical-alias'; subject: string; canonicalSpecifier: string }
-    | { kind: 'deep-import'; subject: string }
+    | { kind: 'deep-import'; subject: string; canonicalSpecifier?: string }
     | { kind: 'same-layer-alias'; subject: string }
     | { kind: 'selfonly-reexport'; target: string; specifier: string }
     | {
@@ -32,6 +32,12 @@ export type FindingMessageFact
       importing: string[];
     }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
+    | { kind: 'root-canonical-alias'; subject: string; canonicalSpecifier: string }
+    | { kind: 'root-no-entry'; unit: string }
+    | { kind: 'ambiguous-root-entry'; entries: string[] }
+    | { kind: 'root-reachability-unknown'; unit: string }
+    | { kind: 'orphan-root-file'; entry: string }
+    | { kind: 'missing-root-entry'; subject: string }
     | { kind: 'no-entry'; unit: string; entry: string; directFile?: string };
 
 type GeneralFindingFact = Extract<FindingMessageFact, {
@@ -42,7 +48,12 @@ type DependencyFindingFact = Extract<FindingMessageFact, {
   kind: 'canonical-alias' | 'deep-import' | 'same-layer-alias'
     | 'selfonly-reexport' | 'dependency-flow';
 }>;
-type FolderFindingFact = Exclude<FindingMessageFact, GeneralFindingFact | DependencyFindingFact>;
+type RootFindingFact = Extract<FindingMessageFact, {
+  kind: 'root-canonical-alias' | 'root-no-entry' | 'ambiguous-root-entry'
+    | 'root-reachability-unknown' | 'orphan-root-file' | 'missing-root-entry';
+}>;
+type FolderFindingFact = Exclude<FindingMessageFact,
+  GeneralFindingFact | DependencyFindingFact | RootFindingFact>;
 
 export function renderFindingMessage(fact: FindingMessageFact): string {
   if (['cycle', 'owns-not-installed', 'package-ownership', 'relative-escape-source',
@@ -53,6 +64,11 @@ export function renderFindingMessage(fact: FindingMessageFact): string {
   if (['canonical-alias', 'deep-import', 'same-layer-alias', 'selfonly-reexport',
     'dependency-flow'].includes(fact.kind)) {
     return renderDependencyFinding(fact as DependencyFindingFact);
+  }
+
+  if (['root-canonical-alias', 'root-no-entry', 'ambiguous-root-entry',
+    'root-reachability-unknown', 'orphan-root-file', 'missing-root-entry'].includes(fact.kind)) {
+    return renderRootFinding(fact as RootFindingFact);
   }
 
   return renderFolderFinding(fact as FolderFindingFact);
@@ -92,9 +108,11 @@ function renderDependencyFinding(fact: DependencyFindingFact): string {
       return `"${fact.subject}" crosses an architectural boundary through a secondary alias — `
         + `use the canonical source-root spelling "${fact.canonicalSpecifier}".`;
     case 'deep-import':
-      return `"${fact.subject}" reaches inside a unit — import it through that unit's entry, or, `
-        + 'for a file no entry can re-export such as a stylesheet, move it beside the file that '
-        + 'imports it.';
+      return fact.canonicalSpecifier
+        ? `"${fact.subject}" reaches inside a root unit — use its bare canonical alias "${fact.canonicalSpecifier}"; direct root-file paths, including /index, are private.`
+        : `"${fact.subject}" reaches inside a unit — import it through that unit's entry, or, `
+          + 'for a file no entry can re-export such as a stylesheet, move it beside the file that '
+          + 'imports it.';
     case 'same-layer-alias':
       return `Same-layer import "${fact.subject}" via the alias — use a relative path or `
         + 'extract to a lower layer.';
@@ -172,5 +190,22 @@ function renderFolderFinding(fact: FolderFindingFact): string {
       return fact.directFile
         ? `File "${fact.directFile}" sits directly in a folder-layout layer; it is not a folder unit missing an entry. Review the layer layout or place unit implementation inside its folder; do not create a nested entry for a layer barrel.`
         : `Unit "${fact.unit}" has no "${fact.entry}" entry — the declared folder-unit public entry is missing.`;
+  }
+}
+
+function renderRootFinding(fact: RootFindingFact): string {
+  switch (fact.kind) {
+    case 'root-canonical-alias':
+      return `"${fact.subject}" crosses into a root unit — use its bare canonical alias "${fact.canonicalSpecifier}".`;
+    case 'root-no-entry':
+      return `Root unit "${fact.unit}" has direct source but no supported index entry — review its public API and add exactly one index entry; keep other root members private.`;
+    case 'ambiguous-root-entry':
+      return `Root entry is ambiguous (${fact.entries.join(', ')}) — retain exactly one supported index entry after reviewing the public API.`;
+    case 'root-reachability-unknown':
+      return `Reachability for root unit "${fact.unit}" is incomplete because a reachable file has a parse failure, runtime-dependent import, or ambiguous file target — review the limitation before deciding which private members are orphaned; orphan conclusions are withheld for this root unit.`;
+    case 'orphan-root-file':
+      return `Private root member is not reachable from "${fact.entry}" — remove, relocate, or connect it through the root entry after reviewing its responsibility.`;
+    case 'missing-root-entry':
+      return `"${fact.subject}" has no uniquely resolvable root entry — review the target module and provide exactly one supported index entry before importing its bare address.`;
   }
 }

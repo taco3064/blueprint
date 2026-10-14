@@ -9,6 +9,7 @@ import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
 import { expectedContainerStructural, expectedStructural } from './wiring-expected';
+import { sourceRootProbeSites, sourceRootWiringEvidence } from './wiring-root';
 
 export { expectedContainerStructural, expectedStructural } from './wiring-expected';
 
@@ -128,6 +129,7 @@ function probeSites(
   ignores: string[],
 ): ProbeSite[] {
   return [
+    ...sourceRootProbeSites(blueprint, scanResult, ignores),
     ...containerProbeSites(blueprint, scanResult, ignores),
     ...layerProbeSites(blueprint, scanResult, ignores),
   ];
@@ -417,6 +419,10 @@ function compareProbe(
   const lost: string[] = [];
   const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
   const resolved = resolvedStructural(rules);
+
+  if (probe.layer === null && probe.module === undefined) {
+    return sourceRootWiringEvidence(blueprint, resolved.importBoundary);
+  }
 
   const label = [probe.module, probe.layer].filter(Boolean).join('/');
 

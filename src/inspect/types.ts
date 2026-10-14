@@ -49,6 +49,8 @@ export interface ScannedFile {
 
   segments: string[];
   imports: ImportRef[];
+  moduleSpecifiers?: string[];
+  unknownModuleSpecifiers?: number;
   importAnalysis?: {
     unknownDynamicImports: number;
     parseError?: string;

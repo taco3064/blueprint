@@ -37,3 +37,4 @@ export { sourcePath, sourceRoot, sourceRootLabel, stripSourceRoot } from './sour
 export { ConfigValidationError } from './validation';
 export type { ConfigValidationFact } from './validation';
 export type * from './types';
+export type { ResolvedRootUnit, ResolvedRootUnitFiles, ResolvedRootUnitImport } from './root-unit';

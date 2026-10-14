@@ -1,3 +1,5 @@
+import { resolveRootUnitImport } from './root-unit';
+import type { ResolvedRootUnit, ResolvedRootUnitImport } from './root-unit';
 import { dependencyVerdict } from './dependency';
 import type { ResolvedDependencyVerdict } from './dependency';
 import type { AliasRoot } from './graph';
@@ -14,10 +16,12 @@ export interface ResolvedImportReference {
   canonicalSpecifier: string | null;
   crossesBoundary: boolean;
   dependency: ResolvedDependencyVerdict | null;
+  rootUnit: ResolvedRootUnitImport | null;
 }
 
 type ImportResolutionScope = {
   definition: ArchitectureDef;
+  rootUnits: ResolvedRootUnit[];
   sourceSegments: string[];
   aliases: AliasRoot[];
   classify: ResolvedArchitecture['classify'];
@@ -34,9 +38,24 @@ export function resolveImportReference(
   const alias = matchedAlias(scope.aliases, specifier, scope.definition.alias);
   const aliasTarget = resolveAliasTarget(alias, specifier);
 
-  const { target, canonicalSpecifier } = resolveTarget({
+  const resolved = resolveTarget({
     importer, specifier, importerPosition, aliasTarget, scope,
   });
+
+  const { canonicalSpecifier, resolvedSegments } = resolved;
+
+  const rootUnit = resolveRootUnitImport(
+    {
+      units: scope.rootUnits,
+      layers: scope.definition.layers.map((layer) => layer.name),
+      importerSegments: relativeImporter(importer, scope.sourceSegments),
+    },
+    importerPosition, resolvedSegments,
+  );
+
+  const target = resolved.target ?? (rootUnit
+    ? { kind: 'container' as const, module: rootUnit.target.module }
+    : null);
 
   const dependency = importerPosition && target
     ? dependencyVerdict(importerPosition, target, scope)
@@ -51,6 +70,7 @@ export function resolveImportReference(
     canonicalSpecifier,
     crossesBoundary: crossesBoundary(importerPosition, target),
     dependency,
+    rootUnit,
   };
 }
 
@@ -72,11 +92,14 @@ function resolveTarget(input: {
   importerPosition: ResolvedSourcePosition | null;
   aliasTarget: string[] | null | undefined;
   scope: ImportResolutionScope;
-}): Pick<ResolvedImportReference, 'target' | 'canonicalSpecifier'> {
+}): Pick<ResolvedImportReference, 'target' | 'canonicalSpecifier'> & {
+  resolvedSegments: string[] | null;
+} {
   const { importer, specifier, importerPosition, aliasTarget, scope } = input;
 
   if (aliasTarget !== undefined && importerPosition) {
     return {
+      resolvedSegments: aliasTarget,
       target: aliasTarget?.length ? scope.classify(aliasTarget) : null,
       canonicalSpecifier: aliasTarget === null
         ? null
@@ -85,18 +108,15 @@ function resolveTarget(input: {
   }
 
   if (!specifier.startsWith('.') || !importerPosition) {
-    return { target: null, canonicalSpecifier: null };
+    return { target: null, canonicalSpecifier: null, resolvedSegments: null };
   }
 
-  const importerParts = Array.isArray(importer) ? importer : segments(importer);
-
-  const relative = startsWith(importerParts, scope.sourceSegments)
-    ? importerParts.slice(scope.sourceSegments.length)
-    : importerParts;
+  const relative = relativeImporter(importer, scope.sourceSegments);
 
   const resolved = resolveRelative(relative.slice(0, -1), specifier);
 
   return {
+    resolvedSegments: resolved,
     target: resolved ? scope.classify(resolved) : null,
     canonicalSpecifier: null,
   };
@@ -182,4 +202,10 @@ function resolveRelative(from: string[], specifier: string): string[] | null {
   }
 
   return result;
+}
+
+function relativeImporter(importer: string | string[], sourceSegments: string[]): string[] {
+  const parts = Array.isArray(importer) ? importer : segments(importer);
+
+  return startsWith(parts, sourceSegments) ? parts.slice(sourceSegments.length) : parts;
 }

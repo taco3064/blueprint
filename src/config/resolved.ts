@@ -14,6 +14,8 @@ import type { ResolvedImportReference } from './import-reference';
 import { resolveModules } from './modules';
 import type { ResolvedModule } from './modules';
 import { resolveTestFiles } from './test-files';
+import { FRAMEWORK_EXTS, resolveRootUnits } from './root-unit';
+import type { ResolvedRootUnit } from './root-unit';
 
 export type { ResolvedDependencyEndpoint, ResolvedDependencyVerdict } from './dependency';
 export type { ResolvedModule } from './modules';
@@ -56,6 +58,7 @@ export interface ResolvedArchitecture {
   /** Module-first with no domain module declared yet (the reserved `app` module is not one). */
   moduleRunway: boolean;
   modules: ResolvedModule[];
+  rootUnits: ResolvedRootUnit[];
   layers: ResolvedLayer[];
   layerPositions: ResolvedLayerPosition[];
   layerNames: string[];
@@ -71,6 +74,7 @@ export interface ResolvedArchitecture {
   resolveLayerRoots(layer: string): string[];
   layerFiles(layer: string, framework: Framework, module?: string): string[];
   containerFiles(framework: Framework): string[];
+  sourceRootFiles(framework: Framework): string[];
   resolveImportTarget(
     importer: string | string[],
     specifier: string,
@@ -201,19 +205,17 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     aliases, byModule, byLayer, classify, canImport, canImportModule,
   } = state;
 
+  const rootUnits = resolveRootUnits(topology === 'module-first' ? ordinaryModules : []);
+
   const importScope = {
-    definition,
-    sourceSegments,
-    aliases,
-    classify,
-    canImport,
-    canImportModule,
+    rootUnits, definition, sourceSegments, aliases, classify, canImport, canImportModule,
   };
 
   return {
     definition,
     sourceRoot,
     topology,
+    rootUnits,
     moduleRunway: topology === 'module-first' && ordinaryModules.length === 0,
     modules,
     layers,
@@ -266,6 +268,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
         module: moduleName,
       }));
     },
+    sourceRootFiles: (framework) => [joinSource(sourceRoot, `*.{${FRAMEWORK_EXTS[framework]}}`)],
     containerFiles(framework) {
       return modules.map((module) => module.name === 'app'
         ? `${module.root}/**/*.{${FRAMEWORK_EXTS[framework]}}`
@@ -377,12 +380,6 @@ function classifyModuleFirst(
 function unitName(relative: string[], index: number): string {
   return relative[index].replace(/\.[^.]+$/, '');
 }
-
-const FRAMEWORK_EXTS: Record<Framework, string> = {
-  vue: 'js,jsx,ts,tsx,vue',
-  react: 'js,jsx,ts,tsx',
-  auto: 'js,jsx,ts,tsx,vue',
-};
 
 export function resolveLayerFilePatterns(
   layer: string,

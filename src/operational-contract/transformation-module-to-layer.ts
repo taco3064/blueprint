@@ -85,6 +85,12 @@ function snapshot(facts: ModuleToLayerBriefFacts): string {
   ].join('\n');
 }
 
+function unresolvedDestination(entry: ModuleToLayerEvidenceFact['mappings'][number]): string {
+  const kind = entry.disposition === 'agent-router-decision' ? 'router placement' : 'placement';
+
+  return `- \`${entry.source}\` → **unresolved ${kind} decision** (no concrete destination is proven)`;
+}
+
 function mapping(evidence: ModuleToLayerEvidenceFact): string {
   return [
     '',
@@ -94,16 +100,29 @@ function mapping(evidence: ModuleToLayerEvidenceFact): string {
       ? evidence.mappings.map((entry) => [
           entry.destination
             ? `- \`${entry.source}\` → \`${entry.destination}\``
-            : `- \`${entry.source}\` → **unresolved router placement decision** (no concrete destination is proven)`,
+            : unresolvedDestination(entry),
           `  (${entry.module}; ${entry.layer}; ${entry.layout}; ${entry.disposition})`,
+          ...(entry.restoration ? [`  Restoration: ${entry.restoration}`] : []),
+          ...(entry.originUnit ? [`  Original LF unit: ${entry.originUnit}`] : []),
+          ...(entry.reason ? [`  Decision reason: ${entry.reason}`] : []),
         ].join('\n'))
       : ['- (no governed source mapping was measured; stop before movement)']),
     '',
     'Folder-layout units retain their unit directories and file-layout units retain file-level',
     'identity. Every listed destination is authoritative: a retained layer-first origin restores',
     'its measured container or unit identity instead of deriving placement from the module name.',
-    '`containers/<module>` is only the fallback already shown in the table when no retained',
-    'origin identity, explicit split, or merge supplies a more specific destination.',
+    '`containers/<module>` is a proposed fallback only when no retained LF origin exists.',
+    'Incomplete, contradictory, or unmapped retained evidence requires owner decision; never',
+    'replace it with fallback or drop members. Restore each proven member to its original LF',
+    'unit, including multiple container units intentionally merged into one MF root. New MF-only',
+    'files need explicit ownership decisions. Preserve the original containers layer definition',
+    'and custom entry basename (for example Screen); MF index is not authority to rename it.',
+    'An ambiguous index-to-original-entry relationship needs an explicit rename/export/API',
+    'decision. Account for each current root member exactly once; do not fabricate absent units.',
+    'Check duplicate destinations, case-insensitive collisions, lost members, reconstructed unit',
+    'boundaries, entry exports, and rewritten references against final LF import enforcement.',
+    'Origin restores historic identity, not semantic responsibility. If presentation placement',
+    'conflicts with proven origin, surface it for owner review instead of overwriting provenance.',
     'A listed destination is never permission to overwrite an existing or incoming file.',
     '',
     '### Additional-alias cutover',
@@ -161,9 +180,16 @@ function decisions(state: ProjectTransformationFact): string {
     '   Qualify or regroup colliding names by domain evidence; never invent numeric suffixes.',
     '2. Follow each measured destination. Decide whether ambiguous fallback module-root code',
     '   needs splitting or consolidation, and whether providers or route support belong elsewhere.',
+    '   Every custom architecture, including Next.js, requires owner decision for presentation; '
+    + 'neither layer names nor responsibility prose select a destination automatically.',
     ...(!state.hasNext
       ? [
-          '   For React/Vue, classify presentation by responsibility, not reuse or consumer count.',
+          '   Only unchanged canonical React/Vue preset guidance recommends `components`.',
+          '   Every custom architecture requires owner decision, including a `components` name',
+          '   alone or unique `views.does` presentation prose. No runtime-selected owner exists;',
+          '   do not add a layer, edit responsibilities, or guess a custom destination.',
+          '   Within that canonical preset only, for React/Vue, classify presentation by '
+          + 'responsibility, not reuse or consumer count.',
           '   A feature-private, single-consumer presenter belongs in '
           + '`components`, preserving feature',
           '   ownership without requiring a shared barrel export. '
@@ -176,7 +202,7 @@ function decisions(state: ProjectTransformationFact): string {
           + 'container responsibilities.',
           '   Reuse informs shared/public promotion, not role. If a measured '
           + 'root fallback points to',
-          '   `containers`, record the responsibility-based correction before '
+          '   `containers`, record the responsibility-based correction for owner review before '
           + 'approving the destination.',
         ]
       : []),
