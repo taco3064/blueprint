@@ -1,6 +1,8 @@
 import { renderTestFilesOperational } from './test-files';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
+import { renderProhibitionReport } from './prohibitions';
+import type { ProhibitionReportFact } from './prohibitions';
 
 export interface RuleGateFact {
   id: string;
@@ -77,6 +79,7 @@ export function renderRulesReport(
     gates: GateStatus[];
     bans: LayerBans[];
     docsOnly: DocumentationRuleFact[];
+    prohibitions?: ProhibitionReportFact[];
 
     testExemption?: string | null;
   },
@@ -126,6 +129,7 @@ export function renderRulesReport(
     '',
     'Documentation-only — never an ESLint line',
     ...docsOnly.map((entry) => `  ${entry.id} — ${entry.note}`),
+    ...(catalog.prohibitions?.length ? ['', renderProhibitionReport(catalog.prohibitions)] : []),
 
     ...(bans.length
       ? [

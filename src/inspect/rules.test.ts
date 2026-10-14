@@ -411,6 +411,8 @@ describe('runRules · the dead test glob measured against the declared root', ()
 
     // And the JSON did not move for it: the causes did not become a payload key of
     // their own, and no aggregate note followed them across.
-    expect(Object.keys(parsed)).toEqual(['severity', 'structural', 'gates', 'bans', 'docsOnly']);
+    expect(Object.keys(parsed)).toEqual([
+      'severity', 'structural', 'gates', 'bans', 'prohibitions', 'docsOnly',
+    ]);
   });
 });

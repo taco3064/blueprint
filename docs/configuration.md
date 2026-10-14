@@ -190,8 +190,8 @@ instead of overwriting proven provenance. A bounded path verifier cannot prove a
   - Shape and default: required `string`; must not be empty or whitespace-only.
   - Meaning: One-line responsibility rendered into generated guidance.
 - **`mustNot`**
-  - Shape and default: `string[]`, default `[]`.
-  - Meaning: Prohibited responsibilities in prose; reviewed by people and Agents.
+  - Shape and default: `(string | ExecutableMustNot)[]`, default `[]`.
+  - Meaning: Ordered review-only doctrine and opt-in executable prohibitions. See [Executable mustNot](#executable-mustnot).
 - **`layout`**
   - Shape and default: `'folder' | 'file'`, default `'file'`.
   - Meaning: Folder units have public entries; file layout uses layer-level dependency granularity.
@@ -399,3 +399,103 @@ performs the supported normalization/repair path. If the same invocation request
 Blueprint first writes the normalized layer-first config as a recoverable checkpoint and stops at
 that boundary. A later `init --topology module-first` starts the guarded transformation from the
 now-explicit 4.0 authority; it does not reinterpret the old shape and move source in one step.
+
+## Executable mustNot
+
+A layer can mix existing prose with explicit executable checks. Strings remain **review only**;
+Blueprint never infers a check from prose, descriptions, layer names, or filenames. Existing React,
+Vue, and Next preset strings retain their meaning, and old configs need no lifecycle rewrite.
+
+```js
+mustNot: [
+  'change product policy',
+  {
+    id: 'render-ui',
+    description: 'render UI',
+    checks: [
+      { capability: 'render-ui' },
+      { package: 'leaflet' },
+      { package: 'react-leaflet' },
+      { package: 'react-leaflet-cluster' },
+      { call: 'divIcon' },
+    ],
+    exempt: ['src/domain/approved-adapter.ts'],
+  },
+]
+```
+
+Checks in one entry have **OR semantics**: any matching check violates the prohibition. The id
+must match `[a-z][a-z0-9-]*` and be unique within its layer. Descriptions, discriminant values, and
+checks must be non-empty. Checks have exactly one of `capability`, `package`, `global`, or `call`;
+unknown keys and capability ids fail closed. Normalized duplicate checks and duplicate or empty
+`imports` names are rejected. Entry `exempt` uses portable project-relative globs and applies after
+the structural file net, to every check in that entry. Declaration and check order remain visible.
+
+A React-only capability is invalid under a concrete Vue config and conversely. `framework: 'auto'`
+defers compatibility to project resolution; unresolved required framework/parser support is
+unavailable evidence, never an invented source violation. Integrations calling `emitLint` directly
+can supply `detectedFramework` for an authored `auto` config.
+
+### Project checks
+
+| Check | Exact reach and limits |
+| --- | --- |
+| `{ package: 'leaflet' }` | Bare package and `/` subpaths, not `leaflet-extra`. Scoped `@org/pkg` likewise excludes `@org/pkg-extra`. Unlike `owns`, this is package-family matching, not exact-path matching. Covers static and type-only imports/re-exports, proven `require()` and statically reduced dynamic imports. Runtime-dependent sources remain unverified. |
+| `{ package: 'leaflet/*', pattern: true }` | Existing ownership/no-restricted-imports group semantics, with no implicit family expansion. |
+| `{ package: 'react', imports: ['useState'] }` | Named exported identities in static imports and re-exports, including aliases and type-only forms. Does not infer CommonJS/dynamic namespace members, later property access, reassignment, or wrappers. Use a whole-package, capability, or call check for those needs. |
+| `{ global: 'WebSocket' }` | Unshadowed references in value and supported type positions. Declarations, keys, labels, literals, and local bindings are legal. Unsupported reference spaces make coverage unavailable. |
+| `{ call: 'divIcon' }` | Direct calls and terminal members, including `L.divIcon()`, `L['divIcon']()`, and optional calls in JS/TS and SFC scripts. Syntactic name matching can flag an unrelated object's method. No destructuring aliases, wrappers, reassignment tracing, runtime-computed names, constructors, or Vue template calls. |
+
+### Capability detector catalog
+
+Framework calls follow proven imported aliases and namespace members, never unrelated local
+functions. React classes must extend a proven React `Component` or `PureComponent` binding.
+
+| Capability | Signals |
+| --- | --- |
+| `render-ui` | JSX elements/fragments; Vue templates with renderable elements, components, interpolation, or non-whitespace text; React `createElement`; Vue `h`/`createVNode`; React class `render` methods. |
+| `react-state` | React `useState`, `useReducer`, `useSyncExternalStore`; React class `state` ownership or `setState` use. |
+| `react-lifecycle` | React `useEffect`, `useLayoutEffect`, `useInsertionEffect`; class lifecycle declarations listed below. |
+| `vue-reactivity` | Vue `ref`, `shallowRef`, `reactive`, `shallowReactive`, `customRef`, `computed`, `toRef`, `toRefs`. |
+| `vue-lifecycle` | Vue `onBeforeMount`, `onMounted`, `onBeforeUpdate`, `onUpdated`, `onBeforeUnmount`, `onUnmounted`, `onActivated`, `onDeactivated`, `onErrorCaptured`, `onRenderTracked`, `onRenderTriggered`, `onServerPrefetch`. |
+| `routing` | Proven package references, including subpaths/type-only references, to `react-router`, `react-router-dom`, `vue-router`, `next/router`, `next/navigation`, `next/link`. |
+| `network-io` | Unshadowed direct `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, and `navigator.sendBeacon`. |
+| `browser-dom` | Unshadowed direct `window`, `document`, `navigator`, `HTMLElement`, `Element`, `Node`, `EventTarget`, `CustomEvent`, `MutationObserver`, `ResizeObserver`, `IntersectionObserver`, `localStorage`, `sessionStorage`, `location`, `history`, `customElements`, `getComputedStyle`. |
+
+React lifecycle declarations are `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`,
+`shouldComponentUpdate`, `getSnapshotBeforeUpdate`, `getDerivedStateFromProps`,
+`getDerivedStateFromError`, `componentDidCatch`, `componentWillMount`, `componentWillReceiveProps`,
+`componentWillUpdate`, `UNSAFE_componentWillMount`, `UNSAFE_componentWillReceiveProps`, and
+`UNSAFE_componentWillUpdate`. Arbitrary classes with these names are legal controls.
+
+No detector proves indirect behavior through wrappers, dependency injection, application
+abstractions, runtime execution, or cross-file value flow. Passing means only that documented
+signals were absent in files actually reached.
+
+### Availability, severity, wiring, and reach
+
+One resolved plan feeds lint, Rules, Inspect, Doctor, and generated guidance. Strings have mode
+`review-only` and no carrier. Executable entries are `active` when all checks are available,
+`partial` when only some are available, and `unavailable` when none are. Available checks in a
+partial entry still enforce. These availability facts are independent of effective lint wiring
+(`verified`, `unverified`, or `reference-only`) and reach (`covered`, `vacuous`, `runway`, or
+`unmeasured`). An empty concrete position is vacuous; `modules: []` is a future module runway.
+Neither proves protection. Reserved `app` uses its container role, not repeated inner layers.
+
+| Evidence | Gate evidence | Exit and completion |
+| --- | --- | --- |
+| Proven match at `emit.lint.severity: 'error'` | `failed` | `affectsExit: true`; enforcing lint exits nonzero; completion blocked. |
+| Same match at `warn` | Visible non-blocking conformance observation | `affectsExit: false`; does not change aggregate gates or force a nonzero exit. |
+| Partial/unavailable required detector | `unverified`, without an invented violation | Does not automatically change CLI exit; completion blocked regardless of severity. |
+| Proven missing, disabled, replaced, or mismatched carrier | `failed` | Existing Doctor failure behavior; completion blocked even at warn. |
+| Uninspectable effective config | `unverified` | Completion blocked, not automatically a nonzero exit. |
+| Available checks, intact carrier, no error match | `passed` | Warnings may coexist; other completion requirements still apply. |
+
+Failed and unverified facts both remain visible in mixed cases; failed takes aggregate precedence.
+Lint alone detects source violations. Inspect measures reach without a second AST detector, and
+static Rules cannot claim a live match. Doctor verifies normalized checks against final merged
+ESLint configuration using representative/synthetic files, including empty positions. The managed
+`blueprint/must-not` carrier cannot be disabled or replaced through `lintOverrides`.
+
+Structural `sourceRoot`, layer/module globs, framework extensions, `layerFilesIgnore`, and
+`testFiles` scope apply before per-entry exemptions. No new Inspect exit policy is introduced.

@@ -28,6 +28,7 @@ function frameworkProblem(
 }
 
 const renderers = {
+  'must-not': (fact) => `Layer "${fact.layer}" mustNot: ${fact.reason}.`,
   'blueprint-name': () => 'name must be a non-empty string when provided.',
   'invalid-framework': (fact) =>
     `${frameworkProblem(fact)} — expected ${fact.expected.join(' | ')}.`,

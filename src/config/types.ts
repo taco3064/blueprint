@@ -37,6 +37,24 @@ export interface OwnedGlobal {
  */
 export type OwnedPrimitive = string | OwnedPackage | OwnedGlobal;
 
+/** A bounded built-in detector for an executable layer prohibition. */
+export type MustNotCapability = 'render-ui' | 'react-state' | 'react-lifecycle'
+  | 'vue-reactivity' | 'vue-lifecycle' | 'routing' | 'network-io' | 'browser-dom';
+
+/** One alternative detector; any matching check violates its prohibition. */
+export type MustNotCheck = { capability: MustNotCapability }
+  | { package: string; pattern?: boolean; imports?: string[] }
+  | { global: string }
+  | { call: string };
+
+/** An opt-in executable architecture constraint, enforced at structural lint severity. */
+export interface ExecutableMustNot {
+  id: string;
+  description: string;
+  checks: MustNotCheck[];
+  exempt?: string[];
+}
+
 /**
  * A layer permitted to import another, with optional constraints. A bare
  * string is shorthand for `{ layer }`.
@@ -66,8 +84,8 @@ export interface LayerDef {
   name: string;
   /** One-line responsibility — what code in this layer is for. */
   does: string;
-  /** Things code in this layer must not do (fed into docs + review rules). */
-  mustNot?: string[];
+  /** Review-only strings or opt-in executable prohibitions at structural lint severity. */
+  mustNot?: (string | ExecutableMustNot)[];
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
   /** `folder` = folder units; `file` = direct files with layer-granularity deps. */

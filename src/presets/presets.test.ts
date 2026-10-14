@@ -81,7 +81,9 @@ describe('presets · the architecture they declare', () => {
         }
 
         expect(entry.mustNot.length).toBeGreaterThan(0);
-        expect(entry.mustNot.every((line) => line.trim().length > 0)).toBe(true);
+
+        expect(entry.mustNot.every((line) => typeof line === 'string' && line.trim().length > 0))
+          .toBe(true);
       }
     }
   });

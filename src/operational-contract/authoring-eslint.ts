@@ -16,6 +16,7 @@ export function eslintConfigSource(facts: EslintConfigSourceFact): string {
   const guardRoot = sourceRoot === '.' ? '' : `${sourceRoot}/`;
   const parserBlocks = parserEntries(framework, ts, basePath);
   const blueprintConfig = basePath ? `./${basePath}/blueprint.config.mjs` : './blueprint.config.mjs';
+  const detected = facts.detectedFramework ? `, detectedFramework: '${facts.detectedFramework}'` : '';
 
   return [
     generatedBanner,
@@ -40,8 +41,8 @@ export function eslintConfigSource(facts: EslintConfigSourceFact): string {
     ...parserBlocks,
 
     ts
-      ? `  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports${basePath ? ', basePath: applicationRoot' : ''} }),`
-      : `  ...emitLint(blueprint, { stylistic, imports${basePath ? ', basePath: applicationRoot' : ''} }),`,
+      ? `  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports${detected}${basePath ? ', basePath: applicationRoot' : ''} }),`
+      : `  ...emitLint(blueprint, { stylistic, imports${detected}${basePath ? ', basePath: applicationRoot' : ''} }),`,
     ...antiBypassGuard(guardExts, guardRoot, basePath),
     '];',
     '',

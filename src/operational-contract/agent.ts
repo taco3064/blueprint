@@ -5,6 +5,7 @@ import type {
   PlaybookSection,
   PrincipleDef,
   ResolvedArchitecture,
+  ResolveArchitectureContext,
   RuleSetting,
   Tier,
 } from '../config';
@@ -15,10 +16,13 @@ import {
 import { renderResolvedTestFilesOperational } from './test-files';
 import {
   renderModuleGrowthAuthority,
-  renderModuleGrowthProtocol,
   renderModuleRunwayFact,
 } from './module-growth';
 import { formatOwns } from '../markdown';
+import {
+  renderCompactProhibitions, renderProhibitionDetails, renderProhibitionPolicy,
+  renderProhibitionScope,
+} from './prohibitions';
 
 export interface AgentGateFact {
   id: string;
@@ -27,6 +31,7 @@ export interface AgentGateFact {
 }
 
 export interface CompactContractFacts {
+  detectedFramework?: 'react' | 'vue';
   gates: AgentGateFact[];
   handbook: string;
   contractDoc?: string;
@@ -79,7 +84,9 @@ export function renderCompactContract(
   facts: CompactContractFacts,
 ): string {
   const { architecture } = blueprint;
+
   const resolved = resolveArchitecture(architecture);
+
   const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
 
   const {
@@ -119,7 +126,8 @@ export function renderCompactContract(
 
     `- Hard gates (${lintIntegrationClause(lintIntegration)}): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''}${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When a gate fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
-    `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. ${growthAuthority(resolved, handbook)}`,
+    `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. ${growthAuthority(resolved, handbook)} Prose-only mustNot entries are review only, with no machine carrier.`,
+    ...renderCompactProhibitions(blueprint, facts.detectedFramework),
   ].join('\n');
 }
 
@@ -181,8 +189,11 @@ export function renderContext(blueprint: Blueprint): string {
   ].join('\n');
 }
 
-export function renderPlacement(architecture: ArchitectureDef): string {
-  const resolved = resolveArchitecture(architecture);
+export function renderPlacement(
+  architecture: ArchitectureDef,
+  context: ResolveArchitectureContext = {},
+): string {
+  const resolved = resolveArchitecture(architecture, context);
 
   const moduleLines = resolved.modules.map((module) => {
     const dependencies = module.dependsOn.length
@@ -205,8 +216,12 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     const { definition: layer, allowedImporters } = position.layer;
     const parts = [`- \`${position.root}/\` — layer: ${layer.does}.`];
 
-    if (layer.mustNot?.length) {
-      parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
+    if (position.layer.prohibitions.length) {
+      const scope = renderProhibitionScope(resolved, layer.name,
+        context.declaredFramework ?? context.framework);
+
+      parts.push(` MUST NOT: ${position.layer.prohibitions.map(renderProhibitionDetails).join('; ')}.`);
+      parts.push(scope ? ` ${scope}` : '');
     }
 
     const owns = formatOwns(layer.owns);
@@ -250,16 +265,11 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ...lines,
     ...unitLines,
     ...exemptLine,
+    ...renderProhibitionPolicy(resolved).map((line) => `- ${line}`),
   ].join('\n');
 }
 
-export function renderModuleGrowth(architecture: ArchitectureDef): string {
-  const resolved = resolveArchitecture(architecture);
-
-  return resolved.topology === 'module-first'
-    ? renderModuleGrowthProtocol({ runway: resolved.moduleRunway }, '###')
-    : '';
-}
+export { renderAgentModuleGrowth as renderModuleGrowth } from './module-growth';
 
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});

@@ -1,3 +1,4 @@
+import { prohibitionEntries } from './prohibitions';
 import type { ESLint, Linter } from 'eslint';
 import {
   renderCodeStylePluginError,
@@ -8,10 +9,8 @@ import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint, ReadSetting, ResolvedTestFiles } from '../../config';
 import { plugin } from '../../plugin';
 import {
-  buildPackagePatterns,
-  buildStructuralPatterns,
-  derivePackageRules,
-  deriveGlobalRules,
+  buildPackagePatterns, buildStructuralPatterns,
+  derivePackageRules, deriveGlobalRules,
   METRIC_GATES,
   normalizeGroupPatterns,
   normalizePathPatterns,
@@ -100,6 +99,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ...sourceRootImportEntries(blueprint, severity, options),
     escapeEntry,
     ...ruleGateEntries(blueprint, resolved.testFiles, options),
+    ...prohibitionEntries(blueprint, options),
   ].filter((entry) => entry.files === undefined || entry.files.length > 0), options.basePath);
 }
 

@@ -1,4 +1,8 @@
 export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './defineBlueprint';
+export { MUST_NOT_CAPABILITIES } from './capabilities';
+export type { MustNotCapabilityDetector } from './capabilities';
+export { resolveProhibitions, prohibitionGateEvidence } from './prohibitions';
+export type { ProhibitionContext, ResolvedProhibition, ResolvedMustNotCheck } from './prohibitions';
 export {
   isLegacyBlueprintMigration,
   legacyMigrationFacts,

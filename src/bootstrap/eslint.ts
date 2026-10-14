@@ -12,6 +12,11 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
   const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
 
   return renderEslintConfigSource({
+    detectedFramework: blueprint.framework === 'auto'
+      && blueprint.architecture.layers.some((layer) =>
+        layer.mustNot?.some((item) => typeof item !== 'string'))
+      ? state.framework === 'auto' ? undefined : state.framework ?? undefined
+      : undefined,
     framework,
     generatedBanner: GENERATED_ESLINT_BANNER,
     guardExtensions: framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto,

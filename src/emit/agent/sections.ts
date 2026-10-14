@@ -60,6 +60,7 @@ export function renderCompactContract(
     gates: gateFacts(blueprint, stack),
     handbook: handbookPath(blueprint),
     lintIntegration: stack.lintIntegration,
+    detectedFramework: stack.detectedFramework,
     contractDoc,
   });
 }

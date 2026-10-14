@@ -71,6 +71,7 @@ export function plan(
   const handbook = handbookPath(blueprint);
 
   const stack = {
+    detectedFramework: state.framework === 'auto' ? undefined : state.framework ?? undefined,
     hasTypescript: state.hasTypescript,
     lintIntegration: options.lintIntegration ?? lintIntegrationOf(state),
   };

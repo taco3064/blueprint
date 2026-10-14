@@ -16,6 +16,8 @@ import type { ResolvedModule } from './modules';
 import { resolveTestFiles } from './test-files';
 import { FRAMEWORK_EXTS, resolveRootUnits } from './root-unit';
 import type { ResolvedRootUnit } from './root-unit';
+import { resolveProhibitions } from './prohibitions';
+import type { ProhibitionContext, ResolvedProhibition } from './prohibitions';
 
 export type { ResolvedDependencyEndpoint, ResolvedDependencyVerdict } from './dependency';
 export type { ResolvedModule } from './modules';
@@ -25,6 +27,7 @@ export interface ResolvedLayer {
   name: string;
   unit: { layout: 'folder' | 'file'; entry: string };
   allowedImporters: AllowedImporter[];
+  prohibitions: ResolvedProhibition[];
 }
 
 export interface ResolvedLayerPosition {
@@ -47,8 +50,9 @@ export type ResolvedSourcePosition
       unit: string;
     };
 
-export interface ResolveArchitectureContext {
+export interface ResolveArchitectureContext extends ProhibitionContext {
   nextAppRouter?: { module: string };
+  declaredFramework?: Framework;
 }
 
 export interface ResolvedArchitecture {
@@ -73,6 +77,7 @@ export interface ResolvedArchitecture {
   resolveLayerRoot(layer: string, module?: string): string | null;
   resolveLayerRoots(layer: string): string[];
   layerFiles(layer: string, framework: Framework, module?: string): string[];
+  prohibitionFiles(layer: string, framework: Framework, module?: string): string[];
   containerFiles(framework: Framework): string[];
   sourceRootFiles(framework: Framework): string[];
   resolveImportTarget(
@@ -110,6 +115,9 @@ export function resolveArchitecture(
   const layers: ResolvedLayer[] = definition.layers.map((layer, index) => ({
     definition: layer,
     name: layer.name,
+    prohibitions: resolveProhibitions(layer, _context,
+      definition.modules !== undefined
+      && definition.modules.every((module) => module.name === 'app')),
     unit: getUnitShape(definition, layer.name),
     allowedImporters: layer.allowedImporters === undefined
       ? definition.layers.slice(0, index).map((candidate) => ({ layer: candidate.name }))
@@ -268,6 +276,9 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
         module: moduleName,
       }));
     },
+    prohibitionFiles(layer, framework, module) {
+      return resolveProhibitionFiles(this, { layer, framework, module });
+    },
     sourceRootFiles: (framework) => [joinSource(sourceRoot, `*.{${FRAMEWORK_EXTS[framework]}}`)],
     containerFiles(framework) {
       return modules.map((module) => module.name === 'app'
@@ -301,6 +312,19 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
       return aliases.flatMap((root) => aliasSpecifier(root, target) ?? []);
     },
   };
+}
+
+function resolveProhibitionFiles(
+  architecture: ResolvedArchitecture,
+  scope: { layer: string; framework: Framework; module?: string },
+): string[] {
+  return architecture.moduleRunway
+    ? resolveLayerFilePatterns(scope.layer, scope.framework, {
+        layerFiles: architecture.definition.layerFiles,
+        sourceRoot: architecture.sourceRoot,
+        module: '!(app)',
+      })
+    : architecture.layerFiles(scope.layer, scope.framework, scope.module);
 }
 
 function resolveDiagramEdges(layers: ResolvedLayer[]): DiagramEdge[] {

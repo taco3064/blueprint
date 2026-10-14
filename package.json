@@ -123,6 +123,8 @@
   "dependencies": {
     "@eslint-community/eslint-utils": "^4.10.1",
     "@typescript-eslint/parser": "8.55.0",
-    "blueprint-vue-parser": "npm:vue-eslint-parser@10.2.0"
+    "blueprint-vue-parser": "npm:vue-eslint-parser@10.2.0",
+    "ignore": "^5.3.2",
+    "minimatch": "^9.0.9"
   }
 }

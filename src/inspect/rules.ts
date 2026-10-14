@@ -25,9 +25,11 @@ import {
   readSetting,
   resolveArchitecture,
 } from '../config';
-import type { Blueprint } from '../config';
+import type { Blueprint, Framework } from '../config';
 import { testFileReach } from './coverage';
 import { scan } from './scan';
+import { measureProhibitions } from './prohibitions';
+import type { ProhibitionFact } from './prohibitions';
 
 /**
  * `blueprint rules` — the emitted-rule catalog as a queryable command, so nobody
@@ -268,7 +270,9 @@ function measureTestGlobs(root: string, blueprint: Blueprint | null): string | n
 export async function runRules(
   root: string,
   options: RulesOptions = {},
-): Promise<{ severity: string; gates: GateStatus[]; bans: LayerBans[] }> {
+): Promise<{
+  severity: string; gates: GateStatus[]; bans: LayerBans[]; prohibitions: ProhibitionFact[];
+}> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -286,6 +290,8 @@ export async function runRules(
 
   const bans = blueprint ? layerBans(blueprint) : [];
 
+  const prohibitions = ruleProhibitions(root, blueprint, state.framework);
+
   log(
     options.json
       ? JSON.stringify({
@@ -293,14 +299,17 @@ export async function runRules(
           structural,
           gates,
           bans,
+          prohibitions,
           docsOnly: DOC_ONLY_RULES,
 
           ...(testExemption === null ? {} : { testExemption }),
         }, null, 2)
-      : renderRules({ severity, structural, gates, bans, testExemption }, blueprint !== null),
+      : renderRules(
+          { severity, structural, gates, bans, prohibitions, testExemption }, blueprint !== null,
+        ),
   );
 
-  return { severity, gates, bans };
+  return { severity, gates, bans, prohibitions };
 }
 
 export function renderRules(
@@ -309,9 +318,19 @@ export function renderRules(
     structural: StructuralStatus[];
     gates: GateStatus[];
     bans: LayerBans[];
+    prohibitions?: ProhibitionFact[];
     testExemption?: string | null;
   },
   hasConfig: boolean,
 ): OperationalText {
   return renderRulesReport({ ...catalog, docsOnly: DOC_ONLY_RULES }, hasConfig);
+}
+
+function ruleProhibitions(root: string, blueprint: Blueprint | null, framework: Framework | null) {
+  if (!blueprint?.architecture.layers.some((layer) => layer.mustNot?.length)) {
+    return [];
+  }
+
+  return measureProhibitions(blueprint,
+    scan(root, resolveArchitecture(blueprint.architecture).sourceRoot), framework);
 }

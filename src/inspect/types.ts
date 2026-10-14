@@ -86,4 +86,5 @@ export interface DoctorCheck {
    * substring of `label`, so the banner and the JSON both see it.
    */
   skipped?: string;
+  prohibitionFindings?: import('./lint-runtime').ProhibitionLintFinding[];
 }

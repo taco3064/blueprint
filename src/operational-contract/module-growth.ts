@@ -1,3 +1,14 @@
+import type { ArchitectureDef } from '../config';
+import { resolveArchitecture } from '../config';
+
+export function renderAgentModuleGrowth(architecture: ArchitectureDef): string {
+  const resolved = resolveArchitecture(architecture);
+
+  return resolved.topology === 'module-first'
+    ? renderModuleGrowthProtocol({ runway: resolved.moduleRunway }, '###')
+    : '';
+}
+
 export interface ModuleGrowthFacts {
   runway: boolean;
 }

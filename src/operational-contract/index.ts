@@ -100,6 +100,16 @@ export {
 } from './agent';
 export type { AgentGateFact, CompactContractFacts } from './agent';
 export {
+  renderProhibitionDetails,
+  parseProhibitionIdentity,
+  renderInspectProhibitionOutput,
+  renderProhibitionDoctorMessage,
+  renderProhibitionReport,
+  renderProhibitionSeverity,
+  renderMustNotViolation,
+} from './prohibitions';
+export type { ProhibitionReportFact } from './prohibitions';
+export {
   renderArchitecture,
   renderComponentShape as renderHandbookComponentShape,
   renderHeader as renderHandbookHeader,

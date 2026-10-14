@@ -1,5 +1,6 @@
 export type ConfigValidationFact
   = | { kind: 'blueprint-name' }
+    | { kind: 'must-not'; layer: string; reason: string }
     | {
       kind: 'invalid-framework';
       declared: boolean;

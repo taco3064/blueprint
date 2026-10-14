@@ -1,6 +1,7 @@
 import type {
   ArchitectureDef,
   RuleSetting,
+  ResolveArchitectureContext,
 } from '../../config';
 import {
   renderArchitecture as renderOperationalArchitecture,
@@ -53,8 +54,11 @@ export function renderImportDiscipline(
   return renderOperationalImportDiscipline(architecture, lintIntegration);
 }
 
-export function renderArchitecture(architecture: ArchitectureDef): string {
-  return renderOperationalArchitecture(architecture, emitFlowDiagram(architecture));
+export function renderArchitecture(
+  architecture: ArchitectureDef,
+  context: ResolveArchitectureContext = {},
+): string {
+  return renderOperationalArchitecture(architecture, emitFlowDiagram(architecture), context);
 }
 
 export function renderRules(

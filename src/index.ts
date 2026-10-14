@@ -8,6 +8,7 @@ export { runImpact } from './impact';
 export { runDeps, runDoctor, runInspect, runRules } from './inspect';
 export { runSurvey } from './survey';
 export type * from './config';
+export { MUST_NOT_CAPABILITIES } from './config';
 export type {
   FolderEvidence,
   RepeatedFolderShape,
@@ -34,6 +35,9 @@ export type {
   GateStatus,
   InspectOptions,
   LayerBans,
+  ProhibitionFact,
+  ProhibitionEvidence,
+  ProhibitionLintFinding,
   UnitDeps,
   RulesOptions,
   Severity,

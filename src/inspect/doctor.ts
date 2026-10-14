@@ -40,6 +40,9 @@ import { liveLintCheck } from './doctor-lint';
 import { verifyTransformationObligation } from './transformation-obligation';
 import { runLiveLint } from './lint-runtime';
 import { wiringCheck } from './wiring';
+import { prohibitionDoctorChecks, verifyProhibitions } from './prohibition-wiring';
+import type { ProhibitionEvidence } from './prohibition-wiring';
+import { observedProhibitions } from './prohibition-evidence';
 
 export interface DoctorOptions {
   /** Emit machine-readable JSON instead of the checklist. */
@@ -152,7 +155,9 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
 export async function runDoctor(
   root: string,
   options: DoctorOptions = {},
-): Promise<{ ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[] }> {
+): Promise<{
+  ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[]; prohibitions?: ProhibitionEvidence[];
+}> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -165,7 +170,7 @@ export async function runDoctor(
 
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
-  const { checks, probed } = await doctorChecks(
+  const { checks, probed, prohibitions } = await doctorChecks(
     root,
     { state, blueprint, scanResult, coverage, options },
   );
@@ -179,9 +184,9 @@ export async function runDoctor(
     uncommittedNote(state),
   ].filter((note) => note !== undefined);
 
-  emit(log, checks, { notes, json: options.json });
+  emit(log, checks, { notes, json: options.json, prohibitions });
 
-  return { ok, verdict: verdictOf(checks), checks };
+  return { ok, verdict: verdictOf(checks), checks, prohibitions };
 }
 
 function noConfigResult(
@@ -206,7 +211,7 @@ async function doctorChecks(
     coverage: Coverage;
     options: DoctorOptions;
   },
-): Promise<{ checks: DoctorCheck[]; probed: boolean }> {
+): Promise<{ checks: DoctorCheck[]; probed: boolean; prohibitions: ProhibitionEvidence[] }> {
   const { state, blueprint, scanResult, coverage, options } = ctx;
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
@@ -233,9 +238,18 @@ async function doctorChecks(
   const lintDependencies = [...new Set(state.localPackage.dependencies
     .concat(state.toolchainPackage.dependencies))];
 
+  const prohibitionWiring = await verifyProhibitions({
+    root, blueprint, scanResult, wired: eslintWired,
+    lintRoot: effectiveLintContext(root, state).lintRoot,
+    detectedFramework: state.framework,
+    load: options.loadModule ?? loadProjectModule,
+  });
+
   const { assessment: lintAssessment, evidence: lintEvidence } = measureEffectiveLint({
     root, state, dependencies: lintDependencies, run: options.runLint,
   });
+
+  const prohibitions = observedProhibitions(prohibitionWiring, lintEvidence, root);
 
   return {
     checks: [
@@ -247,6 +261,7 @@ async function doctorChecks(
       liveLintCheck(lintEvidence, lintAssessment),
       ...aliasChecks(root, blueprint, state),
       wiring.check,
+      ...prohibitionDoctorChecks(prohibitions),
       architectureCheck({
         baseline: splitByBaseline(findings, recorded),
         coverage,
@@ -258,6 +273,7 @@ async function doctorChecks(
           path.relative(root, path.join(ledgerRoot, SUPPRESSIONS_FILE)).split(path.sep).join('/'))),
     ],
     probed: wiring.probed,
+    prohibitions,
   };
 }
 
@@ -466,7 +482,7 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
-  report: { notes?: string[]; json?: boolean },
+  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionEvidence[] },
 ): void {
   log(renderDoctorReport(checks, report));
 }

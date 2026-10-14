@@ -506,3 +506,17 @@ Blueprint 不會因為某個值「看起來很像預設值」就把它當成自�
 移除完成後，範圍內不應再留下任何能證明仍由 Blueprint 擁有或管理的設定、生命週期狀態、產出、managed section 或相依套件。
 
 `remove` 的目標是乾淨地移除 Blueprint 的 ownership 與 tooling footprint，不是為了追求位元組層級的回復，而去改寫仍由應用程式本身需要的程式碼或設定。
+
+### 可執行的分層限制
+
+Rules 的人類可讀與 JSON 輸出依宣告順序列出共用的 `mustNot` 計畫：review-only／executable
+模式、active／partial／unavailable 可用性、精確檢查與限制、lint 嚴重程度、檔案範圍、
+豁免與實測涵蓋狀態。靜態宣告不會宣稱原始碼已違規。Inspect 提供相同事實與目前的
+covered／vacuous／runway 範圍，不執行第二套偵測器，也不新增退出碼政策。見
+[設定契約](./configuration.md#可執行的-mustnot)。
+
+Doctor 驗證最後合併的 ESLint 設定是否完整保留必要載體，空位置也會使用合成檔案探測。
+載體缺失、停用、替換或過期是 failed；無法檢查設定，或必要 parser／框架支援不可用，
+則是 unverified。兩者都阻擋導入完成，但 unverified 不自動改變既有退出碼相容性。
+原始碼 error 是失敗關卡；warn 仍是可見的符合性觀察，`affectsExit: false`，不把彙總
+關卡升為 failed。混合情況會分別保留 failed 與 unverified 證據。

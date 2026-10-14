@@ -46,7 +46,11 @@ describe('renderArchitecture', () => {
     // Four cells per row mean nothing without the header naming them — `clsx`
     // in an unlabelled column could as easily be read as the must-not.
     expect(out).toContain('| Layer | Responsibility | Must not | Owns |');
-    expect(out).toContain('| `components` | UI | import services | `clsx` |');
+
+    expect(out).toContain(
+      '| `components` | UI | import services [review only; no machine carrier] | `clsx` |',
+    );
+
     // services has no mustNot → em dash
     expect(out).toContain('| `services` | net | — | `axios` |');
     expect(out).not.toContain('same-module');

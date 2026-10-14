@@ -20,12 +20,13 @@ export function liveLintCheck(
     });
   }
 
-  return renderDoctorCheck({
+  return { ...renderDoctorCheck({
     kind: 'live-lint',
     status: evidence.status,
     command: String(evidence.command),
     errors: evidence.errors,
     warnings: evidence.warnings,
     ...(evidence.reason ? { reason: evidence.reason } : {}),
-  });
+  }),
+  ...(evidence.prohibitionFindings ? { prohibitionFindings: evidence.prohibitionFindings } : {}) };
 }
