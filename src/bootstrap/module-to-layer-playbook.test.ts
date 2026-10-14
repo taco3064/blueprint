@@ -329,4 +329,5 @@ it('does not apply React/Vue presentation placement to Next.js', () => {
   });
 
   expect(result).not.toContain('classify presentation by responsibility');
+  expect(result).not.toContain('Stryker was here');
 });
