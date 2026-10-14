@@ -44,7 +44,11 @@ function emitAgentContractUnchecked(
   const sections = [
     renderHeader(),
     renderContext(blueprint),
-    renderPlacement(architecture),
+    renderPlacement(architecture, {
+      declaredFramework: blueprint.framework,
+      framework: blueprint.framework === 'auto' ? stack.detectedFramework : blueprint.framework,
+      severity: blueprint.emit?.lint?.severity,
+    }),
     renderModuleGrowth(architecture),
     renderNaming(architecture.naming),
     renderHardRules(blueprint, stack),

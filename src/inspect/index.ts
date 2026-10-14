@@ -7,6 +7,10 @@ export type { DoctorCheck, DoctorOptions, DoctorVerdict } from './doctor';
 export { runInspect } from './inspect';
 export type { InspectOptions } from './inspect';
 export { runRules } from './rules';
+export { measureProhibitions } from './prohibitions';
+export type { ProhibitionFact } from './prohibitions';
+export type { ProhibitionEvidence } from './prohibition-wiring';
+export type { ProhibitionLintFinding } from './lint-runtime';
 export { verifyTransformationObligation } from './transformation-obligation';
 export type { TransformationObligationResult } from './transformation-obligation';
 

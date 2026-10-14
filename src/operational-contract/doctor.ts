@@ -11,6 +11,14 @@ import { renderAliasConsumer } from './doctor-alias';
 import type { AliasConsumerEvidence } from './doctor-alias';
 
 export interface DoctorCheckView {
+  prohibitionFindings?: {
+    filePath: string;
+    message: string;
+    severity: 'error' | 'warn';
+    gate: 'passed' | 'failed' | 'unverified';
+    observation: boolean;
+    affectsExit: boolean;
+  }[];
   label: string;
   ok: boolean;
   detail?: string;

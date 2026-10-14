@@ -12,6 +12,7 @@ import { migrateLegacyBlueprint } from './legacy';
 import { resolveArchitecture } from './resolved';
 import { activeSetting } from './settings';
 import { configValidationError } from './validation';
+import { validateProhibitions } from './prohibition-validation';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const FRAMEWORKS = ['vue', 'react', 'auto'];
@@ -62,6 +63,7 @@ const MANAGED_RULES = [
   'max-lines',
   'blueprint/no-deep-watch',
   'blueprint/use-prefix',
+  'blueprint/must-not',
 ];
 
 export function defineBlueprint(config: Blueprint): Blueprint {
@@ -75,6 +77,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
   rejectUnknownKeys(bp, BLUEPRINT_KEYS, 'the blueprint');
   validateFramework(bp.framework);
   validateArchitecture(bp.architecture);
+  bp.architecture.layers.forEach((layer) => validateProhibitions(layer, bp.framework));
   validateEmit(bp.emit);
   validateUniqueIds(bp.principles ?? [], 'principle');
   validateUniqueIds(bp.componentShape ?? [], 'component-shape axis');

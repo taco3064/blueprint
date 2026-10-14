@@ -13,6 +13,7 @@ import { plugin } from './plugin';
 
 const RULE_IDS = [
   'import-boundary',
+  'must-not',
   'no-deep-watch',
   'no-typedef-only-file',
   'relative-escape',
@@ -23,6 +24,7 @@ const RULE_IDS = [
 
 const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
   ['import-boundary', 'canonical alias'],
+  ['must-not', 'prohibition plan'],
   ['no-deep-watch', 'deep watches'],
   ['no-typedef-only-file', '@typedef'],
   ['relative-escape', 'architectural layer or position'],

@@ -227,8 +227,9 @@ function memberModuleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode
   }
 
   const scope = getInnermostScope(globalScope, callee as never);
+  const variable = findVariable(scope, callee as never);
 
-  return findVariable(scope, callee as never) === null ? args[0] : null;
+  return variable === null || variable.defs.length === 0 ? args[0] : null;
 }
 
 export function moduleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode | null {

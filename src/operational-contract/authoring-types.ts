@@ -32,6 +32,7 @@ export interface AuthoringRuleCatalogFact {
 }
 
 export interface EslintConfigSourceFact {
+  detectedFramework?: 'react' | 'vue';
   framework: Framework | null;
   hasTypescript: boolean;
   guardExtensions: string;

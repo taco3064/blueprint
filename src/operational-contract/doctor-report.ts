@@ -1,10 +1,13 @@
 import type { DoctorCheckView } from './doctor';
 import { CURRENT_CONFIG_ADOPTION_SCOPE } from './inspect';
+import { operationalText } from './operational-contract';
+import type { OperationalText } from './operational-contract';
+import type { ProhibitionReportFact } from './prohibitions';
 
 export function renderDoctorReport(
   checks: DoctorCheckView[],
-  report: { notes?: string[]; json?: boolean },
-): string {
+  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionReportFact[] },
+): OperationalText {
   const notes = report.notes ?? [];
   const failed = checks.filter((check) => !check.ok).length;
   const skipped = checks.filter((check) => check.skipped).length;
@@ -13,25 +16,26 @@ export function renderDoctorReport(
   const banner = doctorBanner({ checks: checks.length, failed, skipped, passed });
 
   if (report.json) {
-    return JSON.stringify({
+    return operationalText(JSON.stringify({
       ok: checks.every((check) => check.ok),
       verdict,
       scope: CURRENT_CONFIG_ADOPTION_SCOPE,
       summary: banner,
       counts: { total: checks.length, passed, failed, skipped },
       checks,
+      ...(report.prohibitions ? { prohibitions: report.prohibitions } : {}),
       note: notes.length ? notes.join('\n') : undefined,
-    }, null, 2);
+    }, null, 2));
   }
 
-  return [
+  return operationalText([
     'blueprint doctor',
     'Scope: current-config adoption; this is not proof of a historical topology transformation.',
     ...checks.map(renderCheck),
     '',
     banner,
     ...notes.map((note) => `  ${note}`),
-  ].join('\n');
+  ].join('\n'));
 }
 
 function doctorBanner(counts: {
@@ -57,5 +61,11 @@ function renderCheck(check: DoctorCheckView): string {
   const mark = check.ok ? (check.skipped ? '⊘' : '✓') : '✗';
   const under = check.skipped ?? check.detail;
 
-  return `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`;
+  return [
+    `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`,
+    ...(check.prohibitionFindings ?? []).map((finding) =>
+      `      ${finding.filePath}: ${finding.message} (severity: ${finding.severity}; `
+      + `gate: ${finding.gate}; observation: ${finding.observation}; `
+      + `affectsExit: ${finding.affectsExit})`),
+  ].join('\n');
 }

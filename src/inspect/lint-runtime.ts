@@ -2,9 +2,10 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { prohibitionGateEvidence } from '../config';
 
 import type { LintEntrypointAssessment } from '../project';
-import { renderEslintRuntimeFailure } from '../operational-contract';
+import { parseProhibitionIdentity, renderEslintRuntimeFailure } from '../operational-contract';
 
 export interface LiveLintEvidence {
   status: 'passed' | 'failed' | 'unverified';
@@ -12,6 +13,18 @@ export interface LiveLintEvidence {
   errors: number;
   warnings: number;
   reason?: string;
+  prohibitionFindings?: ProhibitionLintFinding[];
+}
+
+export interface ProhibitionLintFinding {
+  layer?: string;
+  id?: string;
+  filePath: string;
+  message: string;
+  severity: 'error' | 'warn';
+  gate: 'failed' | 'passed' | 'unverified';
+  observation: boolean;
+  affectsExit: boolean;
 }
 
 export function runLiveLint(
@@ -93,8 +106,33 @@ function execute(input: {
     status: result.status === 0 ? 'passed' : 'failed',
     command,
     ...totals,
+    ...prohibitionLintFindings(result.stdout),
     ...(result.status === 1 ? { reason: 'the native ESLint gate failed' } : {}),
   };
+}
+
+export function prohibitionLintFindings(
+  output: string,
+): Pick<LiveLintEvidence, 'prohibitionFindings'> {
+  const results = JSON.parse(output) as { filePath?: string; messages?: {
+    ruleId?: string; severity?: number; message?: string;
+  }[]; }[];
+
+  const prohibitionFindings = results.flatMap((result) =>
+    (result.messages ?? []).filter((message) => message.ruleId === 'blueprint/must-not'
+      && (message.severity === 1 || message.severity === 2))
+      .map((message): ProhibitionLintFinding => ({
+        filePath: result.filePath ?? '',
+        message: message.message ?? '',
+        ...(parseProhibitionIdentity(message.message ?? '') ?? {}),
+        severity: message.severity === 2 ? 'error' : 'warn',
+        ...prohibitionGateEvidence({
+          status: 'active', severity: message.severity === 2 ? 'error' : 'warn',
+          violation: true, wiring: 'verified',
+        }),
+      })));
+
+  return prohibitionFindings.length ? { prohibitionFindings } : {};
 }
 
 function resolveLocalEslint(root: string): string | null {

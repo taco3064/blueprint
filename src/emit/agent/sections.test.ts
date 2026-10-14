@@ -36,7 +36,8 @@ describe('renderPlacement', () => {
     const out = renderPlacement(arch());
 
     expect(out).toContain(
-      '- `src/components/` — layer: UI. MUST NOT: import services. OWNS: `clsx`.',
+      '- `src/components/` — layer: UI. MUST NOT: import services '
+      + '[review only; no machine carrier]. OWNS: `clsx`.',
     );
 
     expect(out).toContain('- `src/services/` — layer: net.');

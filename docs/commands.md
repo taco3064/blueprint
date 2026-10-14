@@ -507,3 +507,18 @@ the same way.
 The result is a repository with no proven Blueprint config, lifecycle, generated, managed, or
 dependency footprint. `remove` does not rewrite application source to make it byte-identical to
 the day before adoption.
+
+### Executable layer prohibitions
+
+Rules human/JSON output lists the shared `mustNot` plan in declaration order: review-only versus
+executable mode, active/partial/unavailable availability, exact checks and limits, lint severity,
+file nets, exemptions, and measured reach. Static declarations do not claim source violations.
+Inspect reports the same facts and current covered/vacuous/runway reach without executing a
+second detector or adding an exit policy. See [the authoring contract](./configuration.md#executable-mustnot).
+
+Doctor verifies the required carrier in the final merged ESLint config, including synthetic probes
+for empty positions. Missing/disabled/replaced/stale carriers are failed; uninspectable configuration
+or unavailable required parser/framework support is unverified. Both block adoption completion,
+but unverified does not automatically change command exit compatibility. Source errors are failed
+gates; source warnings remain visible conformance observations with `affectsExit: false` and do not
+promote aggregate gates to failed. Mixed failed and unverified evidence is retained independently.

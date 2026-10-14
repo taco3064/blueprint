@@ -12,6 +12,7 @@ import {
   renderImportGraphDerivation,
   renderImportAnalysisUnavailable,
   renderInspectOutput,
+  renderInspectProhibitionOutput,
   renderTestExemptionOutput,
 } from '../operational-contract';
 import { analyze } from './analyze';
@@ -27,6 +28,8 @@ import type { Coverage } from './coverage';
 import { hasErrors, report } from './report';
 import { importAnalysis, scan } from './scan';
 import type { Finding } from './types';
+import { measureProhibitions } from './prohibitions';
+import type { ProhibitionFact } from './prohibitions';
 
 export interface InspectOptions extends ResolveOptions {
   /** Emit machine-readable JSON instead of the text report. */
@@ -53,27 +56,30 @@ export interface InspectOptions extends ResolveOptions {
 export async function runInspect(
   root: string,
   options: InspectOptions = {},
-): Promise<{ findings: Finding[]; ok: boolean }> {
+): Promise<{ findings: Finding[]; ok: boolean; prohibitions: ProhibitionFact[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const { scanResult, findings, coverage, analysis } = inspectFacts(root, blueprint, state);
+
+  const { scanResult, findings, coverage, analysis, prohibitions }
+    = inspectFacts(root, blueprint, state);
+
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
     if (analysis.status !== 'healthy') {
       log(renderImportAnalysisUnavailable(analysis));
 
-      return { findings, ok: false };
+      return { findings, ok: false, prohibitions };
     }
 
-    return lockBaseline(findings, baselineFile, { log, coverage });
+    return { ...lockBaseline(findings, baselineFile, { log, coverage }), prohibitions };
   }
 
   if (options.baseline) {
-    return baselineGate(findings, baselineFile, {
-      log, coverage, blueprint, scanResult, json: options.json,
-    });
+    return { ...baselineGate(findings, baselineFile, {
+      log, coverage, blueprint, scanResult, prohibitions, json: options.json,
+    }), prohibitions };
   }
 
   const ok = !hasErrors(findings) && analysis.status === 'healthy';
@@ -86,16 +92,17 @@ export async function runInspect(
           scope: CURRENT_CONFIG_ADOPTION_SCOPE,
           findings,
           coverage,
+          prohibitions,
           importAnalysis: analysis,
           derivation: renderImportGraphDerivation(analysis),
         }, null, 2)
-      : renderInspectOutput({
+      : renderInspectProhibitionOutput(renderInspectOutput({
           architecture: report(findings, blueprint.architecture, scanResult),
           coverage: renderCoverage(coverage, blueprint),
-        }),
+        }), prohibitions),
   );
 
-  return { findings, ok };
+  return { findings, ok, prohibitions };
 }
 
 function inspectFacts(
@@ -107,7 +114,8 @@ function inspectFacts(
   const findings = analyze(scanResult, blueprint, state.dependencies);
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
-  return { scanResult, findings, coverage, analysis: importAnalysis(scanResult) };
+  return { scanResult, findings, coverage, analysis: importAnalysis(scanResult),
+    prohibitions: measureProhibitions(blueprint, scanResult, state.framework) };
 }
 
 function lockBaseline(
@@ -160,6 +168,7 @@ function baselineGate(
     coverage: Coverage;
     blueprint: Blueprint;
     scanResult: ReturnType<typeof scan>;
+    prohibitions: ProhibitionFact[];
     json?: boolean;
   },
 ): { findings: Finding[]; ok: boolean } {
@@ -183,17 +192,18 @@ function baselineGate(
             suppressed: split.suppressed,
             stale: split.stale,
             coverage,
+            prohibitions: ctx.prohibitions,
             importAnalysis: analysis,
             derivation: renderImportGraphDerivation(analysis),
           },
           null,
           2,
         )
-      : renderBaselineGateOutput({
+      : renderInspectProhibitionOutput(renderBaselineGateOutput({
           architecture: report(split.fresh, blueprint.architecture, scanResult),
           baseline: baselineSummary(split),
           coverage: renderCoverage(coverage, blueprint),
-        }),
+        }), ctx.prohibitions),
   );
 
   return { findings: split.fresh, ok };

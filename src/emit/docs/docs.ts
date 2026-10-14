@@ -39,7 +39,11 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
 
   const sections = [
     renderHeader(name),
-    renderArchitecture(architecture),
+    renderArchitecture(architecture, {
+      declaredFramework: blueprint.framework,
+      framework: blueprint.framework === 'auto' ? stack.detectedFramework : blueprint.framework,
+      severity: blueprint.emit?.lint?.severity,
+    }),
     renderModuleGrowth(architecture),
     renderUnit(architecture),
     renderImportDiscipline(architecture, stack.lintIntegration),

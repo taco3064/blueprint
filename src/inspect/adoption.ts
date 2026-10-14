@@ -5,6 +5,7 @@ import { runLiveLint } from './lint-runtime';
 import { effectiveLintContext } from './doctor';
 import type { ScanResult } from './types';
 import { wiringCheck } from './wiring';
+import { verifyProhibitions } from './prohibition-wiring';
 
 function hasPendingDependencies(state: ProjectState): boolean {
   return state.missingDeps.length > 0
@@ -20,8 +21,8 @@ export async function assessLintIntegration(
     lint?: typeof runLiveLint;
   },
 ): Promise<'verified' | 'unverified' | 'reference-only'> {
-  const { scanResult, load, lint } = options;
-  const wired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
+  const { scanResult, load = loadProjectModule, lint = runLiveLint } = options;
+  const wired = lintIsWired(state);
 
   if (!wired) {
     return state.hasEslintConfig || state.legacyEslintConfig !== undefined
@@ -49,14 +50,25 @@ export async function assessLintIntegration(
     // Stryker disable next-line ConditionalExpression, EqualityOperator: only unused text changes.
     merged: state.ownedEslintConfig === undefined,
     hasTypescript: state.hasTypescript,
-    load: load ?? loadProjectModule,
+    load,
   });
 
-  if (wiring.status !== 'verified-alive') {
+  const prohibitions = await verifyProhibitions({
+    root: state.applicationRoot, blueprint, scanResult, wired,
+    lintRoot: effective.lintRoot,
+    detectedFramework: state.framework,
+    load,
+  });
+
+  if (wiring.status !== 'verified-alive' || prohibitions.some((fact) => fact.gate !== 'passed')) {
     return 'unverified';
   }
 
-  const live = (lint ?? runLiveLint)(effective.lintRoot, dependencies, effective.assessment);
+  const live = lint(effective.lintRoot, dependencies, effective.assessment);
 
   return live.status === 'passed' ? 'verified' : 'unverified';
+}
+
+function lintIsWired(state: ProjectState): boolean {
+  return state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 }

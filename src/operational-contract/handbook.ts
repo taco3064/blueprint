@@ -5,6 +5,7 @@ import type {
   PlaybookSection,
   PrincipleDef,
   RuleSetting,
+  ResolveArchitectureContext,
 } from '../config';
 import {
   readSetting,
@@ -12,6 +13,9 @@ import {
 } from '../config';
 import { escapeCell, formatOwns, table } from '../markdown';
 import { renderModuleGrowthProtocol, renderModuleRunwayFact } from './module-growth';
+import {
+  renderProhibitionDetails, renderProhibitionPolicy, renderProhibitionScope,
+} from './prohibitions';
 
 export interface HandbookRuleFact {
   id: string;
@@ -30,13 +34,23 @@ export function renderHeader(name: string | undefined): string {
   ].join('\n');
 }
 
-export function renderArchitecture(architecture: ArchitectureDef, diagram: string): string {
-  const resolved = resolveArchitecture(architecture);
+export function renderArchitecture(
+  architecture: ArchitectureDef,
+  diagram: string,
+  context: ResolveArchitectureContext = {},
+): string {
+  const resolved = resolveArchitecture(architecture, context);
 
-  const rows = resolved.layers.map(({ definition: layer }) => [
+  const rows = resolved.layers.map(({ definition: layer, prohibitions }) => [
     `\`${layer.name}\``,
     escapeCell(layer.does),
-    layer.mustNot?.length ? escapeCell(layer.mustNot.join('; ')) : '—',
+    prohibitions.length
+      ? escapeCell(prohibitions.map(renderProhibitionDetails).join('; ')
+        + (prohibitions.some((item) => item.mode === 'executable')
+          ? `. ${renderProhibitionScope(resolved, layer.name,
+            context.declaredFramework ?? context.framework)}`
+          : ''))
+      : '—',
     formatOwns(layer.owns) || '—',
   ]);
 
@@ -98,6 +112,7 @@ export function renderArchitecture(architecture: ArchitectureDef, diagram: strin
     '### Layers',
     '',
     table(['Layer', 'Responsibility', 'Must not', 'Owns'], rows),
+    ...renderProhibitionPolicy(resolved).flatMap((line) => ['', line]),
   ].join('\n');
 }
 

@@ -179,8 +179,8 @@ LF → MF 時，應在保留的轉換來源與逐檔決策中記錄原路徑、�
   - 型別與預設值：必填 `string`，不可為空字串或只含空白。
   - 意義：一行責任說明，會寫入產出守則。
 - **`mustNot`**
-  - 型別與預設值：`string[]`，預設 `[]`。
-  - 意義：不該承擔的責任，由人與 Agent 判斷。
+  - 型別與預設值：`(string | ExecutableMustNot)[]`，預設 `[]`。
+  - 意義：依宣告順序保留人工審查責任與選擇啟用的可執行限制。見[可執行的 mustNot](#可執行的-mustnot)。
 - **`layout`**
   - 型別與預設值：`'folder' | 'file'`，預設 `'file'`。
   - 意義：Folder layout 的單元具有公開入口；file layout 採分層粒度的相依關係。
@@ -383,3 +383,99 @@ export default reactPreset({ name: 'web', modules: [] });
 修復。若同一次執行要求 module-first，Blueprint 會先把正規化後的 layer-first 設定寫成可
 復原的檢查點，並停在此處。接著再次執行 `init --topology module-first`，才會從明確的 4.0
 權威啟動受保護的轉換；不會在同一步裡重新解讀舊格式並搬移原始碼。
+
+## 可執行的 mustNot
+
+同一層可以混用既有文字與明確的可執行檢查。字串一律是 **review only**，由人與 Agent
+審查；Blueprint 不會從文字、description、層名或檔名推導規則。React、Vue、Next 預設設定
+中的字串維持原意，舊設定不需要改寫生命週期狀態。
+
+```js
+mustNot: [
+  'change product policy',
+  {
+    id: 'render-ui',
+    description: 'render UI',
+    checks: [
+      { capability: 'render-ui' },
+      { package: 'leaflet' },
+      { package: 'react-leaflet' },
+      { package: 'react-leaflet-cluster' },
+      { call: 'divIcon' },
+    ],
+    exempt: ['src/domain/approved-adapter.ts'],
+  },
+]
+```
+
+同一項目的檢查採 **OR 語意**：任一檢查命中，就違反這項限制。id 必須符合
+`[a-z][a-z0-9-]*`，且在該層中唯一；description、判別欄位的值與 checks 不可為空。
+每個檢查只能使用 `capability`、`package`、`global`、`call` 其中一個判別欄位；未知欄位或
+能力名稱會直接拒絕。正規化後重複的檢查，以及空白或重複的 `imports` 名稱也會拒絕。
+`exempt` 使用可攜的專案相對 glob，在架構檔案範圍確定後套用到該項目的所有檢查。
+輸出保留項目與檢查的宣告順序。
+
+明確指定 Vue 的設定不能宣告 React 專屬能力，反之亦然。`framework: 'auto'` 則延後到
+專案解析時確認相容性；無法確認必要的框架或 parser 支援時，回報 unavailable，不捏造
+原始碼違規。直接呼叫 `emitLint` 的整合可以用 `detectedFramework` 提供 auto 的解析結果。
+
+### 專案自訂檢查
+
+| 檢查 | 精確範圍與限制 |
+| --- | --- |
+| `{ package: 'leaflet' }` | 比對套件本身與 `/` 子路徑，不比對 `leaflet-extra`。`@org/pkg` 也不比對 `@org/pkg-extra`。這是套件家族比對，與 `owns` 的精確路徑語意不同。涵蓋靜態與 type-only 匯入／再匯出、可證明來源的 `require()`，以及能靜態化簡的動態匯入；執行期才確定的來源維持未驗證。 |
+| `{ package: 'leaflet/*', pattern: true }` | 使用既有 ownership／no-restricted-imports 群組比對語意，不額外展開套件家族。 |
+| `{ package: 'react', imports: ['useState'] }` | 比對靜態匯入與再匯出的具名匯出身分，包含別名與 type-only 形式。不推論 CommonJS／動態匯入的 namespace 成員、後續屬性存取、重新賦值或包裝函式；需要涵蓋這些情況時，選用完整套件、能力或 call 檢查。 |
+| `{ global: 'WebSocket' }` | 比對未被區域繫結遮蔽的值參照與支援的型別參照。宣告、屬性鍵、標籤、字面值與同名區域繫結合法。parser 無法提供必要參照空間時，覆蓋能力為 unavailable。 |
+| `{ call: 'divIcon' }` | 比對直接呼叫與末端成員名稱，包含 `L.divIcon()`、`L['divIcon']()`、可選呼叫，以及 JS／TS 與 SFC script。這是語法名稱比對，無關物件的同名方法也可能命中。不追蹤解構別名、包裝函式、重新賦值、執行期計算的名稱、建構子或 Vue template 呼叫。 |
+
+### 能力偵測表
+
+框架呼叫必須有可證明的匯入繫結，包含別名與 namespace 成員；無關的同名區域函式不會
+命中。React 類別必須繼承可證明來自 React 的 `Component` 或 `PureComponent`。
+
+| 能力 | 訊號 |
+| --- | --- |
+| `render-ui` | JSX 元素／fragment；含可渲染元素、元件、插值或非空白文字的 Vue template；React `createElement`；Vue `h`／`createVNode`；React 類別的 `render` 方法。 |
+| `react-state` | React `useState`、`useReducer`、`useSyncExternalStore`；React 類別擁有 `state` 或使用 `setState`。 |
+| `react-lifecycle` | React `useEffect`、`useLayoutEffect`、`useInsertionEffect`，以及下列類別生命週期宣告。 |
+| `vue-reactivity` | Vue `ref`、`shallowRef`、`reactive`、`shallowReactive`、`customRef`、`computed`、`toRef`、`toRefs`。 |
+| `vue-lifecycle` | Vue `onBeforeMount`、`onMounted`、`onBeforeUpdate`、`onUpdated`、`onBeforeUnmount`、`onUnmounted`、`onActivated`、`onDeactivated`、`onErrorCaptured`、`onRenderTracked`、`onRenderTriggered`、`onServerPrefetch`。 |
+| `routing` | 可證明指向 `react-router`、`react-router-dom`、`vue-router`、`next/router`、`next/navigation`、`next/link` 的套件參照，包含子路徑與 type-only 參照。 |
+| `network-io` | 未被遮蔽的直接 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource` 與 `navigator.sendBeacon`。 |
+| `browser-dom` | 未被遮蔽的直接 `window`、`document`、`navigator`、`HTMLElement`、`Element`、`Node`、`EventTarget`、`CustomEvent`、`MutationObserver`、`ResizeObserver`、`IntersectionObserver`、`localStorage`、`sessionStorage`、`location`、`history`、`customElements`、`getComputedStyle`。 |
+
+React 類別生命週期宣告包含 `componentDidMount`、`componentDidUpdate`、`componentWillUnmount`、
+`shouldComponentUpdate`、`getSnapshotBeforeUpdate`、`getDerivedStateFromProps`、
+`getDerivedStateFromError`、`componentDidCatch`、`componentWillMount`、`componentWillReceiveProps`、
+`componentWillUpdate`、`UNSAFE_componentWillMount`、`UNSAFE_componentWillReceiveProps`、
+`UNSAFE_componentWillUpdate`。一般類別即使使用同名方法，仍是合法對照。
+
+這些偵測器不證明透過包裝函式、相依注入、應用程式抽象、執行期行為或跨檔案值流造成的
+間接行為。通過只表示實際檢查範圍內沒有觀察到已列明的訊號。
+
+### 可用性、嚴重程度、串接與涵蓋範圍
+
+Lint、Rules、Inspect、Doctor 與產出守則共用一份解析結果。字串為 `review-only`，沒有
+機器載體。可執行項目在所有檢查可用時為 `active`，只有部分可用時為 `partial`，全部
+不可用時為 `unavailable`；partial 項目中可用的檢查仍持續執行。可用性與 lint 串接狀態
+（`verified`、`unverified`、`reference-only`）及檔案涵蓋狀態（`covered`、`vacuous`、
+`runway`、`unmeasured`）彼此獨立。沒有原始碼的具體位置是 vacuous，`modules: []` 是未來
+模組的 runway，兩者都不代表已受行為保護。保留的 `app` 使用容器角色，不重複內層。
+
+| 證據 | 關卡證據 | 退出與完成判定 |
+| --- | --- | --- |
+| `emit.lint.severity: 'error'` 的已證實命中 | `failed` | `affectsExit: true`；執行 lint 回傳非零，阻擋完成。 |
+| 同一命中改為 `warn` | 可見但不阻擋的符合性觀察 | `affectsExit: false`；不改變彙總關卡，也不單獨造成非零退出。 |
+| 必要偵測器 partial／unavailable | `unverified`，不捏造違規 | 不自動改變 CLI 退出碼；不論嚴重程度都阻擋完成。 |
+| 已證實載體缺失、停用、替換或不相符 | `failed` | 沿用 Doctor 失敗行為；即使是 warn 也阻擋完成。 |
+| 無法檢查實際生效設定 | `unverified` | 阻擋完成，但不自動造成非零退出。 |
+| 檢查可用、載體完整、沒有 error 命中 | `passed` | 可同時有警告；仍須滿足其他完成條件。 |
+
+混合情況保留 failed 與 unverified 各自的證據，彙總時 failed 優先。只有 lint 偵測原始碼
+違規；Inspect 測量涵蓋範圍，不建立第二套 AST 偵測器，靜態 Rules 也不宣稱現場命中。
+Doctor 用代表性或合成檔案驗證最後合併的 ESLint 設定，包括空位置。受管理的
+`blueprint/must-not` 載體不能透過 `lintOverrides` 停用或替換。
+
+先套用結構規則的 `sourceRoot`、層／模組 glob、框架副檔名、`layerFilesIgnore`、`testFiles`，
+再套用項目豁免。本功能不新增 Inspect 退出碼政策。

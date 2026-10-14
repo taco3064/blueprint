@@ -30,6 +30,7 @@ export type LintConfig = LintConfigEntry[];
  * gate a TypeScript project genuinely holds.
  */
 export interface StackFacts {
+  detectedFramework?: 'react' | 'vue';
   hasTypescript?: boolean;
   lintIntegration?: 'verified' | 'unverified' | 'reference-only';
 }
@@ -41,6 +42,8 @@ export interface EmitFacts extends StackFacts {
 
 /** Caller-supplied wiring for `emitLint` — kept injectable so the library stays zero-dependency. */
 export interface EmitLintOptions {
+  /** Resolved project framework for an authored auto declaration. */
+  detectedFramework?: 'react' | 'vue';
   /**
    * Scope every emitted flat-config entry to this application root. Pass an
    * absolute path when the config can run from more than one working directory.

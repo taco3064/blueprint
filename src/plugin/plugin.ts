@@ -1,4 +1,5 @@
 import type { ESLint } from 'eslint';
+import { mustNot } from './must-not';
 import { noDeepWatch } from './no-deep-watch';
 import { importBoundary } from './import-boundary';
 import { noTypedefOnlyFile } from './no-typedef-only-file';
@@ -19,6 +20,7 @@ export const plugin: ESLint.Plugin = {
   meta: { name: '@kekkai/blueprint' },
   rules: {
     'import-boundary': importBoundary,
+    'must-not': mustNot,
     'no-deep-watch': noDeepWatch,
     'no-typedef-only-file': noTypedefOnlyFile,
     'relative-escape': relativeEscape,

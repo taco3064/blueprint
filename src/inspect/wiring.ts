@@ -58,7 +58,7 @@ function syntheticPath(glob: string): string | null {
     .replace(/\*+/g, '__blueprint_probe__');
 }
 
-function syntheticCandidates(globs: string[]): string[] {
+export function syntheticCandidates(globs: string[]): string[] {
   return globs
     .map(syntheticPath)
     .filter((candidate): candidate is string => candidate !== null);

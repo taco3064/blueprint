@@ -23,6 +23,15 @@ export interface OperationalSurface {
 
 export const OPERATIONAL_SURFACES = [
   {
+    id: 'must-not-prohibitions', owner: 'prohibitions.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['adopters', 'coding agents'],
+    factProviders: ['resolved prohibition plan', 'measured reach', 'effective lint evidence'],
+    consumers: ['src/plugin/must-not.ts', 'src/inspect/prohibition-wiring.ts',
+      'src/inspect/inspect.ts', 'src/inspect/doctor.ts'],
+    targets: ['ESLint diagnostics', 'Rules', 'Inspect', 'Doctor', 'handbook', 'Agent contract'],
+    verification: ['prohibition status matrix', 'emitter parity'],
+  },
+  {
     id: 'agent-contract-sections', owner: 'agent.ts', channel: 'agent-contract',
     delivery: 'generated', audiences: ['coding agents'],
     factProviders: ['resolved Blueprint', 'measured lint integration'],
