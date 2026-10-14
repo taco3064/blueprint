@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import { renderMustNotViolation } from '../operational-contract';
 import { prohibitionLintFindings } from './lint-runtime';
 import { liveLintCheck } from './doctor-lint';
 
 describe('prohibitionLintFindings', () => {
+  it('retains the layer and prohibition identity from the emitted diagnostic', () => {
+    const message = renderMustNotViolation({
+      layer: 'domain', id: 'render-ui', description: 'render UI',
+    }, { call: 'divIcon' });
+
+    expect(prohibitionLintFindings(JSON.stringify([{
+      filePath: '/repo/src/domain/icon.js',
+      messages: [{ ruleId: 'blueprint/must-not', severity: 2, message }],
+    }]))).toEqual({ prohibitionFindings: [{
+      filePath: '/repo/src/domain/icon.js', message, layer: 'domain', id: 'render-ui',
+      severity: 'error', gate: 'failed', observation: false, affectsExit: true,
+    }] });
+  });
+
   it('retains error and warning diagnostics with independent gate mapping', () => {
     const findings = prohibitionLintFindings(JSON.stringify([{
       filePath: '/repo/domain/a.ts', messages: [
