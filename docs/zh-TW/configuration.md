@@ -13,7 +13,7 @@ export default defineBlueprint({
     alias: '~app',
     layers: [
       { name: 'pages', does: '組合路由頁面。' },
-      { name: 'components', does: '可重用介面。' },
+      { name: 'components', does: '介面呈現，包含功能私有元件。' },
       { name: 'services', does: '網路存取。', owns: ['axios'] },
     ],
   },
@@ -89,7 +89,7 @@ architecture: {
   alias: '~app',
   layers: [
     { name: 'pages', does: '路由與頁面組合。' },
-    { name: 'components', does: '可重用介面。' },
+    { name: 'components', does: '介面呈現，包含功能私有元件。' },
     { name: 'services', does: '網路存取原語。' },
   ],
 }

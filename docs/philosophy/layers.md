@@ -66,8 +66,8 @@ take the container position. The remaining layers repeat inside every ordinary m
 
 **`components`**
 
-- Does — reusable, presentational UI; may call hooks
-- Must not — touch the router, call services, own app state
+- Does — presentation UI, including feature-private UI with a single consumer; may call hooks and own ephemeral presentation state
+- Must not — touch the router, call services, own application or use-case state, orchestrate a use case
 
 **`hooks`**
 
@@ -118,11 +118,20 @@ components/
 ```
 
 - `index` is the unit's _face_ — the outside world knows nothing else
-- Private sub-components live inside (a container's `ProfileTab`); promotion to
-  `components/` happens **when sharing actually arrives**, not speculatively
+- Private sub-components may stay inside their owning unit (a container's `ProfileTab`).
+  A presentation unit may also live in `components/` with a single consumer. Reuse
+  determines whether to promote it to a shared/public location, not its layer role
 - The implementation file carries the unit's name — a tab bar of ten `Component.tsx`
   is unnavigable
 
-`components` vs `containers` in one question: **"would it survive a feature swap?"**
-Reusable and data-blind → component. Bound to this feature's data, flow, CRUD →
-container. Containers wire components to data; components know nothing about containers.
+`components` vs `containers` is a responsibility decision: **"does it present UI, or own
+the use case?"** A feature-specific display, such as a `MatchScoreCard`, remains a
+component even with one consumer. Its vocabulary and consumer count do not make it
+a container. A component may own ephemeral presentation state, such as an expanded
+section, hover state, or an open menu. Application state, workflow transitions, CRUD,
+and navigation belong to the container position. Containers wire components to data;
+components do not own the container's use case.
+
+In module-first, a feature-private presenter lives under its owner's `components` layer,
+not at the module root, and needs no cross-module public export. In layer-first,
+`components` may retain feature ownership without a shared barrel export.

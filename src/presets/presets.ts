@@ -48,6 +48,15 @@ interface FrameworkOwns {
   contexts: OwnedPrimitive[];
 }
 
+const PRESENTATION_RESPONSIBILITY = 'Presentation UI: renders or composes props, inputs, '
+  + 'or a prepared view model; '
+  + 'formats display and reports user intent through callbacks/events. Feature-private '
+  + 'and single-consumer presenters are components. Ephemeral interaction state '
+  + '(open/closed, tabs, focus, input drafts) is allowed when it does not coordinate '
+  + 'the application use case. Components do not perform application IO, sequence '
+  + 'workflows, or decide application-level branches. Reuse informs shared/public '
+  + 'promotion, not component classification.';
+
 const MODULE_POSITIONS = ['pages', 'containers'];
 
 function topologyLayers(modules: ModuleDef[] | undefined, layers: LayerDef[]): LayerDef[] {
@@ -87,14 +96,14 @@ function preset(
         },
         {
           name: 'containers',
-          does: 'A feature: assembles components, owns local state, calls services, '
+          does: 'A feature: assembles components, owns application/use-case state, calls services, '
             + 'drives navigation.',
           layout: 'folder',
           entry: 'index',
         },
         {
           name: 'components',
-          does: 'Reusable, presentational UI.',
+          does: PRESENTATION_RESPONSIBILITY,
           layout: 'folder',
           entry: 'index',
           mustNot: ['call services', 'touch the router', 'own app state'],

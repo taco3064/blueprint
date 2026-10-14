@@ -222,6 +222,20 @@ function renderMovement(state: ProjectTransformationFact): string {
     '   composition entry files to the owning module root, alongside its technical-layer folders.',
     '   For example: containers/Loadout/LoadoutScreen.tsx → loadout/LoadoutScreen.tsx,',
     '   never loadout/containers/Loadout/LoadoutScreen.tsx. Resolve collisions before moving.',
+    ...(!state.hasNext
+      ? [
+          '   For React/Vue, classify presentation by responsibility, not reuse or consumer count.',
+          '   A feature-private, single-consumer presenter moves below its module’s `components`',
+          '   layer without requiring a cross-module public export. Props/view-model rendering,',
+          '   display formatting, callbacks/events, and ephemeral UI state '
+          + '(open/closed, tabs, focus,',
+          '   input drafts) do not alone justify a module-root/container '
+          + 'position. Keep application/',
+          '   use-case state, service IO, routing, workflow sequencing, and '
+          + 'application-level branches',
+          '   in the coordinator. Reuse informs shared/public promotion, not role.',
+        ]
+      : []),
     '3. Rewrite literal module paths in imports, exports, dynamic imports, unshadowed',
     '   CommonJS require calls, and TypeScript import-equals to the canonical source-root alias.',
     '   If a move needs dynamic binding or other source-body changes, stop: this verifier cannot',
