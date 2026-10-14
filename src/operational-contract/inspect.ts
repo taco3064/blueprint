@@ -39,12 +39,19 @@ const MIGRATION: Record<string, string> = {
   'flow-violation': 'Rework imports to follow the one-way flow; '
     + 'extract shared code down to a lower layer.',
   'canonical-alias': 'Replace the secondary alias with the canonical source-root alias.',
-  'deep-import': 'Import folder units through their entry file, never their internals.',
+  'deep-import': 'Import ordinary root units through the bare canonical module alias; '
+    + 'import folder units through their entry, never private paths.',
+  'ambiguous-root-entry': 'Review the root API and retain exactly one supported index entry.',
+  'orphan-root-file': 'Remove, relocate, or connect the private root member through its entry.',
+  'root-reachability-unknown': 'Review reachable parse errors and unknown import targets '
+    + 'before concluding that root members are orphaned.',
+  'missing-root-entry': 'Provide one supported root index entry before importing the module.',
   'relative-escape': 'Replace cross-unit relative imports with the project alias.',
   'package-ownership': 'Move restricted package usage into its owning layer '
     + '(expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
-  'no-entry': 'For folder units, add the declared entry file. For direct layer files, '
+  'no-entry': 'For ordinary root units, review the public API and add one index entry. '
+    + 'For folder units, add the declared entry file. For direct layer files, '
     + 'review the layer layout or unit placement; do not invent a nested entry for a layer barrel.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
@@ -58,6 +65,10 @@ const ENFORCED_BY: Record<string, string | null> = {
   'package-ownership': 'no-restricted-imports',
   'selfonly-reexport': 'no-restricted-syntax',
   'no-entry': null,
+  'ambiguous-root-entry': null,
+  'orphan-root-file': null,
+  'root-reachability-unknown': null,
+  'missing-root-entry': null,
   cycle: null,
 };
 

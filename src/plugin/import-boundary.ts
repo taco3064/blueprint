@@ -6,8 +6,9 @@ import type {
   ResolvedImportReference,
   ResolvedSourcePosition,
 } from '../config';
-import { staticImportSpecifier } from './import-reference';
+import { moduleSpecifier, staticImportSpecifier } from './import-reference';
 import { sourceSegments } from './relative-escape';
+import { checkImportFlow, checkRootImport } from './root-boundary';
 
 export const importBoundary: Rule.RuleModule = {
   meta: {
@@ -22,6 +23,10 @@ export const importBoundary: Rule.RuleModule = {
       flow: '🚫 "{{specifier}}" violates {{reason}}.',
       sameLayer: '🚫 Same-layer import "{{specifier}}" via an alias — use a relative path or '
         + 'extract to a lower layer.',
+      rootAlias: '🚫 Same-root import "{{specifier}}" via an alias — use a relative path.',
+      rootPrivate: '🚫 "{{specifier}}" reaches inside a root unit.{{advice}}',
+      rootCanonical: '🚫 "{{specifier}}" crosses a root-unit boundary — '
+        + 'use the canonical bare module alias "{{canonical}}".',
       deepImport: '🚫 "{{specifier}}" reaches inside a unit — import it through its entry.',
     },
   },
@@ -56,7 +61,8 @@ export const importBoundary: Rule.RuleModule = {
     const checkCanonical = (node: Rule.Node, specifier: string): void => {
       const reference = resolved.resolveImport(importerSegments, specifier);
 
-      if (needsCanonical(reference, importer)) {
+      if (needsCanonical(reference, importer)
+        || (reference.rootUnit !== null && reference.kind === 'additional-alias')) {
         context.report({
           node,
           messageId: 'canonical',
@@ -66,11 +72,15 @@ export const importBoundary: Rule.RuleModule = {
     };
 
     const checkDynamic = (node: Rule.Node): void => {
-      const source = (node as Rule.Node & { source: Rule.Node }).source;
+      const source = moduleSpecifier(node as never, context.sourceCode.getScope(node));
+
+      if (!source) {
+        return;
+      }
 
       const specifier = staticImportSpecifier(
         source as never,
-        context.sourceCode.getScope(source),
+        context.sourceCode.getScope(source as unknown as Rule.Node),
       );
 
       if (specifier === null) {
@@ -81,7 +91,8 @@ export const importBoundary: Rule.RuleModule = {
 
       checkCanonical(node, specifier);
 
-      if (reference.kind === 'relative') {
+      if (checkRootImport(context, node, { specifier, reference, alias: architecture.alias })
+        || reference.kind === 'relative') {
         return;
       }
 
@@ -93,18 +104,7 @@ export const importBoundary: Rule.RuleModule = {
         context.report({ node, messageId: 'deepImport', data: { specifier } });
       }
 
-      if (reference.dependency?.allowed === false) {
-        const reasons = [
-          reference.dependency.module ? null : 'the module dependency graph',
-          reference.dependency.inner ? null : 'the inner dependency flow',
-        ].filter((reason): reason is string => reason !== null);
-
-        context.report({
-          node,
-          messageId: 'flow',
-          data: { specifier, reason: reasons.join(' and ') },
-        });
-      }
+      checkImportFlow(context, node, { specifier, reference });
     };
 
     const checkStatic = (node: Rule.Node): void => {
@@ -112,6 +112,12 @@ export const importBoundary: Rule.RuleModule = {
 
       if (typeof source?.value === 'string') {
         checkCanonical(node, source.value);
+
+        checkRootImport(context, node, {
+          specifier: source.value,
+          reference: resolved.resolveImport(importerSegments, source.value),
+          alias: architecture.alias,
+        });
       }
     };
 
@@ -120,6 +126,9 @@ export const importBoundary: Rule.RuleModule = {
       ExportNamedDeclaration: checkStatic,
       ExportAllDeclaration: checkStatic,
       ImportExpression: checkDynamic,
+      CallExpression: checkDynamic,
+      TSExternalModuleReference: checkDynamic,
+      TSImportType: checkDynamic,
     };
   },
 };

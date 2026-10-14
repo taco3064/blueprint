@@ -260,6 +260,7 @@ function renderApplication(
       root: blueprint.applicationRoot,
       survey,
       architecture: blueprint.architecture,
+      framework: blueprint.blueprint.framework,
       nextAppRouter: state.hasNext,
       origin: retainedTransformationOrigin(blueprint.applicationRoot),
     }),

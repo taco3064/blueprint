@@ -10,6 +10,7 @@ import {
   runningInstallSpec,
   runningPackage,
   UPGRADE_CATALOG,
+  upgradeCatalogFor,
   UPGRADE_PLAYBOOK_FILE,
   writeLifecycleState,
 } from '../lifecycle';
@@ -68,6 +69,7 @@ export interface UpgradeOptions {
 }
 
 interface Context {
+  running: PackageLocation | null;
   cwd: string;
   log: (line: string) => void;
   catalog: UpgradeCatalog;
@@ -89,10 +91,14 @@ export async function runUpgrade(cwd: string, options: UpgradeOptions = {}): Pro
     throw refusal({ kind: 'complete-dry-run' });
   }
 
+  const running = options.running === undefined ? runningPackage() : options.running;
+
   const context: Context = {
+    running,
     cwd,
     log: options.log ?? ((line) => console.log(line)),
-    catalog: options.catalog ?? UPGRADE_CATALOG,
+    catalog: options.catalog
+      ?? (running === null ? UPGRADE_CATALOG : upgradeCatalogFor(running.version)),
     instruction: options.instruction ?? renderUpgradeInstruction,
     exec: options.exec ?? defaultExec,
     handoff: options.handoff ?? defaultHandoff,
@@ -111,7 +117,7 @@ export async function runUpgrade(cwd: string, options: UpgradeOptions = {}): Pro
 }
 
 async function upgrade(facts: UpgradeFacts, context: Context, options: UpgradeOptions) {
-  const running = options.running === undefined ? runningPackage() : options.running;
+  const { running } = context;
 
   const decision = decideUpgrade({
     facts,

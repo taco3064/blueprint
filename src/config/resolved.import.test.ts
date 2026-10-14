@@ -186,6 +186,7 @@ describe('resolveArchitecture · import contract', () => {
       '~app/billing/hooks/useBill',
       {
         definition,
+        rootUnits: resolved.rootUnits,
         sourceSegments: ['src'],
         aliases: [overlapping, canonical],
         classify: resolved.classify,

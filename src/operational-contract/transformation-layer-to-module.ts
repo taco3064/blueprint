@@ -220,11 +220,26 @@ function renderMovement(state: ProjectTransformationFact): string {
     '   other units below their final modules while retaining meaningful inner technical layers.',
     '   Containers are module seeds, not repeated inner technical layers. Move their screen or',
     '   composition entry files to the owning module root, alongside its technical-layer folders.',
-    '   For example: containers/Loadout/LoadoutScreen.tsx → loadout/LoadoutScreen.tsx,',
+    '   The module directory is one root unit with exactly one supported `index.*` entry.',
+    '   Direct siblings are private members; use the bare module alias externally, never /index',
+    '   or a private file. Rootless modules need no empty barrel; reserved app is exempt.',
+    '   Review public exports manually. Preserve every LF member path, original unit identity,',
+    '   layer definition, and custom entry basename in the retained origin and member decisions.',
+    '   Merging LF units into one MF root does not erase their separate restoration identities.',
+    '   If an entry/API change needs source-body edits, stop for an explicit owner decision;',
+    '   do not synthesize an export barrel or claim this bounded verifier proves that refactor.',
+    '   For example: containers/Loadout/LoadoutScreen.tsx → loadout/index.tsx when reviewed,',
     '   never loadout/containers/Loadout/LoadoutScreen.tsx. Resolve collisions before moving.',
+    '   Every custom architecture, including Next.js, requires owner decision for presentation; '
+    + 'neither layer names nor responsibility prose select a destination automatically.',
     ...(!state.hasNext
       ? [
-          '   For React/Vue, classify presentation by responsibility, not reuse or consumer count.',
+          '   Only unchanged canonical React/Vue preset guidance recommends `components`.',
+          '   Every custom architecture requires owner decision, including a `components` name',
+          '   alone or unique `views.does` presentation prose. No runtime-selected owner exists;',
+          '   do not add a layer, edit responsibilities, or guess a custom destination.',
+          '   Within that canonical preset only, for React/Vue, classify presentation by '
+          + 'responsibility, not reuse or consumer count.',
           '   A feature-private, single-consumer presenter moves below its module’s `components`',
           '   layer without requiring a cross-module public export. Props/view-model rendering,',
           '   display formatting, callbacks/events, and ephemeral UI state '

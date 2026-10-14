@@ -2,7 +2,7 @@ export { adoptionProvenance } from './adoption';
 export type { AdoptionProvenance, AppliedAction } from './adoption';
 export { applicableScope } from './applicability';
 export type { ApplicableScope } from './applicability';
-export { LEGACY_CONFIG_KEYS, LIFECYCLE_SINCE, UPGRADE_CATALOG } from './catalog';
+export { LEGACY_CONFIG_KEYS, LIFECYCLE_SINCE, UPGRADE_CATALOG, upgradeCatalogFor } from './catalog';
 export { sourceCheckpoint } from './checkpoint';
 export type { SourceCheckpoint, SourceCheckpointInput } from './checkpoint';
 export { occurrences, textHunks } from './hunks';

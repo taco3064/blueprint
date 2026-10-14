@@ -129,7 +129,8 @@ describe('upgrade progress messages', () => {
 
 describe('upgrade instructions and playbook', () => {
   it('ships instructions only for catalog operations', () => {
-    expect(UPGRADE_INSTRUCTION_IDS).toEqual(['review-retired-module-private']);
+    expect(UPGRADE_INSTRUCTION_IDS)
+      .toEqual(['review-module-root-unit', 'review-retired-module-private']);
 
     expect(renderUpgradeInstruction('review-retired-module-private'))
       .toContain('`allowedImporters`');

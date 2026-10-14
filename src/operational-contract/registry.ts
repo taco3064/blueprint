@@ -199,7 +199,7 @@ export const OPERATIONAL_SURFACES = [
     factProviders: ['inspection findings', 'application source universe'],
     consumers: [
       'src/inspect/analyze.ts', 'src/inspect/dependency.ts', 'src/inspect/folders.ts',
-      'src/inspect/scope.ts',
+      'src/inspect/scope.ts', 'src/inspect/root-units.ts',
     ],
     targets: ['inspect text and JSON'], verification: ['finding matrix tests'],
   },

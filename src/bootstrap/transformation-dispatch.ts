@@ -15,6 +15,8 @@ export function runTopologyTransformation(
   }
 
   return input.topology.current === 'module-first'
-    ? runModuleToLayerTransformation(input)
+    ? runModuleToLayerTransformation({
+        ...input, framework: input.repositoryBlueprints[0]?.blueprint.framework,
+      })
     : runLayerToModuleTransformation(input);
 }

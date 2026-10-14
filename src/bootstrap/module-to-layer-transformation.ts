@@ -1,4 +1,4 @@
-import type { ArchitectureDef } from '../config';
+import type { ArchitectureDef, Framework } from '../config';
 import {
   moduleToLayerBrief,
   renderModuleToLayerAuthorityError,
@@ -93,6 +93,7 @@ export interface ModuleToLayerInput {
   survey: SurveyResult | null;
   topology: TopologyDecision;
   architecture: ArchitectureDef | null;
+  framework?: Framework;
   agents?: AuthoringAgents;
 }
 
@@ -113,6 +114,7 @@ export async function runModuleToLayerTransformation(
     root: input.root,
     survey,
     architecture,
+    framework: input.framework ?? input.state.framework ?? 'auto',
     nextAppRouter: input.state.hasNext,
     origin: retainedTransformationOrigin(input.root),
   });

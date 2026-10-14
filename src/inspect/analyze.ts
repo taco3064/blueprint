@@ -12,6 +12,7 @@ import type {
 } from '../config';
 import { dropLayerFilesIgnored, dropTestFiles } from './filter';
 import { folderFindings } from './folders';
+import { rootUnitFindings } from './root-units';
 import { applicationScopeFindings } from './scope';
 import { compareText } from './order';
 import {
@@ -46,6 +47,7 @@ export function analyze(
   const findings = [
     ...applicationScopeFindings(scan, architecture),
     ...folderFindings(scan, architecture, blueprint.framework),
+    ...rootUnitFindings(lintScan, blueprint),
     ...ownsFindings(architecture, dependencies),
     ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
@@ -154,7 +156,12 @@ function importFindings(
     layer: fileLayer,
   };
 
-  return file.imports.flatMap((ref) => refFindings(file, ref, context));
+  const missingRootRefs = (file.moduleSpecifiers ?? [])
+    .filter((specifier) => !file.imports.some((ref) => ref.specifier === specifier)
+      && resolved.resolveImport(file.segments, specifier).rootUnit !== null)
+    .map((specifier) => ({ specifier, names: [], isExport: false }));
+
+  return [...file.imports, ...missingRootRefs].flatMap((ref) => refFindings(file, ref, context));
 }
 
 function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {

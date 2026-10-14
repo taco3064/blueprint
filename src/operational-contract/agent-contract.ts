@@ -27,6 +27,13 @@ const PACKAGED_AGENT_CONTRACT = [
   '',
   '## The one-way flow',
   '',
+  'An ordinary module with immediate governed root source is one root unit at its directory.',
+  'It exposes exactly one supported `index.*`; direct siblings are private and must be',
+  'transitively reachable from that entry. Import the bare module alias, never `/index` or',
+  'a private member. Inner-layer descendants are separate positions and cannot import upward.',
+  'Layer-only modules need no empty barrel. Reserved recursive `app` is exempt from these',
+  'root entry/private/orphan checks. Reachability is structural, not proof of responsibility.',
+  '',
   joinLine(
     '- `architecture.alias` is the sole canonical source-root ',
     'alias. Across a layer or',

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
-import { staticImportSpecifier } from './import-reference';
+import { moduleSpecifier, staticImportSpecifier } from './import-reference';
 import { relativeVerdict, resolveSegments } from './relative';
 
 export const relativeEscape: Rule.RuleModule = {
@@ -105,13 +105,15 @@ export const relativeEscape: Rule.RuleModule = {
     };
 
     const fromSource = (node: Rule.Node): void => {
-      const { source } = node as { source?: Rule.Node & { type?: string; value?: unknown } | null };
+      const source = moduleSpecifier(node as never, context.sourceCode.getScope(node));
 
       if (!source) {
         return;
       }
 
-      const specifier = staticImportSpecifier(source as never, context.sourceCode.getScope(source));
+      const specifier = staticImportSpecifier(
+        source, context.sourceCode.getScope(source as unknown as Rule.Node),
+      );
 
       if (specifier !== null) {
         check(node, specifier);
@@ -123,6 +125,9 @@ export const relativeEscape: Rule.RuleModule = {
       ExportNamedDeclaration: fromSource,
       ExportAllDeclaration: fromSource,
       ImportExpression: fromSource,
+      CallExpression: fromSource,
+      TSExternalModuleReference: fromSource,
+      TSImportType: fromSource,
     };
   },
 };

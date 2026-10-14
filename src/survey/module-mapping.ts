@@ -1,12 +1,13 @@
 import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef, LayerDef } from '../config';
+import type { ArchitectureDef, Framework, LayerDef } from '../config';
 import { dropTestFiles, importAnalysis, scan } from '../inspect';
 import { renderModuleToLayerEvidenceTopologyError } from '../operational-contract';
 import type { LayerToModuleObligation } from '../project';
 import type { SurveyResult } from './survey';
 import { collectTransformationEvidence } from './candidates';
+import { originContainerUnits, rootRestoration } from './module-mapping-origin';
 import type {
   CandidateEdge,
   RelativeImportEvidence,
@@ -19,6 +20,9 @@ export interface LayerMappingCandidate {
   layer: string;
   layout: 'folder' | 'file' | 'container' | 'router';
   disposition: 'move' | 'agent-router-decision' | 'preserve-next-route';
+  restoration?: 'restored-from-origin' | 'fallback-no-origin' | 'requires-decision';
+  originUnit?: string;
+  reason?: string;
 }
 
 export interface AliasCutoverEvidence {
@@ -52,49 +56,8 @@ export interface ModuleToLayerEvidenceInput {
   survey: SurveyResult;
   architecture: ArchitectureDef;
   nextAppRouter: boolean;
+  framework?: Framework;
   origin?: LayerToModuleObligation | null;
-}
-
-export function originContainerUnits(
-  origin: LayerToModuleObligation | null | undefined,
-): Map<string, string> {
-  if (!origin) {
-    return new Map();
-  }
-
-  const seeds = new Map(origin.origin.sources.map((source) => [source.unit, source.role]));
-  const prefix = origin.origin.sourceRoot === '.' ? '' : `${origin.origin.sourceRoot}/`;
-  const byModule = new Map<string, Set<string>>();
-
-  for (const decision of origin.target.decisions) {
-    if (seeds.get(decision.source) !== 'container-seed') {
-      continue;
-    }
-
-    const modules = new Set(decision.members.flatMap((member) =>
-      moduleOfDestination(member.destination, prefix)));
-
-    if (modules.size !== 1) {
-      continue;
-    }
-
-    const module = [...modules][0];
-
-    byModule.set(module, (byModule.get(module) ?? new Set()).add(decision.source));
-  }
-
-  return new Map([...byModule].flatMap(([module, units]) =>
-    units.size === 1 ? [[module, [...units][0]] as const] : []));
-}
-
-function moduleOfDestination(destination: string, prefix: string): string[] {
-  if (!destination.startsWith(prefix)) {
-    return [];
-  }
-
-  const segments = destination.slice(prefix.length).split('/');
-
-  return segments.length > 1 ? [segments[0]] : [];
 }
 
 export function collectModuleToLayerEvidence(
@@ -109,7 +72,7 @@ export function collectModuleToLayerEvidence(
 
   const scanned = dropTestFiles(scan(root, resolved.sourceRoot), architecture.testFiles);
   const shared = collectTransformationEvidence(root, survey, architecture);
-  const recorded = originContainerUnits(input.origin);
+  const recorded = originContainerUnits(input.origin, resolved.sourceRoot);
 
   const mappings = scanned.files.flatMap((file) => {
     const relative = sourceRelative(file.path, resolved.sourceRoot);
@@ -127,15 +90,18 @@ export function collectModuleToLayerEvidence(
 
     // Stryker disable next-line ConditionalExpression: scanned files cannot be module directories.
     if (position.kind === 'container' || position.kind === 'module') {
+      if (!resolved.rootUnits.some((unit) => unit.contains(file.path, input.framework ?? 'auto'))) {
+        return [];
+      }
+
       return [{
         source: sourcePath(resolved.sourceRoot, relative),
-        destination: sourcePath(
-          resolved.sourceRoot,
-          [
-            recorded.get(position.module.name) ?? `containers/${position.module.name}`,
-            ...relative.slice(1),
-          ].join('/'),
-        ),
+        ...rootRestoration({
+          source: sourcePath(resolved.sourceRoot, relative),
+          fallback: sourcePath(resolved.sourceRoot, ['containers', ...relative]),
+          origin: input.origin,
+          recorded,
+        }),
         module: position.module.name,
         layer: 'containers',
         layout: 'container' as const,
@@ -178,7 +144,14 @@ export function collectModuleToLayerEvidence(
     mappings,
     collisions: destinationCollisions(mappings, scanned.files.map((file) => file.path)),
     orphans: scanned.files
-      .filter((file) => resolved.classify(file.segments) === null)
+      .filter((file) => {
+        const position = resolved.classify(file.segments);
+
+        return position === null || (position.kind === 'container'
+          && position.module.name !== 'app'
+          && !resolved.rootUnits.some((unit) =>
+            unit.contains(file.path, input.framework ?? 'auto')));
+      })
       .map((file) => file.path)
       .sort(),
     edges: shared.edges,
@@ -283,7 +256,8 @@ export function destinationCollisions(
   const destinations = new Map<string, Set<string>>();
 
   const movingSources = new Set(
-    mappings.map((mapping) => normalizedPath(mapping.source)),
+    mappings.filter((mapping) => mapping.destination !== undefined)
+      .map((mapping) => normalizedPath(mapping.source)),
   );
 
   for (const mapping of mappings) {

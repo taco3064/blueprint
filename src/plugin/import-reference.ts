@@ -28,6 +28,7 @@ export interface DynamicImportAnalysis {
 
 export interface ModuleImportAnalysis {
   specifiers: string[];
+  unknown: number;
   parseError?: string;
 }
 
@@ -98,10 +99,10 @@ export function analyzeModuleImports(source: string, filePath = 'source.js'): Mo
   try {
     parsed = parseSource(source, filePath);
   } catch (error) {
-    return { specifiers: [], parseError: String(error) };
+    return { specifiers: [], unknown: 0, parseError: String(error) };
   }
 
-  const specifiers: string[] = [];
+  const result: ModuleImportAnalysis = { specifiers: [], unknown: 0 };
   const globalScope = parsed.scopeManager.globalScope!;
 
   walk(parsed.ast, parsed.visitorKeys, (node) => {
@@ -115,11 +116,13 @@ export function analyzeModuleImports(source: string, filePath = 'source.js'): Mo
     const specifier = staticImportSpecifier(sourceNode, scope);
 
     if (specifier !== null) {
-      specifiers.push(specifier);
+      result.specifiers.push(specifier);
+    } else {
+      result.unknown++;
     }
   });
 
-  return { specifiers };
+  return result;
 }
 
 function parseSource(source: string, filePath: string): ParsedSource {
@@ -228,7 +231,7 @@ function memberModuleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode
   return findVariable(scope, callee as never) === null ? args[0] : null;
 }
 
-function moduleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode | null {
+export function moduleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode | null {
   if (node.type === 'TSImportType') {
     return node.source as AstNode;
   }

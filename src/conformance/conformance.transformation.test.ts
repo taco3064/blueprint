@@ -86,7 +86,11 @@ function layerConfig(
 
 function expectContainerPlacement(playbook: string): void {
   expect(playbook).toContain('Containers are module seeds, not repeated inner technical layers');
-  expect(playbook).toContain('loadout/LoadoutScreen.tsx');
+
+  expect(playbook).toContain(
+    'containers/Loadout/LoadoutScreen.tsx → loadout/index.tsx when reviewed',
+  );
+
   expect(playbook).toContain('Remove the old pages and containers layer declarations');
   expect(playbook).toContain('Review allowedImporters and other layer-name');
 }
