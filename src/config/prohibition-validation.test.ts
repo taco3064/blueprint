@@ -12,6 +12,49 @@ const layer = (mustNot: unknown): LayerDef => ({ name: 'domain',
   does: 'policy',
   mustNot: mustNot as LayerDef['mustNot'] });
 
+describe('executable prohibition diagnostic and normalization boundaries', () => {
+  it.each([{}, { call: 'x', global: 'x' }])(
+    'reports the discriminant contract for %j', (check) => {
+      expect(() => validateProhibitions(layer([{ ...entry(), checks: [check] }]), 'auto'))
+        .toThrowError(expect.objectContaining({ fact: {
+          kind: 'must-not',
+          layer: 'domain',
+          reason: 'Each check must have exactly one capability, package, global, '
+            + 'or call discriminant.',
+        } }));
+    },
+  );
+
+  it.each([undefined, 42, true])('reports a non-object entry for %j', (value) => {
+    expect(() => validateProhibitions(layer([value]), 'auto'))
+      .toThrowError(expect.objectContaining({ fact: {
+        kind: 'must-not',
+        layer: 'domain',
+        reason: 'Executable entries and checks must be objects.',
+      } }));
+  });
+
+  it.each([undefined, 42, true, 'call'])('reports a non-object check for %j', (value) => {
+    expect(() => validateProhibitions(layer([{ ...entry(), checks: [value] }]), 'auto'))
+      .toThrowError(expect.objectContaining({ fact: {
+        kind: 'must-not',
+        layer: 'domain',
+        reason: 'Executable entries and checks must be objects.',
+      } }));
+  });
+
+  it.each([undefined, false])('distinguishes pattern matching from pattern=%j', (pattern) => {
+    const checks = [{ package: 'leaflet', pattern: true }, { package: 'leaflet', pattern }];
+
+    expect(() => validateProhibitions(layer([{ ...entry(), checks }]), 'auto')).not.toThrow();
+  });
+
+  it('accepts a colon inside a project-relative exemption path', () => {
+    expect(() => validateProhibitions(layer([{ ...entry(), exempt: ['src/a:b/**'] }]), 'auto'))
+      .not.toThrow();
+  });
+});
+
 describe('executable prohibition validation', () => {
   it.each(['a', 'a0', 'a-0'])('accepts valid id boundary %s', (id) => {
     expect(() => validateProhibitions(layer([{ ...entry(), id }]), 'auto')).not.toThrow();
