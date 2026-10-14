@@ -70,8 +70,10 @@ export function plan(
   const { configSource = null } = options;
   const handbook = handbookPath(blueprint);
 
+  const detectedFrameworks = { react: 'react', vue: 'vue', auto: undefined } as const;
+
   const stack = {
-    detectedFramework: state.framework === 'auto' ? undefined : state.framework ?? undefined,
+    detectedFramework: detectedFrameworks[state.framework ?? 'auto'],
     hasTypescript: state.hasTypescript,
     lintIntegration: options.lintIntegration ?? lintIntegrationOf(state),
   };

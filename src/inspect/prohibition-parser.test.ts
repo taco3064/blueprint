@@ -31,3 +31,28 @@ describe('parser capability probes', () => {
     expect(parse.mock.contexts).toEqual([parser]);
   });
 });
+
+describe('parser capability absence and filename boundaries', () => {
+  it.each([undefined, {}, { parserOptions: {} }])('accepts missing options %j', (options) => {
+    expect(prohibitionParserCapabilities(options, '/repo/plain.js'))
+      .toEqual({ framework: true, typeReferences: true, syntax: true });
+
+    expect(prohibitionParserCapabilities(options, '/repo/View.jsx'))
+      .toEqual({ framework: false, typeReferences: true, syntax: false });
+  });
+
+  it('uses explicit JSX enablement', () => {
+    expect(prohibitionParserCapabilities({ parserOptions: { ecmaFeatures: { jsx: true } } },
+      '/repo/View.jsx'))
+      .toEqual({ framework: true, typeReferences: true, syntax: true });
+
+    expect(prohibitionParserCapabilities({ parserOptions: { ecmaFeatures: { jsx: false } } },
+      '/repo/View.jsx').framework).toBe(false);
+  });
+
+  it.each(['/repo/thing.ts.js', '/repo/thing.tsx.js', '/repo/thing.jsx.js'])(
+    'uses the final extension of %s', (file) => {
+      expect(prohibitionParserCapabilities(undefined, file))
+        .toEqual({ framework: true, typeReferences: true, syntax: true });
+    });
+});

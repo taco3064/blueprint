@@ -30,11 +30,7 @@ function jsxEnabled(options: ProhibitionLanguageOptions | undefined): boolean {
 }
 
 function vueScriptsAvailable(options: ProhibitionLanguageOptions, file: string): boolean {
-  const parse = options.parser?.parseForESLint;
-
-  if (!parse) {
-    return false;
-  }
+  const parse = options.parser!.parseForESLint;
 
   const parserOptions = {
     ...options.parserOptions,
@@ -44,7 +40,7 @@ function vueScriptsAvailable(options: ProhibitionLanguageOptions, file: string):
   };
 
   try {
-    const proof = parse.call(options.parser,
+    const proof = parse!.call(options.parser,
       '<script>var __blueprint_probe__ = 1;</script>', parserOptions);
 
     if (proof.ast.body.length !== 1) {
@@ -52,7 +48,7 @@ function vueScriptsAvailable(options: ProhibitionLanguageOptions, file: string):
     }
 
     if (fs.existsSync(file)) {
-      parse.call(options.parser, fs.readFileSync(file, 'utf-8'), parserOptions);
+      parse!.call(options.parser, fs.readFileSync(file, 'utf-8'), parserOptions);
     }
 
     return true;

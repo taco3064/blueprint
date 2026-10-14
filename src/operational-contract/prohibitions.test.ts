@@ -5,6 +5,7 @@ import {
   renderMustNotViolation,
   renderCompactProhibitions,
   renderProhibitionPolicy,
+  renderProhibitionScope,
   renderProhibitionDetails,
   renderProhibitionDoctorMessage,
   renderProhibitionLabel,
@@ -29,6 +30,7 @@ describe('prohibition report composition', () => {
     }, { call: 'divIcon' });
 
     expect(parseProhibitionIdentity(rendered)).toEqual({ layer: 'domain', id: 'ui' });
+    expect(parseProhibitionIdentity(`Wrapped diagnostic: ${rendered}`)).toBeNull();
     expect(parseProhibitionIdentity('')).toBeNull();
     expect(parseProhibitionIdentity('Some other diagnostic')).toBeNull();
     expect(parseProhibitionIdentity('Layer "domain" prohibition "": text')).toBeNull();
@@ -177,4 +179,41 @@ describe('prohibition explanation authority', () => {
       .toContain('Checks: {"capability":"react-state"}: unavailable '
         + '(Requires resolved react framework support.).');
   });
+});
+
+describe('prohibition policy and scope selection', () => {
+  const resolved = resolveArchitecture({
+    alias: '@',
+    layers: [
+      { name: 'views', does: 'present UI' },
+      { name: 'domain', does: 'policy', mustNot: [
+        'avoid presentation coupling',
+        { id: 'ui', description: 'render UI', checks: [{ call: 'divIcon' }] },
+      ] },
+    ],
+  });
+
+  it('retains executable policy among unconstrained layers and review-only entries', () => {
+    expect(renderProhibitionPolicy(resolved)).toEqual([renderProhibitionSeverity()]);
+  });
+
+  it('reports the selected layer scope even when the first layer has no prohibition', () => {
+    expect(renderProhibitionScope(resolved, 'domain')).toContain('Governed files: src/domain/');
+    expect(renderProhibitionScope(resolved, 'views')).toBe('');
+  });
+});
+
+it('renders an unmeasured report without inventing an exit result or reason line', () => {
+  const defaults = renderProhibitionReport([fact()]);
+
+  expect(defaults.split('\n')).toEqual([
+    'Must-not prohibitions',
+    renderProhibitionSeverity(),
+    `  domain: ${renderProhibitionDetails(fact())}`,
+    '    reach: unmeasured; lint integration: unverified',
+    '    files: (unmeasured); ignores: (none)',
+    'Covered reach measures governed files, not absence of prohibited behavior. '
+    + 'Vacuous positions and module runway are not behavioral protection. '
+    + 'Static declarations do not establish a live source violation.',
+  ]);
 });

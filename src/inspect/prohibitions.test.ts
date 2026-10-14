@@ -118,3 +118,36 @@ describe('measureProhibitions', () => {
       .matchedFiles).toEqual(['source/domain/a.ts']);
   });
 });
+
+describe('measured prohibition scope and framework authority', () => {
+  it.each([
+    ['auto', 'react', 'active'], ['auto', null, 'unavailable'],
+    ['vue', 'react', 'unavailable'], ['react', null, 'active'],
+  ] as const)('resolves %s with detection %s as %s', (framework, detected, status) => {
+    const bp = structuredClone(blueprint);
+
+    bp.framework = framework;
+
+    bp.architecture.layers[0].mustNot = [{ id: 'state', description: 'state',
+      checks: [{ capability: 'react-state' }] }];
+
+    expect(measureProhibitions(bp, scan(), detected)[0].status).toBe(status);
+  });
+
+  it('matches any alternative net and excludes hidden files using the same matcher', () => {
+    const bp = structuredClone(blueprint);
+
+    bp.architecture.layerFiles = ['src/{layer}/**/*.js', 'src/{layer}/**/*.ts'];
+    bp.architecture.layerFilesIgnore = '**/hidden/*';
+
+    expect(measureProhibitions(bp,
+      scan('src/domain/a.ts', 'src/domain/hidden/.secret.ts'))[1].matchedFiles)
+      .toEqual(['src/domain/a.ts']);
+  });
+
+  it('has no implicit ignore pattern when none was configured', () => {
+    expect(measureProhibitions(blueprint, scan())[0].ignores).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}', '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+  });
+});

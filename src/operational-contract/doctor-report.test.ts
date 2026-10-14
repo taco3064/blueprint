@@ -42,3 +42,13 @@ it.each([[], ['CLAUDE.blueprint.md']])('allows omitted retained: %j', (...refere
     ? 'merge and delete: CLAUDE.blueprint.md — adoption is not done while a reference remains'
     : undefined);
 });
+
+it('does not invent finding lines for a check without prohibition findings', () => {
+  expect(renderDoctorReport([{ label: 'config', ok: true }], {})).toBe([
+    'blueprint doctor',
+    'Scope: current-config adoption; this is not proof of a historical topology transformation.',
+    '  ✓ config',
+    '',
+    '✓ Adoption complete — all 1 checks passed.',
+  ].join('\n'));
+});
