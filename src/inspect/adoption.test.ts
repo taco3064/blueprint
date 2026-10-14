@@ -326,3 +326,62 @@ describe('assessLintIntegration dependency evidence', () => {
     );
   });
 });
+
+describe('assessLintIntegration executable prohibition evidence', () => {
+  it('keeps mixed available and unresolved framework checks unverified', async () => {
+    const bp = structuredClone(blueprint);
+
+    bp.framework = 'auto';
+    bp.architecture.layerFiles = 'src/{layer}/**/*.js';
+
+    bp.architecture.layers[0].mustNot = [{
+      id: 'state', description: 'state ownership', checks: [
+        { call: 'state' }, { capability: 'react-state' },
+      ],
+    }];
+
+    const runLint = lint('passed');
+
+    expect(await assessLintIntegration(state({ framework: null }), bp, {
+      scanResult: { topDirs: [], files: [] }, load: loader(emitLint(bp)), lint: runLint,
+    })).toBe('unverified');
+
+    expect(runLint).not.toHaveBeenCalled();
+  });
+
+  it.each(['intact', 'disabled', 'unavailable'] as const)(
+    'requires the executable carrier and parser to be verified: %s', async (condition) => {
+      const bp = structuredClone(blueprint);
+
+      bp.architecture.layerFiles = condition === 'unavailable'
+        ? 'src/{layer}/**/*.tsx'
+        : 'src/{layer}/**/*.js';
+
+      bp.architecture.layers[0].mustNot = [{
+        id: 'network', description: 'network calls', checks: [{ call: 'fetch' }],
+      }];
+
+      const entries = emitLint(bp);
+
+      if (condition === 'disabled') {
+        entries.push({ rules: { 'blueprint/must-not': 'off' } });
+      }
+
+      const runLint = lint('passed');
+
+      const result = await assessLintIntegration(state(), bp, {
+        scanResult: { topDirs: [], files: [] }, load: loader(entries), lint: runLint,
+      });
+
+      expect(result).toBe(condition === 'intact' ? 'verified' : 'unverified');
+
+      if (condition === 'intact') {
+        expect(runLint).toHaveBeenCalledExactlyOnceWith(
+          process.cwd(), ['eslint'], expect.objectContaining({ reachable: true }),
+        );
+      } else {
+        expect(runLint).not.toHaveBeenCalled();
+      }
+    },
+  );
+});

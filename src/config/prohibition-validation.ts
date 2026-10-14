@@ -133,6 +133,7 @@ function validatePackage(check: Record<string, unknown>, fail: (reason: string) 
     }
   }
 
+  // Stryker disable next-line EqualityOperator: negating all private key flags preserves equality
   return JSON.stringify(['package', check.package, check.pattern === true,
     check.imports === undefined ? null : [...check.imports as string[]].sort()]);
 }
