@@ -119,6 +119,7 @@ export function prohibitionLintFindings(
   }[]; }[];
 
   const prohibitionFindings = results.flatMap((result) =>
+    // Stryker disable next-line ArrayDeclaration: the fabricated string has no matching ruleId
     (result.messages ?? []).filter((message) => message.ruleId === 'blueprint/must-not'
       && (message.severity === 1 || message.severity === 2))
       .map((message): ProhibitionLintFinding => ({
