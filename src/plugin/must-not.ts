@@ -74,7 +74,7 @@ function matches(context: Rule.RuleContext, node: ProhibitionNode, check: MustNo
   }
 
   if ('global' in check) {
-    return node.type === 'Identifier' && node.name === check.global
+    return node.name === check.global
       && globalReference(context, node);
   }
 

@@ -88,3 +88,17 @@ describe('observedProhibitions', () => {
     });
   });
 });
+
+it('keeps layer identity and matches any file net including hidden sources', () => {
+  const entry = fact();
+  const source = { ...finding(), filePath: path.resolve('src/domain/.hidden.ts') };
+
+  entry.files = ['src/domain/**/*.js', 'src/domain/**/*.ts'];
+  expect(observed(entry, [{ ...source, layer: 'other' }])).toBe(entry);
+  expect(observed(entry, [source]).prohibitionFindings).toEqual([source]);
+  entry.ignores = ['src/domain/*.ts'];
+  expect(observed(entry, [source])).toBe(entry);
+  entry.ignores = [];
+  entry.exempt = ['src/domain/*.ts'];
+  expect(observed(entry, [source])).toBe(entry);
+});

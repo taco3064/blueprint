@@ -146,6 +146,7 @@ function intactCarrier(
   fact: ProhibitionFact, config: EffectiveConfig,
 ): boolean {
   const raw = config.rules?.[fact.ruleId];
+  // Stryker disable next-line ArrayDeclaration: scalar rules lack required options
   const rule = Array.isArray(raw) ? raw : [raw];
   const expectedSeverity = fact.severity === 'error' ? 2 : 1;
 
@@ -163,6 +164,7 @@ function carrierRootMatches(
   options: { basePath?: unknown } | undefined,
   context: { root: string; lintRoot: string },
 ): boolean {
+  // Stryker disable next-line OptionalChaining: prior equality requires options
   const basePath = options?.basePath;
 
   return (basePath === undefined || typeof basePath === 'string')
@@ -171,11 +173,10 @@ function carrierRootMatches(
 }
 
 function sameCarrier(value: unknown): boolean {
-  const expected = plugin.rules?.['must-not'];
+  const expected = plugin.rules!['must-not'];
   const actual = value as { create?: unknown; meta?: unknown } | undefined;
 
   return typeof actual?.create === 'function'
-    && typeof expected?.create === 'function'
     && actual.create.toString() === expected.create.toString()
     && isDeepStrictEqual(actual.meta, expected.meta);
 }

@@ -39,8 +39,7 @@ function platformSignal(
   const object = child(node, 'object');
   const name = terminalName(node);
 
-  return Boolean(object.type === 'Identifier' && name
-    && detector.globalMembers?.[object.name!]?.includes(name)
+  return Boolean(detector.globalMembers?.[object.name!]?.includes(name!)
     && globalReference(context, object));
 }
 
@@ -75,7 +74,7 @@ function classSignal(
 ): boolean {
   const signal = classMemberName(node);
 
-  return signal !== null && names.includes(signal) && reactClass(context, node);
+  return names.includes(signal!) && reactClass(context, node);
 }
 
 function classMemberName(node: ProhibitionNode): string | null {
