@@ -13,6 +13,22 @@ function resolve(checks: MustNotCheck[], context: ProhibitionContext = {}) {
   context)[0];
 }
 
+it('preserves capability limitations instead of substituting package limitations', () => {
+  const result = resolve([{ capability: 'react-state' }], { framework: 'react' });
+
+  const limitations = [
+    'Framework calls require proven imported bindings, including aliases '
+    + 'and namespace members; unrelated names do not match.',
+    'Class state ownership and setState use require a proven React '
+    + 'Component/PureComponent subclass.',
+    'No delegated wrappers, dependency injection, application abstractions, '
+    + 'runtime execution, or cross-file value flow are inferred.',
+  ];
+
+  expect(result.checks[0].limitations).toEqual(limitations);
+  expect(result.limitations).toEqual(limitations);
+});
+
 describe('resolved prohibition authority', () => {
   it.each([{ call: 'divIcon' }, { package: 'leaflet' }] as MustNotCheck[])(
     'requires syntax parser support for every detector: %j', (check) => {
