@@ -47,7 +47,9 @@ function warningItems(application: string, context: { sourceKey: string; positio
   const { sourceKey, position } = context;
 
   const findings = group.flatMap((entry) => isMeasured(entry)
+    // Stryker disable next-line ArrayDeclaration: strings lack warn severity and are filtered
     ? entry.prohibitionFindings ?? []
+    // Stryker disable next-line ArrayDeclaration: strings lack warn severity and are filtered
     : []);
 
   const warning = [...new Map(findings.filter((finding) => finding.severity === 'warn')

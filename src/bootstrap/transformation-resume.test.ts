@@ -67,7 +67,7 @@ describe('transformation retirement prerequisites', () => {
   });
 });
 
-it('retires only artifacts that exist, after verification', () => {
+it.each([true, false])('retires only verified artifacts with logging=%s', (logging) => {
   record();
 
   const verify = vi.spyOn(inspect, 'verifyTransformationObligation')
@@ -79,7 +79,7 @@ it('retires only artifacts that exist, after verification', () => {
   const actions = transformationRetirement({
     root, state: detect(root),
     blueprint: { framework: 'react', architecture: { alias: '~app', layers: [] } },
-    requestedTopology: 'module-first', log,
+    requestedTopology: 'module-first', log: logging ? log : undefined,
   });
 
   expect(verify).toHaveBeenCalledExactlyOnceWith({
@@ -88,9 +88,13 @@ it('retires only artifacts that exist, after verification', () => {
     obligation: readTransformationObligation(root),
   });
 
-  expect(log).toHaveBeenCalledExactlyOnceWith(
-    expect.stringContaining('Assessment scope: topology-transformation'),
-  );
+  if (logging) {
+    expect(log).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('Assessment scope: topology-transformation'),
+    );
+  } else {
+    expect(log).not.toHaveBeenCalled();
+  }
 
   expect(actions).toEqual([{
     kind: 'rm', path: TRANSFORMATION_OBLIGATION_FILE,
