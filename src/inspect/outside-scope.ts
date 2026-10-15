@@ -114,7 +114,7 @@ function parseInventory(
   const parsed = parseCandidates(root, candidates, options.readFile ?? readSourceFile);
 
   const limitations = [...governed.files.flatMap((file) => fileLimitations(file, true)),
-    ...parsed.limitations,
+    ...inventory.limitations, ...parsed.limitations,
     ...unresolvedProjectReferences(root, [...governed.files, ...parsed.files], aliases)];
 
   return {
