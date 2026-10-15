@@ -138,3 +138,31 @@ describe('outside unresolved project reference evidence', () => {
       .toEqual(['entry.ts: unresolved project reference target']);
   });
 });
+
+describe('outside references lexical and physical boundaries', () => {
+  it('rejects an escaping lexical path even when a directory link points back inside', () => {
+    fs.writeFileSync(path.join(root, 'target.ts'), '');
+    fs.symlinkSync(root, path.join(path.dirname(root), 'back'), 'junction');
+
+    expect(fs.realpathSync.native(path.join(root, '../back/target.ts')))
+      .toBe(fs.realpathSync.native(path.join(root, 'target.ts')));
+
+    expect(limitations('import \'./target\';')).toEqual([]);
+
+    expect(limitations('import \'../back/target\';'))
+      .toEqual(['entry.ts: unresolved project reference ../back/target']);
+  });
+
+  it('rejects the exact parent even when its index links to application source', () => {
+    fs.writeFileSync(path.join(root, 'target.ts'), '');
+    fs.symlinkSync(path.join(root, 'target.ts'), path.join(root, '../index.ts'), 'file');
+
+    expect(fs.realpathSync.native(path.join(root, '../index.ts')))
+      .toBe(fs.realpathSync.native(path.join(root, 'target.ts')));
+
+    expect(limitations('import \'./target\';')).toEqual([]);
+
+    expect(limitations('import \'..\';'))
+      .toEqual(['entry.ts: unresolved project reference ..']);
+  });
+});
