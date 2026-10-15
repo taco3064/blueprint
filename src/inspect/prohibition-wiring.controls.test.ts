@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveArchitecture } from '../config';
 import type { Blueprint, Framework } from '../config';
@@ -51,6 +52,22 @@ describe('prohibition carrier controls', () => {
     expect(facts[0]).toMatchObject({ gate: 'unverified',
       reason: 'Effective configuration unavailable for src/domain/__blueprint_probe__.js.',
       probeFile: 'src/domain/__blueprint_probe__.js' });
+  });
+
+  it('resolves parser availability for the later executable layer', async () => {
+    const bp = blueprint();
+
+    bp.architecture.layerFiles = 'src/{layer}/**/*.ts';
+    const { facts } = await run(config(bp), bp);
+
+    expect(facts).toMatchObject([
+      { layer: 'domain', id: 'calls', status: 'unavailable', gate: 'unverified',
+        checks: [{ check: { call: 'divIcon' }, status: 'unavailable',
+          unavailableReason: 'Required source syntax parser support is unavailable.' }] },
+      { layer: 'domain', id: 'state', status: 'unavailable', gate: 'unverified',
+        checks: [{ check: { capability: 'react-state' }, status: 'unavailable',
+          unavailableReason: 'Required source syntax parser support is unavailable.' }] },
+    ]);
   });
 
   it.each([
@@ -135,7 +152,7 @@ describe('prohibition carrier controls', () => {
     const { calculate } = await run(config(bp), bp);
 
     expect(calculate.mock.calls.map(([file]) => file)).toEqual([
-      '/repo/src/domain/one.js', '/repo/src/domain/one.js',
+      path.join('/repo', 'src/domain/one.js'), path.join('/repo', 'src/domain/one.js'),
     ]);
   });
 });

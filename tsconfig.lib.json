@@ -36,6 +36,7 @@
     "rolldown.config.ts",
     "eslint.config.ts",
     "vitest.config.ts",
+    "scripts/mutation-sequencer.ts",
     "src"
   ],
   "exclude": ["dist", "node_modules", "src/**/*.test.ts"]

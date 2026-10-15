@@ -1,7 +1,11 @@
 import { defineConfig } from 'vitest/config';
+import MutationSequencer from './scripts/mutation-sequencer';
 
 export default defineConfig({
   test: {
+    ...(process.env.STRYKER_MUTATOR_WORKER === undefined
+      ? {}
+      : { sequence: { sequencer: MutationSequencer } }),
     // Stryker stages a mutated copy of the whole tree under .stryker-tmp. A
     // sandbox left behind by an interrupted run is collected from here
     // otherwise, so `npm test` executes a stale copy of every test file beside

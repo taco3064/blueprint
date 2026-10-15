@@ -31,6 +31,7 @@ function repository() {
     '.nvmrc', 'package.json', 'package-lock.json', 'stryker.config.json', 'vitest.config.ts',
     'tsconfig.json', 'tsconfig.lib.json', 'tsconfig.test.json', 'tsconfig.types.json',
     'scripts/mutation-ci.mjs', 'scripts/mutation-smoke.mjs',
+    'scripts/mutation-sequencer.ts',
   ]) fs.writeFileSync(path.join(root, file), '{}\n');
   fs.writeFileSync(path.join(root, 'src', 'rule.ts'), 'export const rule = 1\n');
   git('add', '.');
@@ -303,28 +304,30 @@ describe('mutation CI planning', () => {
     expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
   });
 
-  it('reruns passed evidence when the declared Node runtime changes', () => {
-    const { root, git } = repository();
-    const base = git('rev-parse', 'HEAD');
+  it.each(['.nvmrc', 'scripts/mutation-sequencer.ts'])(
+    'reruns passed evidence when execution authority %s changes', (authority) => {
+      const { root, git } = repository();
+      const base = git('rev-parse', 'HEAD');
 
-    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 1\n');
-    fs.appendFileSync(path.join(root, 'src', 'rule.ts'), 'export const first = 2\n');
-    git('add', '.');
-    git('commit', '-qm', 'previous head');
+      fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 1\n');
+      fs.appendFileSync(path.join(root, 'src', 'rule.ts'), 'export const first = 2\n');
+      git('add', '.');
+      git('commit', '-qm', 'previous head');
 
-    const previousManifest = planMutation(root, { base, targetLines: 1 });
+      const previousManifest = planMutation(root, { base, targetLines: 1 });
 
-    const previous = writePreviousEvidence(
-      root,
-      previousManifest,
-      [{ shard: previousManifest.shards[0] }],
-    );
+      const previous = writePreviousEvidence(
+        root,
+        previousManifest,
+        [{ shard: previousManifest.shards[0] }],
+      );
 
-    fs.writeFileSync(path.join(root, '.nvmrc'), '27\n');
-    git('commit', '-qam', 'change Node runtime');
+      fs.writeFileSync(path.join(root, authority), 'changed execution authority\n');
+      git('commit', '-qam', 'change execution authority');
 
-    expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
-  });
+      expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
+    },
+  );
 
   it('reruns a passed shard when one of its covering tests changes', () => {
     const { root, git } = repository();
