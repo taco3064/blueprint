@@ -20,11 +20,14 @@ import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import {
   renderDoctorCheck,
+  renderOutsideScopeDoctorCheck,
   renderDoctorReport,
   renderUncommittedDoctorNote,
   renderUnreachedIgnoreNote as renderOperationalUnreachedIgnoreNote,
 } from '../operational-contract';
-import { analyze } from './analyze';
+import type { ArchitectureFactsView } from '../operational-contract';
+import { collectArchitectureFacts } from './facts';
+import type { ArchitectureFacts } from './facts';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
 import {
   computeCoverage,
@@ -166,13 +169,18 @@ export async function runDoctor(
   }
 
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
+
+  const facts = collectArchitectureFacts(root, blueprint, {
+    demand: 'application-scope', dependencies: state.dependencies,
+  });
+
+  const { scanResult } = facts;
 
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
   const { checks, probed, prohibitions } = await doctorChecks(
     root,
-    { state, blueprint, scanResult, coverage, options },
+    { state, blueprint, scanResult, coverage, options, facts },
   );
 
   const ok = checks.every((check) => check.ok);
@@ -184,7 +192,17 @@ export async function runDoctor(
     uncommittedNote(state),
   ].filter((note) => note !== undefined);
 
-  emit(log, checks, { notes, json: options.json, prohibitions });
+  emit(log, checks, {
+    notes, json: options.json, prohibitions,
+    architectureFacts: {
+      outsideScope: facts.outsideScope,
+      governedWork: scanResult.governedWork,
+      importAnalysis: facts.analysis,
+      applicationScope: facts.findings
+        .filter((finding) => finding.rule === 'uncovered-application-source')
+        .map(({ rule, path, subject }) => ({ rule, path, subject })),
+    },
+  });
 
   return { ok, verdict: verdictOf(checks), checks, prohibitions };
 }
@@ -210,12 +228,13 @@ async function doctorChecks(
     scanResult: ReturnType<typeof scan>;
     coverage: Coverage;
     options: DoctorOptions;
+    facts: ArchitectureFacts;
   },
 ): Promise<{ checks: DoctorCheck[]; probed: boolean; prohibitions: ProhibitionEvidence[] }> {
-  const { state, blueprint, scanResult, coverage, options } = ctx;
+  const { state, blueprint, scanResult, coverage, options, facts } = ctx;
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
-  const findings = analyze(scanResult, blueprint, state.dependencies);
+  const { findings } = facts;
 
   // Stryker disable next-line ArrayDeclaration: unmatched fabricated entries change no finding.
   const unrecorded: ReturnType<typeof parseBaseline> = [];
@@ -254,7 +273,9 @@ async function doctorChecks(
   return {
     checks: [
       renderDoctorCheck({ kind: 'config', present: true }),
-      ...transformationChecks(root, blueprint, state),
+      ...transformationChecks(root, blueprint, { state, facts }),
+      ...[renderOutsideScopeDoctorCheck(facts.outsideScope)]
+        .filter((check) => check !== undefined),
       leftoversCheck(root, blueprint, !eslintWired && state.legacyEslintConfig !== undefined),
       eslintWiredCheck(state, eslintWired),
       lintEntrypointCheck(lintAssessment, effectiveLintIsAncestor(root, state)),
@@ -266,7 +287,7 @@ async function doctorChecks(
         baseline: splitByBaseline(findings, recorded),
         coverage,
         blueprint,
-        analysis: importAnalysis(scanResult),
+        analysis: facts.analysis,
       }),
       ...[...new Set([root, state.eslintConfigRoot ?? root])]
         .map((ledgerRoot) => suppressionsCheck(ledgerRoot,
@@ -347,8 +368,9 @@ export function ancestorLintCoversApplication(
 function transformationChecks(
   root: string,
   blueprint: Blueprint,
-  state: ProjectState,
+  input: { state: ProjectState; facts: ArchitectureFacts },
 ): DoctorCheck[] {
+  const { state, facts } = input;
   let obligation;
 
   try {
@@ -366,7 +388,9 @@ function transformationChecks(
     return [];
   }
 
-  const verification = verifyTransformationObligation({ root, obligation, blueprint, state });
+  const verification = verifyTransformationObligation({
+    root, obligation, blueprint, state, facts,
+  });
 
   return [renderDoctorCheck({
     kind: 'transformation',
@@ -482,7 +506,10 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
-  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionEvidence[] },
+  report: {
+    notes?: string[]; json?: boolean; prohibitions?: ProhibitionEvidence[];
+    architectureFacts?: ArchitectureFactsView;
+  },
 ): void {
   log(renderDoctorReport(checks, report));
 }

@@ -5,7 +5,8 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
 import { buildUnitGraph, normalizedUnitKey } from './resolve';
-import { importAnalysis, scan } from './scan';
+import { importAnalysis } from './scan';
+import { collectArchitectureFacts } from './facts';
 import type { ScanResult } from './types';
 import {
   renderDependencyLeaderboard,
@@ -97,8 +98,11 @@ async function depsContext(root: string, options: DepsOptions): Promise<{
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
   const { architecture } = blueprint;
-  const resolved = resolveArchitecture(architecture);
-  const scanned = scan(root, resolved.sourceRoot);
+
+  const { scanResult: scanned } = collectArchitectureFacts(root, blueprint, {
+    demand: 'governed-source',
+  });
+
   const graph = buildUnitGraph(scanned, architecture);
   const units = collect(graph.units, graph.edges);
 

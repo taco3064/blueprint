@@ -1,3 +1,5 @@
+import { renderOutsideScopeAnalysis } from './outside-scope';
+import type { OutsideScopeView } from './outside-scope';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
 
@@ -123,9 +125,20 @@ export function renderArchitectureReport(
   fact: {
     topology?: 'Layer → Unit' | 'Module → Layer → Unit';
     importGraph: ImportGraphFact | null;
+    outsideScope?: OutsideScopeView;
   },
 ): string {
-  const derivation = renderImportGraphDerivation(fact.importGraph);
+  const scope = fact.outsideScope === undefined
+    ? undefined
+    : renderOutsideScopeAnalysis(fact.outsideScope);
+
+  const derivation = [renderImportGraphDerivation(fact.importGraph), scope]
+    .filter((entry) => entry !== undefined).join('\n\n');
+
+  if (!findings.length && fact.outsideScope !== undefined
+    && fact.outsideScope.status !== 'complete' && fact.outsideScope.status !== 'not-applicable') {
+    return `⚠ Architecture nets found no violations, but application scope is ${fact.outsideScope.status}.\n\n${derivation}`;
+  }
 
   if (!findings.length) {
     return fact.importGraph !== null && fact.importGraph.status !== 'healthy'
@@ -301,4 +314,14 @@ function renderInspectScope(): string {
 
 export function renderTestExemptionOutput(exemption: string): OperationalText {
   return operationalText(`· ${exemption}`);
+}
+
+export function renderScopeBaselineRefusal(
+  analysis: ImportGraphFact,
+  outsideScope: OutsideScopeView,
+): OperationalText {
+  return operationalText([
+    ...(analysis.status === 'healthy' ? [] : [renderImportAnalysisUnavailable(analysis)]),
+    renderOutsideScopeAnalysis(outsideScope),
+  ].filter((entry) => entry !== undefined).join('\n'));
 }

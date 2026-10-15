@@ -1,12 +1,22 @@
 import type { DoctorCheckView } from './doctor';
 import { CURRENT_CONFIG_ADOPTION_SCOPE } from './inspect';
+import type { ImportGraphFact } from './inspect';
+import type { OutsideScopeView } from './outside-scope';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
 import type { ProhibitionReportFact } from './prohibitions';
 
+export interface ArchitectureFactsView {
+  outsideScope: OutsideScopeView;
+  governedWork?: { inventoryFiles: number; readFiles: number; parsedFiles: number };
+  importAnalysis: ImportGraphFact;
+  applicationScope: { rule: string; path: string; subject: string }[];
+}
+
 export function renderDoctorReport(
   checks: DoctorCheckView[],
-  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionReportFact[] },
+  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionReportFact[];
+    architectureFacts?: ArchitectureFactsView; },
 ): OperationalText {
   const notes = report.notes ?? [];
   const failed = checks.filter((check) => !check.ok).length;
@@ -23,6 +33,7 @@ export function renderDoctorReport(
       summary: banner,
       counts: { total: checks.length, passed, failed, skipped },
       checks,
+      ...(report.architectureFacts ? { architectureFacts: report.architectureFacts } : {}),
       ...(report.prohibitions ? { prohibitions: report.prohibitions } : {}),
       note: notes.length ? notes.join('\n') : undefined,
     }, null, 2));

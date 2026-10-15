@@ -143,9 +143,41 @@ describe('runDoctor transformation obligation', () => {
     expect(verify).toHaveBeenCalledExactlyOnceWith({
       root, obligation: obligation(), blueprint: vuePreset(),
       state: expect.objectContaining({ applicationRoot: root, framework: 'vue' }),
+      facts: expect.objectContaining({
+        demand: 'application-scope',
+        outsideScope: { status: 'not-applicable', reason: 'layer-first' },
+        scopeComplete: true,
+      }),
     });
 
     expect(check?.detail).toContain('final state verifies');
     expect(check?.detail).toContain('blueprint init --topology module-first');
   });
+});
+
+it('Doctor-hosted transformation verification reuses the measured current tree', async () => {
+  write('src/components/Item.ts', 'export const item = 1;');
+  write('blueprint-transformation.json', JSON.stringify(obligation()));
+  writeTransformationAuthority(root, obligation(), { status: 'pending' });
+
+  const actual = await vi.importActual<typeof import('./transformation-obligation')>(
+    './transformation-obligation',
+  );
+
+  verify.mockImplementation(actual.verifyTransformationObligation);
+  const read = vi.spyOn(fs, 'readFileSync');
+
+  try {
+    await doctor();
+    expect(verify).toHaveBeenCalledTimes(1);
+    const supplied = verify.mock.calls[0][0].facts;
+
+    expect(supplied?.scanResult.files.map((file) => file.path))
+      .toEqual(['src/components/Item.ts']);
+
+    expect(read.mock.calls.filter(([file]) =>
+      String(file) === path.join(root, 'src/components/Item.ts'))).toHaveLength(1);
+  } finally {
+    read.mockRestore();
+  }
 });

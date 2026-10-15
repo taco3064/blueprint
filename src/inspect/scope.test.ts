@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ArchitectureDef, Blueprint } from '../config';
 import { analyze } from './analyze';
-import { scan } from './scan';
+import { scan as sourceScan } from './scan';
+import { collectOutsideScope } from './outside-scope';
+import { resolveArchitecture } from '../config';
 import { applicationScopeFindings } from './scope';
 
 const dirs: string[] = [];
@@ -62,10 +64,19 @@ function blueprint(architecture: Partial<ArchitectureDef>): Blueprint {
   };
 }
 
+function scan(root: string, sourceRoot: string, config = blueprint({ sourceRoot }).architecture) {
+  const result = sourceScan(root, sourceRoot);
+
+  return { ...result,
+    outsideScope: collectOutsideScope(root,
+      resolveArchitecture(config),
+      result) };
+}
+
 function uncovered(root: string, architecture: Partial<ArchitectureDef> = {}): string[] {
   const { architecture: config } = blueprint(architecture);
 
-  return applicationScopeFindings(scan(root, config.sourceRoot ?? 'features'), config)
+  return applicationScopeFindings(scan(root, config.sourceRoot ?? 'features', config), config)
     .map((finding) => finding.subject);
 }
 
@@ -77,7 +88,10 @@ afterEach(() => {
 
 describe('inspect · module-first application scope', () => {
   it('reports the uncovered directories through the inspect finding list', () => {
-    const findings = analyze(scan(fixture(), 'features'), blueprint({}))
+    const findings = analyze(scan(fixture(),
+      'features'),
+    blueprint({}),
+    { demand: 'application-scope' })
       .filter((finding) => finding.rule === 'uncovered-application-source');
 
     expect(findings).toHaveLength(1);
@@ -93,7 +107,7 @@ describe('inspect · module-first application scope', () => {
     const findings = analyze(scan(fixture({
       'features/auth/components/Login/index.tsx': PLAIN,
       'e2e/login.test.ts': 'import \'~app/auth/components/Login\';\n',
-    }), 'features'), blueprint({}))
+    }), 'features'), blueprint({}), { demand: 'application-scope' })
       .filter((finding) => finding.rule === 'uncovered-application-source');
 
     expect(findings).toEqual([]);
@@ -136,9 +150,9 @@ describe('inspect · module-first application scope · alias spellings', () => {
 });
 
 describe('inspect · module-first application scope · silence', () => {
-  it('says nothing when the scan never measured the application universe', () => {
-    expect(applicationScopeFindings({ topDirs: [], files: [] }, blueprint({}).architecture))
-      .toEqual([]);
+  it('rejects unmeasured application scope', () => {
+    expect(() => applicationScopeFindings({ topDirs: [], files: [] }, blueprint({}).architecture))
+      .toThrow('requires outside-scope evidence');
   });
 
   it('holds its peace when the source root already covers the application', () => {
@@ -251,11 +265,15 @@ describe('inspect · module-first application scope · the other direction', () 
 
 describe('inspect · application universe scan', () => {
   it('reads the source outside the source root, and nothing it never descends into', () => {
-    expect(scan(fixture(), 'features').outsideFiles?.map((file) => file.path))
+    const outside = scan(fixture(), 'features').outsideScope;
+
+    expect('files' in outside ? outside.files.map((file) => file.path) : [])
       .toEqual(['app/router.ts', 'config/env.ts', 'docs/guide/example.ts', 'vite.config.ts']);
   });
 
   it('has nothing outside a source root that is the application root', () => {
-    expect(scan(fixture(), '.').outsideFiles).toEqual([]);
+    expect(scan(fixture(),
+      '.').outsideScope).toEqual({ status: 'not-applicable',
+      reason: 'source-root-is-application-root' });
   });
 });

@@ -5,7 +5,7 @@ import { analyzeDynamicImports, analyzeModuleImports } from '../plugin';
 import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
-const SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/;
+export const SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/;
 
 const FROM_RE = /\b(import|export)\b([^;'"]*?)\bfrom\b\s*['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_RE = /\bimport\s*['"]([^'"]+)['"]/g;
@@ -105,7 +105,7 @@ export function importAnalysis(scan: ScanResult): {
   };
 }
 
-const NON_SOURCE_DIRS = new Set([
+export const NON_SOURCE_DIRS = new Set([
   'node_modules',
   '.git',
   '.next',
@@ -118,7 +118,7 @@ const NON_SOURCE_DIRS = new Set([
   'coverage',
 ]);
 
-interface DirEntry {
+export interface DirEntry {
   name: string;
   isDirectory: () => boolean;
 }
@@ -144,7 +144,6 @@ interface WalkScope {
   prefix: string;
   readdir: (dir: string) => DirEntry[];
 
-  skip?: string;
 }
 
 function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
@@ -154,7 +153,7 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
     if (entry.isDirectory()) {
       const child = path.join(dir, entry.name);
 
-      if (NON_SOURCE_DIRS.has(entry.name) || relativePath(base, child) === scope.skip) {
+      if (NON_SOURCE_DIRS.has(entry.name)) {
         continue;
       }
 
@@ -165,18 +164,7 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
         .split(path.sep)
         .join('/');
 
-      const source = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
-      const extracted = extractImportAnalysis(source, rel);
-      const modules = analyzeModuleImports(source, rel);
-
-      files.push({
-        path: prefix ? `${prefix}/${rel}` : rel,
-        segments: rel.split('/'),
-        imports: extracted.imports,
-        moduleSpecifiers: modules.specifiers,
-        unknownModuleSpecifiers: modules.unknown,
-        importAnalysis: extracted.analysis,
-      });
+      files.push(readSourceFile(base, prefix ? `${prefix}/${rel}` : rel, rel));
     }
   }
 }
@@ -187,7 +175,10 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
   const base = path.join(root, sourceRoot);
 
   if (!fs.existsSync(base)) {
-    return { topDirs: [], files: [] };
+    return {
+      topDirs: [], files: [], outsideScope: { status: 'not-requested' },
+      governedWork: { inventoryFiles: 0, readFiles: 0, parsedFiles: 0 },
+    };
   }
 
   const topDirs = ordered(base, readdir)
@@ -198,27 +189,27 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
 
   walk(base, files, { base, prefix: sourceRoot === '.' ? '' : sourceRoot, readdir });
 
-  return { topDirs, files, outsideFiles: outsideSource(root, sourceRoot, readdir) };
+  return {
+    topDirs, files, outsideScope: { status: 'not-requested' },
+    governedWork: {
+      inventoryFiles: files.length, readFiles: files.length, parsedFiles: files.length,
+    },
+  };
 }
 
-function outsideSource(
-  root: string,
-  sourceRoot: string,
-  readdir: (dir: string) => DirEntry[],
-): ScannedFile[] {
-  if (sourceRoot === '.') {
-    return [];
-  }
+export function readSourceFile(root: string, file: string, relative = file): ScannedFile {
+  const source = fs.readFileSync(path.join(root, relative), 'utf-8');
+  const extracted = extractImportAnalysis(source, file);
+  const modules = analyzeModuleImports(source, file);
 
-  const files: ScannedFile[] = [];
-
-  walk(root, files, { base: root, prefix: '', readdir, skip: sourceRoot });
-
-  return files;
-}
-
-function relativePath(base: string, target: string): string {
-  return path.relative(base, target).split(path.sep).join('/');
+  return {
+    path: file,
+    segments: relative.split('/'),
+    imports: extracted.imports,
+    moduleSpecifiers: modules.specifiers,
+    unknownModuleSpecifiers: modules.unknown,
+    importAnalysis: extracted.analysis,
+  };
 }
 
 const GLOB_META = /[*?[\]{}]/;

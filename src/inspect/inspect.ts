@@ -3,19 +3,20 @@ import path from 'node:path';
 
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import {
   CURRENT_CONFIG_ADOPTION_SCOPE,
   renderBaselineGateOutput,
   renderBaselineUpdate,
   renderImportGraphDerivation,
-  renderImportAnalysisUnavailable,
+  renderScopeBaselineRefusal,
+  renderOutsideScopeOutput,
   renderInspectOutput,
   renderInspectProhibitionOutput,
   renderTestExemptionOutput,
 } from '../operational-contract';
-import { analyze } from './analyze';
+import { collectArchitectureFacts } from './facts';
+import type { ArchitectureFacts } from './facts';
 import {
   BASELINE_FILE,
   baselineSummary,
@@ -26,7 +27,6 @@ import {
 import { computeCoverage, renderCoverage } from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors, report } from './report';
-import { importAnalysis, scan } from './scan';
 import type { Finding } from './types';
 import { measureProhibitions } from './prohibitions';
 import type { ProhibitionFact } from './prohibitions';
@@ -61,28 +61,31 @@ export async function runInspect(
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
 
-  const { scanResult, findings, coverage, analysis, prohibitions }
+  const { scanResult, findings, coverage, analysis, prohibitions, scopeComplete, outsideScope }
     = inspectFacts(root, blueprint, state);
 
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
-    if (analysis.status !== 'healthy') {
-      log(renderImportAnalysisUnavailable(analysis));
+    if (analysis.status !== 'healthy' || !scopeComplete) {
+      log(renderScopeBaselineRefusal(analysis, outsideScope));
 
       return { findings, ok: false, prohibitions };
     }
 
-    return { ...lockBaseline(findings, baselineFile, { log, coverage }), prohibitions };
+    return { ...lockBaseline(findings, baselineFile, {
+      log: (output) => log(renderOutsideScopeOutput(output, outsideScope)), coverage,
+    }), prohibitions };
   }
 
   if (options.baseline) {
     return { ...baselineGate(findings, baselineFile, {
-      log, coverage, blueprint, scanResult, prohibitions, json: options.json,
+      log, coverage, blueprint, scanResult, prohibitions, analysis, outsideScope, scopeComplete,
+      json: options.json,
     }), prohibitions };
   }
 
-  const ok = !hasErrors(findings) && analysis.status === 'healthy';
+  const ok = !hasErrors(findings) && analysis.status === 'healthy' && scopeComplete;
 
   log(
     options.json
@@ -93,11 +96,15 @@ export async function runInspect(
           findings,
           coverage,
           prohibitions,
+          outsideScope,
+          governedWork: scanResult.governedWork,
           importAnalysis: analysis,
           derivation: renderImportGraphDerivation(analysis),
         }, null, 2)
       : renderInspectProhibitionOutput(renderInspectOutput({
-          architecture: report(findings, blueprint.architecture, scanResult),
+          architecture: report(findings, blueprint.architecture, {
+            analysis, outsideScope: scanResult.outsideScope,
+          }),
           coverage: renderCoverage(coverage, blueprint),
         }), prohibitions),
   );
@@ -110,11 +117,14 @@ function inspectFacts(
   blueprint: Blueprint,
   state: ReturnType<typeof detect>,
 ) {
-  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
-  const findings = analyze(scanResult, blueprint, state.dependencies);
+  const facts = collectArchitectureFacts(root, blueprint, {
+    demand: 'application-scope', dependencies: state.dependencies,
+  });
+
+  const { scanResult } = facts;
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
-  return { scanResult, findings, coverage, analysis: importAnalysis(scanResult),
+  return { ...facts, coverage,
     prohibitions: measureProhibitions(blueprint, scanResult, state.framework) };
 }
 
@@ -167,20 +177,22 @@ function baselineGate(
     log: (message: string) => void;
     coverage: Coverage;
     blueprint: Blueprint;
-    scanResult: ReturnType<typeof scan>;
+    scanResult: ArchitectureFacts['scanResult'];
+    analysis: ArchitectureFacts['analysis'];
+    outsideScope: ArchitectureFacts['outsideScope'];
+    scopeComplete: boolean;
     prohibitions: ProhibitionFact[];
     json?: boolean;
   },
 ): { findings: Finding[]; ok: boolean } {
-  const { log, coverage, blueprint, scanResult } = ctx;
+  const { log, coverage, blueprint, scanResult, analysis, outsideScope, scopeComplete } = ctx;
 
   const recorded = fs.existsSync(baselineFile)
     ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))
     : [];
 
   const split = splitByBaseline(findings, recorded);
-  const analysis = importAnalysis(scanResult);
-  const ok = !hasErrors(split.fresh) && analysis.status === 'healthy';
+  const ok = !hasErrors(split.fresh) && analysis.status === 'healthy' && scopeComplete;
 
   log(
     ctx.json
@@ -193,6 +205,8 @@ function baselineGate(
             stale: split.stale,
             coverage,
             prohibitions: ctx.prohibitions,
+            outsideScope,
+            governedWork: scanResult.governedWork,
             importAnalysis: analysis,
             derivation: renderImportGraphDerivation(analysis),
           },
@@ -200,7 +214,9 @@ function baselineGate(
           2,
         )
       : renderInspectProhibitionOutput(renderBaselineGateOutput({
-          architecture: report(split.fresh, blueprint.architecture, scanResult),
+          architecture: report(split.fresh, blueprint.architecture, {
+            analysis, outsideScope: scanResult.outsideScope,
+          }),
           baseline: baselineSummary(split),
           coverage: renderCoverage(coverage, blueprint),
         }), ctx.prohibitions),

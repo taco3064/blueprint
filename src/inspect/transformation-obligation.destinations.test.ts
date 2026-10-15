@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 
 import type { Blueprint } from '../config';
 import type { GitReader, LayerToModuleObligation, ProjectState } from '../project';
 import { verifyTransformationObligation } from './transformation-obligation';
+import { collectArchitectureFacts } from './facts';
+import * as scanner from './scan';
 
 const roots: string[] = [];
 
@@ -188,4 +190,29 @@ it('rejects module directory destinations as non-files, not wrong topology', () 
   expect(failures).toContainEqual({ code: 'destination-not-file', subject: 'src/app' });
   expect(failures.map((entry) => entry.code)).not.toContain('route-destination-not-app');
   expect(codes({ root: dir })).toEqual([]);
+});
+
+it('shared full facts block transformation on unknown outside relations without rescanning', () => {
+  const dir = root();
+
+  write(dir, 'tools/Unknown.ts', 'import(process.env.TARGET);');
+  const facts = collectArchitectureFacts(dir, blueprint(), { demand: 'application-scope' });
+
+  fs.rmSync(path.join(dir, 'tools/Unknown.ts'));
+  const scan = vi.spyOn(scanner, 'scan');
+
+  try {
+    const result = verifyTransformationObligation({
+      root: dir, state: state(dir), obligation: obligation(), blueprint: blueprint(),
+      git: git(dir), facts,
+    });
+
+    expect(result.failures).toContainEqual({ code: 'final-import-analysis-failed' });
+    expect(facts.analysis.parseFailures).toEqual([]);
+    expect(facts.scopeComplete).toBe(false);
+
+    expect(scan).not.toHaveBeenCalled();
+  } finally {
+    scan.mockRestore();
+  }
 });

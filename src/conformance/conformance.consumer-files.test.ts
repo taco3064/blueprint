@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import { buildUnitGraph, scan } from '../inspect';
+import { collectArchitectureFacts, buildUnitGraph, scan } from '../inspect';
 import type { Finding } from '../inspect';
 import { cli, configSource, makeRepo, rm } from './conformance';
 
@@ -117,7 +117,12 @@ describe('explicit external consumers through the CLI (#530)', () => {
       layers: [{ name: 'components', does: 'Presentation.', layout: 'folder' }],
     };
 
-    expect(scanned.outsideFiles?.map((file) => file.path)).toContain('.storybook/preview.ts');
+    const outside = collectArchitectureFacts(root, { framework: 'react', architecture },
+      { demand: 'application-scope' }).outsideScope;
+
+    expect('files' in outside && outside.files.map((file) => file.path))
+      .toContain('.storybook/preview.ts');
+
     const before = buildUnitGraph(scanned, architecture);
 
     expect(buildUnitGraph(scanned, { ...architecture, consumerFiles: '**/*.ts' }))

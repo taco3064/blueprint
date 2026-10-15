@@ -8,20 +8,22 @@ export type OperationalChannel
     | 'handbook'
     | 'lifecycle'
     | 'transformation';
-
 export interface OperationalSurface {
-  id: string;
-  owner: string;
-  channel: OperationalChannel;
-  delivery: OperationalDelivery;
-  audiences: readonly string[];
-  factProviders: readonly string[];
-  consumers: readonly string[];
-  targets: readonly string[];
+  id: string; owner: string;
+  channel: OperationalChannel; delivery: OperationalDelivery;
+  audiences: readonly string[]; factProviders: readonly string[];
+  consumers: readonly string[]; targets: readonly string[];
   verification: readonly string[];
 }
-
 export const OPERATIONAL_SURFACES = [
+  {
+    id: 'outside-source-scope', owner: 'outside-scope.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['adopters', 'coding agents'],
+    factProviders: ['shared architecture facts outside scope evidence'],
+    consumers: ['src/inspect/report.ts', 'src/inspect/inspect.ts', 'src/inspect/doctor.ts',
+      'src/inspect/scope.ts', 'src/inspect/outside-inventory.ts'],
+    targets: ['Inspect', 'Doctor'], verification: ['scope completeness and fallback contrasts'],
+  },
   {
     id: 'external-consumer-guidance', owner: 'consumer-files.ts', channel: 'agent-contract',
     delivery: 'generated', audiences: ['coding agents', 'repository maintainers'],

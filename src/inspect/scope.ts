@@ -2,17 +2,20 @@ import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef, ResolvedArchitecture } from '../config';
-import { renderFindingMessage } from '../operational-contract';
+import { renderFindingMessage, renderOutsideScopeError } from '../operational-contract';
 import type { Finding, ScanResult, ScannedFile } from './types';
 
 export function applicationScopeFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
+  resolved = resolveArchitecture(architecture),
 ): Finding[] {
-  const resolved = resolveArchitecture(architecture);
-
-  if (resolved.topology !== 'module-first') {
+  if (resolved.topology !== 'module-first' || resolved.sourceRoot === '.') {
     return [];
+  }
+
+  if (!scan.outsideScope || scan.outsideScope.status === 'not-requested') {
+    throw new Error(renderOutsideScopeError('not-requested'));
   }
 
   const coupled = coupledDirectories(scan, resolved);
@@ -40,7 +43,9 @@ function coupledDirectories(
 ): { imported: string[]; importing: string[] } {
   const root = sourceRoot.split('/');
 
-  const outsideFiles = (scan.outsideFiles ?? [])
+  const files = scan.outsideScope && 'files' in scan.outsideScope ? scan.outsideScope.files : [];
+
+  const outsideFiles = files
     .map((file) => ({ file, directory: fileDirectory(file.segments, root) }))
     .filter((entry) => entry.directory !== '');
 
@@ -60,7 +65,7 @@ function coupledDirectories(
   return { imported: unique(imported), importing: unique(importing) };
 }
 
-function outsideDirectory(segments: string[], sourceRoot: string[]): string {
+export function outsideDirectory(segments: string[], sourceRoot: string[]): string {
   const depth = sourceRoot.findIndex((segment, index) => segments[index] !== segment);
 
   return segments.slice(0, depth + 1).join('/');
@@ -80,11 +85,11 @@ function unique(directories: string[]): string[] {
   return [...new Set(directories)].sort();
 }
 
-function importedPaths(file: ScannedFile, aliases: [string, string][]): string[] {
+export function importedPaths(file: ScannedFile, aliases: [string, string][]): string[] {
   return file.imports.map((ref) => importedPath(ref.specifier, file.path, aliases));
 }
 
-function importedPath(
+export function importedPath(
   specifier: string,
   from: string,
   aliases: [string, string][],

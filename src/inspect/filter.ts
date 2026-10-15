@@ -14,13 +14,18 @@ export function dropTestFiles(
   const patterns = resolveTestFiles(testFiles).architectureExemptions.map(globToRegExp);
   const governed = scan.files.filter((file) => !isTestFile(file.path, patterns));
 
-  return scan.outsideFiles === undefined
-    ? { ...scan, files: governed }
-    : {
-        ...scan,
-        files: governed,
-        outsideFiles: scan.outsideFiles.filter((file) => !isTestFile(file.path, patterns)),
-      };
+  return {
+    ...scan,
+    files: governed,
+    ...(scan.outsideScope && 'files' in scan.outsideScope
+      ? {
+          outsideScope: {
+            ...scan.outsideScope,
+            files: scan.outsideScope.files.filter((file) => !isTestFile(file.path, patterns)),
+          },
+        }
+      : {}),
+  };
 }
 
 export function dropLayerFilesIgnored(
