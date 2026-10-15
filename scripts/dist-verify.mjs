@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { verifyLifecycle } from './dist-verify-lifecycle.mjs';
+import { verifyPipedOutput } from './dist-verify-pipe.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
@@ -262,6 +263,8 @@ await check('an unknown command exits 1', () => {
 
   return 'code 1';
 });
+
+await check('the built bin drains large piped output before exiting', () => verifyPipedOutput(binPath));
 
 await check('`inspect` on an undetectable stack exits 1 and names the flag', () => {
   const dir = tempDir('bp-dist-inspect-');
