@@ -68,9 +68,16 @@ it('shows vacuity, empty edges and absence of uncertainty explicitly', () => {
   expect(output).toContain('observed direct: none');
   expect(output).toContain('uncertainty: none');
 
-  expect(renderModuleDependencies({ status: 'runway', modules: [] })).toContain(
-    'repository status: runway',
-  );
+  expect(renderModuleDependencies({ status: 'runway', modules: [] })).toBe([
+    'Module dependencies — repository status: runway',
+    '  Scope: governed module source only; type-only references count. '
+    + '`testFiles` matches are excluded (`[]` exempts nothing); `layerFilesIgnore` does not hide '
+    + 'dependencies. Generated-looking source counts; existing build/cache exclusions remain. '
+    + 'Outside-source consumers have no module identity. This is bounded static analysis, '
+    + 'not the complete runtime graph.',
+    '  Observed edges never grant permission. Baseline suppression is a ratchet over known debt, '
+    + 'not proof of exact equality; it never changes this report.',
+  ].join('\n'));
 });
 
 it('separates permitted direct drift from forbidden architecture changes', () => {
@@ -94,8 +101,10 @@ it('separates permitted direct drift from forbidden architecture changes', () =>
 });
 
 it('preserves uncertainty causes and distinguishes unverified from unused', () => {
-  expect(renderModuleDependencyUnverified(row)).toContain(
-    'Unobserved declarations remain unverified, not unused: b.',
+  expect(renderModuleDependencyUnverified(row)).toBe(
+    'Module a cannot be verified exactly: src/a/index.ts: runtime-dependent-import. '
+    + 'Unobserved declarations remain unverified, not unused: b. '
+    + 'Resolve the analysis limitations; proven drift remains independently actionable.',
   );
 
   const output = renderModuleDependencyUnverified({ ...row, uncertainty: [

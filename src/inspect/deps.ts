@@ -177,7 +177,10 @@ function reportTarget(
   const key = normalizedUnitKey(target, architecture);
   const position = resolveArchitecture(architecture).classify(key.split('/'));
 
-  const targetModule = position !== null && position.kind !== 'source-root'
+  const targetModule = position !== null && (
+    // Stryker disable next-line ConditionalExpression: source-root has no module; both yield null.
+    position.kind !== 'source-root'
+  )
     ? position.module?.name ?? null
     : null;
 

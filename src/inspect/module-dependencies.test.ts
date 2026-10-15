@@ -241,3 +241,26 @@ it('sorts derived targets and uncertainty; preserves declaration order', () => {
     { cause: 'unresolved-project-reference', path: 'src/b/services/Z.ts', specifier: './ZMissing' },
   ]);
 });
+
+it('preserves distinct parser details in source-path order and maps every governed file', () => {
+  write('src/a/services/Z.ts', 'const broken: = 1;');
+  write('src/a/services/A.ts', 'export {');
+  const facts = collectArchitectureFacts(root, blueprint, { demand: 'governed-source' });
+  const row = facts.moduleDependencies!.modules[0];
+
+  expect(row.uncertainty.map((evidence) => evidence.path))
+    .toEqual(['src/a/services/A.ts', 'src/a/services/Z.ts']);
+
+  expect(row.uncertainty[0].detail).not.toBe(row.uncertainty[1].detail);
+
+  for (const evidence of row.uncertainty) {
+    const file = facts.governedFiles.find((candidate) => candidate.path === evidence.path)!;
+
+    expect(evidence.detail).toBe(file.importAnalysis!.parseError);
+  }
+
+  expect([...facts.projectReferences.keys()]).toEqual(facts.governedFiles);
+
+  expect(new Set(facts.governedFiles.map((file) => file.path)).size)
+    .toBe(facts.governedFiles.length);
+});
