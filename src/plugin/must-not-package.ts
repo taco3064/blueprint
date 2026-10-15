@@ -34,10 +34,6 @@ export function packageMatch(
     return true;
   }
 
-  if (node.type === 'ExportAllDeclaration') {
-    return true;
-  }
-
   if (!['ImportDeclaration', 'ExportNamedDeclaration'].includes(node.type)) {
     return false;
   }
@@ -47,8 +43,8 @@ export function packageMatch(
       ? nodeName(child(entry, 'imported'))
       : entry.type === 'ExportSpecifier'
         ? nodeName(child(entry, 'local'))
-        : entry.type === 'ImportDefaultSpecifier' ? 'default' : '*';
+        : entry.type === 'ImportDefaultSpecifier' ? 'default' : undefined;
 
-    return name === '*' || check.imports!.includes(name!);
+    return check.imports!.includes(name!);
   });
 }

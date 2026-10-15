@@ -75,8 +75,10 @@ describe('must-not project checks', () => {
     'export { divIcon as icon } from "leaflet"',
     'import type { divIcon } from "leaflet"',
     'export type { divIcon } from "leaflet"',
-    'export * from "leaflet"',
-    'import * as L from "leaflet"',
+    'import type { divIcon as Icon } from "leaflet"',
+    'export type { divIcon as Icon } from "leaflet"',
+    'import { type divIcon as Icon } from "leaflet"',
+    'export { type divIcon as Icon } from "leaflet"',
   ])('covers named static symbols %s', (source) => {
     expect(lint(source, { package: 'leaflet', imports: ['divIcon'] })).toHaveLength(1);
   });
@@ -84,16 +86,42 @@ describe('must-not project checks', () => {
   it.each([
     'import {other} from "leaflet"', 'import X from "leaflet"',
     'require("leaflet").divIcon()', 'import("leaflet")',
+    'import { other as divIcon } from "leaflet"',
+    'export { other as divIcon } from "leaflet"',
+    'import type { other as divIcon } from "leaflet"',
+    'export type { other as divIcon } from "leaflet"',
   ])('does not infer named symbols outside static references %s', (source) => {
     expect(lint(source, { package: 'leaflet', imports: ['divIcon'] })).toEqual([]);
   });
 
-  it('matches default by exported name', () => {
-    expect(lint(
-      'import Icon from "leaflet"', { package: 'leaflet', imports: ['default'] },
-    )).toHaveLength(1);
+  it.each([
+    'import * as L from "leaflet"; L.other()',
+    'import * as L from "leaflet"; L.divIcon()',
+    'import type * as L from "leaflet"',
+    'export * from "leaflet"',
+    'export * as L from "leaflet"',
+    'export type * from "leaflet"',
+    'export type * as L from "leaflet"',
+  ])('requires a whole-package ban for namespace references %s', (source) => {
+    expect(lint(source, { package: 'leaflet', imports: ['divIcon'] })).toEqual([]);
+
+    expect(lint(source, { package: 'leaflet' })).toMatchObject([
+      { ruleId: 'blueprint/must-not', severity: 2 },
+    ]);
   });
 
+  it.each([
+    'import Icon from "leaflet"',
+    'import type Icon from "leaflet"',
+    'import { default as Icon } from "leaflet"',
+    'export { default as Icon } from "leaflet"',
+    'export type { default as Icon } from "leaflet"',
+  ])('matches default by exported name %s', (source) => {
+    expect(lint(source, { package: 'leaflet', imports: ['default'] })).toHaveLength(1);
+  });
+});
+
+describe('must-not global and call checks', () => {
   it.each(['WebSocket', 'new WebSocket("x")', 'type Socket = WebSocket'])(
     'finds global reference %s', (source) => {
       expect(lint(source, { global: 'WebSocket' })).toHaveLength(1);
