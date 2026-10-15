@@ -42,3 +42,5 @@ export { ConfigValidationError } from './validation';
 export type { ConfigValidationFact } from './validation';
 export type * from './types';
 export type { ResolvedRootUnit, ResolvedRootUnitFiles, ResolvedRootUnitImport } from './root-unit';
+export { globToRegExp } from './globs';
+export type { ResolvedConsumerFiles } from './consumer-files';

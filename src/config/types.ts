@@ -150,6 +150,16 @@ export interface ArchitectureDef {
   layerFilesIgnore?: string | string[];
   /** Test-file glob(s), resolved through the architecture test-file policy. */
   testFiles?: string | string[];
+  /**
+   * Explicit application-relative globs for external consumers outside sourceRoot.
+   * Supports **, *, ?, and flat brace alternatives with / separators. Omitted
+   * or [] declares none. Consumers remain outside the architecture topology;
+   * module-first scope allows their imports into governed source, never the
+   * reverse. This does not certify public-entry/API use. Keep patterns narrow;
+   * broad matches can hide outside-source mistakes. Tests retain their separate
+   * exemption policy. No effect for files inside sourceRoot or sourceRoot: '.'.
+   */
+  consumerFiles?: string | string[];
   /** Naming conventions, keyed by concept, e.g. `{ hook: 'useX + reactivity' }`. */
   naming?: Record<string, string>;
 }

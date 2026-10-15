@@ -1,3 +1,4 @@
+export { renderConsumerFiles } from './consumer-files';
 export {
   renderAuthoringAlternative,
   renderAuthoringHandoff,

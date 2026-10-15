@@ -258,6 +258,42 @@ owns: [
 Portable globs use `/`, `**`, `*`, `?`, and flat brace alternatives such as `*.{ts,tsx}`. Negation,
 character classes, extglobs, and nested braces are outside the dialect shared by lint and inspect.
 
+### External consumers
+
+`architecture.consumerFiles?: string | string[]` explicitly declares source files that consume
+governed application code while staying outside the Module → Layer → Unit topology. It defaults
+to no consumers; omission and `[]` preserve existing behavior. A single string is shorthand for
+one pattern. Non-string values and empty or whitespace-only patterns fail validation.
+
+```js
+consumerFiles: ['.storybook/preview.ts', 'e2e/**/*.{ts,tsx}', 'scripts/seed.ts'],
+```
+
+Patterns use the same portable matcher as `testFiles`, relative to the **Blueprint application
+root**, not `sourceRoot` or the process temporary directory. `/`, `**`, `*`, `?`, and flat brace
+alternatives are supported; negation, character classes, extglobs, and nested braces are not.
+Pattern order and equivalent duplicates do not change classification.
+
+Only scanned files outside `sourceRoot` can receive this role. A broad pattern such as
+`**/*.stories.tsx` never exempts governed files inside it. With `sourceRoot: '.'`, there is no
+outside-source set and no effect. Layer-first behavior is unchanged. No preset, framework, or
+tool name automatically declares consumers; keep patterns narrow because broad declarations
+can hide genuine outside-source mistakes.
+
+In module-first scope analysis, a declared consumer importing governed source does not establish
+`uncovered-application-source`. Governed source importing that consumer still does. Files are
+classified before directories, so an undeclared importer in the same directory remains an error.
+Consumers have no module, layer, unit, container, ownership, or public-entry identity and add no
+`dependsOn`, unit-graph, or architecture-reach evidence. This is only a source-scope distinction:
+it does not certify canonical aliases, legal deep imports, target APIs, or public-entry use.
+
+`testFiles` keeps its separate policy and takes precedence, removing matching tests in both
+directions before consumer classification. `layerFilesIgnore` cannot hide scope evidence;
+scanner exclusions, `additionalAliases`, and baselines keep their existing roles. A declaration
+does not move or scaffold files, expand scanning, or suppress other applicable findings. Generated
+handbook and Agent guidance contain the declared patterns and contract, never a live matched-file
+list. Activation is an owner decision; existing configurations need no migration.
+
 ## Rules
 
 A rule setting is a tier string or an object with a tier and options:

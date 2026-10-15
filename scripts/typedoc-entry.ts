@@ -79,6 +79,7 @@ export type {
   RepeatedFolderShape,
   ResolveArchitectureContext,
   ResolvedArchitecture,
+  ResolvedConsumerFiles,
   ResolvedDependencyEndpoint,
   ResolvedDependencyVerdict,
   ResolvedImportReference,

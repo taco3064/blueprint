@@ -28,6 +28,8 @@ function frameworkProblem(
 }
 
 const renderers = {
+  'consumer-files': () => 'architecture.consumerFiles must be a non-empty string or an array '
+    + 'of non-empty strings; [] declares no external consumers.',
   'must-not': (fact) => `Layer "${fact.layer}" mustNot: ${fact.reason}.`,
   'blueprint-name': () => 'name must be a non-empty string when provided.',
   'invalid-framework': (fact) =>

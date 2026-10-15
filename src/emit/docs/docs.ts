@@ -1,6 +1,6 @@
 import type { Blueprint } from '../../config';
 import type { StackFacts } from '../lint';
-import { withValidationErrorRendering } from '../../operational-contract';
+import { renderConsumerFiles, withValidationErrorRendering } from '../../operational-contract';
 import {
   renderArchitecture,
   renderComponentShape,
@@ -45,6 +45,7 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
       severity: blueprint.emit?.lint?.severity,
     }),
     renderModuleGrowth(architecture),
+    renderConsumerFiles(architecture, '##'),
     renderUnit(architecture),
     renderImportDiscipline(architecture, stack.lintIntegration),
     renderComponentShape(blueprint.componentShape),

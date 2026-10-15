@@ -1,5 +1,7 @@
 import type { Blueprint } from '../../config';
-import { renderAgentLifecycle, withValidationErrorRendering } from '../../operational-contract';
+import {
+  renderAgentLifecycle, renderConsumerFiles, withValidationErrorRendering,
+} from '../../operational-contract';
 import type { StackFacts } from '../lint';
 import {
   renderBehavioral,
@@ -36,7 +38,10 @@ function emitAgentContractUnchecked(
   const { compact, contractDoc, ...stack } = options;
 
   if (compact) {
-    return `${renderCompactContract(blueprint, stack, contractDoc)}\n`;
+    return [
+      renderCompactContract(blueprint, stack, contractDoc),
+      renderConsumerFiles(blueprint.architecture, '###'),
+    ].filter(Boolean).join('\n\n') + '\n';
   }
 
   const { architecture, principles, rules } = blueprint;
@@ -50,6 +55,7 @@ function emitAgentContractUnchecked(
       severity: blueprint.emit?.lint?.severity,
     }),
     renderModuleGrowth(architecture),
+    renderConsumerFiles(architecture, '###'),
     renderNaming(architecture.naming),
     renderHardRules(blueprint, stack),
     renderComponentShape(blueprint.componentShape),

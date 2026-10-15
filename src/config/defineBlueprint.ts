@@ -12,6 +12,7 @@ import { migrateLegacyBlueprint } from './legacy';
 import { resolveArchitecture } from './resolved';
 import { activeSetting } from './settings';
 import { configValidationError } from './validation';
+import { validateConsumerFiles } from './consumer-files';
 import { validateProhibitions } from './prohibition-validation';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
@@ -42,6 +43,7 @@ const ARCHITECTURE_KEYS = [
   'layerFiles',
   'layerFilesIgnore',
   'testFiles',
+  'consumerFiles',
   'naming',
 ];
 
@@ -125,6 +127,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw configValidationError({ kind: 'architecture-layers-empty' });
   }
 
+  validateConsumerFiles(architecture.consumerFiles);
   validateLayers(layers);
   validateModules(modules);
   validateAdditionalAliases(additionalAliases);
