@@ -98,9 +98,9 @@ function collectGitFiles(root: string, git: GitReader, add: (file: string) => vo
     throw new Error(renderOutsideScopeError('inventory'));
   }
 
-  const visible = result.stdout.split('\0')
-    // Stryker disable next-line MethodExpression: empty paths name the rejected root directory.
-    .filter(Boolean);
+  const entries = result.stdout.split('\0');
+  // Stryker disable next-line MethodExpression: empty paths name the rejected root directory.
+  const visible = entries.filter(Boolean);
 
   for (const file of visible) {
     const entry = fs.lstatSync(path.join(root, file), { throwIfNoEntry: false });

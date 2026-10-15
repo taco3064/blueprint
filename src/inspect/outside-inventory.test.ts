@@ -220,13 +220,14 @@ describe('outside inventory mutation witnesses', () => {
       });
 
       const source = scan(root);
+      const canonicalRoot = fs.realpathSync.native(root);
       const read = vi.spyOn(fs, 'readdirSync');
 
       expect(outsideInventory(root, resolved, { scan: source }).files)
         .toEqual(['a/run.ts', 'z/run.ts']);
 
       expect(read.mock.calls.map(([directory]) => directory))
-        .toEqual([path.join(root, 'a'), path.join(root, 'z')]);
+        .toEqual([path.join(canonicalRoot, 'a'), path.join(canonicalRoot, 'z')]);
     },
   );
 });
