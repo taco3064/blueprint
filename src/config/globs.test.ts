@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { globToRegExp } from './globs';
 
 describe('portable glob compilation', () => {
+  it('treats a closing brace without an opening brace as literal text', () => {
+    const pattern = globToRegExp('a}');
+
+    expect(pattern.source).toBe('^a\\}$');
+    expect(pattern.test('a}')).toBe(true);
+    expect(pattern.test('')).toBe(false);
+    expect(pattern.test('a')).toBe(false);
+  });
+
   it('consumes a literal from first character to last', () => {
     const pattern = globToRegExp('tools/seed.ts');
 
