@@ -25,7 +25,9 @@ export function reconcileModuleDependencies(facts: Input): ModuleDependencies | 
     declaredDirect: [...module.dependsOn],
     reachable: [...module.reachable],
     observedDirect: [],
+    // Stryker disable next-line ArrayDeclaration: reconcileRow overwrites this before any read.
     matched: [],
+    // Stryker disable next-line ArrayDeclaration: reconcileRow overwrites this before any read.
     missingDeclarations: [],
     unusedDeclarations: [],
     unverifiedDeclarations: [],
@@ -62,6 +64,7 @@ function status(modules: ModuleDependencyRow[]): ModuleDependencies['status'] {
 }
 
 function moduleName(position: ResolvedSourcePosition | null): string | undefined {
+  // Stryker disable next-line OptionalChaining: module-first positions always carry a module.
   return position && 'module' in position ? position.module?.name : undefined;
 }
 
@@ -87,6 +90,7 @@ function observeReference(
   reference: { file: ScannedFile; specifier: string }, row: ModuleDependencyRow, facts: Input,
 ): void {
   const { file, specifier } = reference;
+  // Stryker disable next-line OptionalChaining: the collector maps every governed file.
   const project = facts.projectReferences.get(file)?.get(specifier);
   const target = facts.resolved.resolveImport(file.segments, specifier).target;
   const to = moduleName(target);
@@ -101,7 +105,12 @@ function observeReference(
 }
 
 function insideSource(path: string, sourceRoot: string): boolean {
-  return sourceRoot === '.' ? !path.startsWith('../') : path.startsWith(`${sourceRoot}/`);
+  return sourceRoot === '.'
+    ? (
+  // Stryker disable next-line MethodExpression: existing normalized targets cannot start/end ../.
+        !path.startsWith('../')
+      )
+    : path.startsWith(`${sourceRoot}/`);
 }
 
 function observeEdge(
@@ -153,7 +162,9 @@ function reconcileRow(row: ModuleDependencyRow): void {
 
 function uniqueUncertainty(values: ModuleDependencyUncertainty[]): ModuleDependencyUncertainty[] {
   const key = (value: ModuleDependencyUncertainty): string => JSON.stringify([
-    value.path, value.specifier ?? '', value.cause, value.detail ?? '',
+    value.path, value.specifier ?? '', value.cause,
+    // Stryker disable next-line LogicalOperator: each path/specifier/cause has only one detail.
+    value.detail ?? '',
   ]);
 
   return [...new Map(values.map((value) => [key(value), value])).values()]

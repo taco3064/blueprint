@@ -105,3 +105,22 @@ it('missing classified targets do not become proven source edges', () => {
     ] }, {},
   ] });
 });
+
+it('keeps escaping project references uncertain when sourceRoot is the application root', () => {
+  fs.rmSync(path.join(root, 'src'), { recursive: true });
+  blueprint.architecture.sourceRoot = '.';
+  write('a/services/A.ts', 'import \'@/b/services/B\'; import \'../../../outside/Target\';');
+  write('b/services/B.ts');
+  const facts = collectArchitectureFacts(root, blueprint, { demand: 'governed-source' });
+  const importer = facts.governedFiles.find((file) => file.path === 'a/services/A.ts')!;
+
+  expect(facts.projectReferences.get(importer)!.get('../../../outside/Target'))
+    .toEqual({ path: '../outside/Target', exists: false });
+
+  expect(facts.moduleDependencies!.modules[0]).toMatchObject({
+    matched: ['b'], uncertainty: [{
+      cause: 'unresolved-project-reference', path: 'a/services/A.ts',
+      specifier: '../../../outside/Target',
+    }],
+  });
+});
