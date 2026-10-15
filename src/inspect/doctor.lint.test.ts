@@ -64,6 +64,7 @@ describe('runDoctor · normal lint reachability', () => {
     expect(result.verdict).toBe('incomplete');
 
     expect(check).toEqual({
+      sourceKey: 'lint-entrypoint\0',
       label: 'normal lint entrypoint reaches eslint',
       ok: false,
       detail: 'package.json lint entrypoint runs `oxlint`, but no reachable delegated '
@@ -72,6 +73,7 @@ describe('runDoctor · normal lint reachability', () => {
     });
 
     expect(live).toEqual({
+      sourceKey: 'live-lint\0',
       label: 'reachable eslint leg passes live (skipped — no reachable eslint leg)',
       ok: true,
       skipped: 'see the normal lint entrypoint check above for the missing or unverified path',
@@ -108,7 +110,9 @@ describe('runDoctor · normal lint reachability', () => {
       'lint:code': 'eslint src',
     });
 
-    expect(check).toEqual({ label: 'normal lint entrypoint reaches eslint', ok: true });
+    expect(check).toEqual({
+      sourceKey: 'lint-entrypoint\0', label: 'normal lint entrypoint reaches eslint', ok: true,
+    });
   });
 });
 
@@ -127,6 +131,7 @@ describe('runDoctor · live eslint evidence', () => {
     expect(result.verdict).toBe('incomplete');
 
     expect(check).toEqual({
+      sourceKey: 'live-lint\0',
       label: 'reachable eslint leg passes live',
       ok: false,
       detail: '`eslint src` — 1 error(s), 0 warning(s); the native ESLint gate failed',

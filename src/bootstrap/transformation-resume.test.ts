@@ -108,7 +108,7 @@ it('reports the bounded assessment before refusing failed transformation verific
   });
 
   expect(() => transformationRetirement({ root, state: detect(root), log,
-    blueprint: { framework: 'react', architecture: { layers: [] } },
+    blueprint: { framework: 'react', architecture: { alias: '@', layers: [] } },
   })).toThrow();
 
   expect(log).toHaveBeenCalledExactlyOnceWith(

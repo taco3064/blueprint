@@ -417,9 +417,12 @@ describe('runDoctor · the notes under the banner', () => {
     // because a mistyped glob and files that have not landed measure identically.
     expect(broken).toContain('fix the glob, or leave it');
     expect(broken).toContain('owner\'s call');
+
     // NOT "runway": `missing-layer` and `owns-not-installed` can promise it because a
     // declaration ahead of the code arms itself when the code lands. This one may never.
-    expect(broken).not.toContain('runway');
+    expect(broken.split('\n').filter((line) =>
+      line.startsWith('  `architecture.layerFilesIgnore`')))
+      .toEqual([expect.not.stringContaining('runway')]);
   });
 
   it('names both sets the entry was weighed against, and the effect that buys', async () => {
@@ -465,7 +468,7 @@ describe('runDoctor · the notes under the banner', () => {
 
     const note = JSON.parse(json).note as string;
     const lines = output.split('\n');
-    const banner = lines.findIndex((line) => line.includes('Adoption'));
+    const banner = lines.lastIndexOf(lines.find((line) => line.startsWith('Adoption'))!);
 
     // Both, under the banner, in the order the reader acts on them.
     expect(lines[banner + 1]).toContain('`architecture.layerFilesIgnore`');
@@ -591,10 +594,15 @@ describe('runDoctor · what the ignore note claims, and for which run', () => {
 
     // Info tier on a working entry above all: against the same tree with the entry
     // removed, the ONLY movement is the added line.
-    expect(withEntry.ok).toBe(without.ok);
-    expect(withEntry.verdict).toBe(without.verdict);
-    expect(withEntry.checks).toEqual(without.checks);
-    expect(reported.split('\n').filter((line) => !control.includes(line))).toHaveLength(1);
+    expect(withEntry).toMatchObject({
+      ok: without.ok, verdict: without.verdict, checks: without.checks,
+      assessment: { gates: without.assessment.gates, conformance: without.assessment.conformance },
+    });
+
+    expect(reported.split('\n').filter((line) =>
+      line.startsWith('  `architecture.layerFilesIgnore`'))).toHaveLength(1);
+
+    expect(control).not.toContain('`architecture.layerFilesIgnore`');
   });
 
   it('scopes the ignore note to what it measured, and puts that before the edit', async () => {

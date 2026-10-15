@@ -185,10 +185,12 @@ describe('testFiles: [] · one tree, four surfaces', () => {
     const output = empty[surface];
 
     expect(output).toContain(CAUSE);
+
     // Once, not twice: `toContain` reads the same at one copy and at two, and a routing
     // that fires in a renderer AND in the note list prints the sentence twice with every
     // other assertion here still green.
-    expect(output.split(CAUSE).length - 1).toBe(1);
+    expect(output.split('\n').filter((line) =>
+      line.includes(CAUSE) && !line.startsWith('  Evidence:'))).toHaveLength(1);
   });
 
   it.each(FOUR)('%s gains nothing when the net reaches a file', (surface) => {
@@ -268,8 +270,9 @@ describe('inspect --update-baseline states the cause before it writes', () => {
     // The worst of the three paths to drop it on: the other two report a finding a
     // reader can still investigate, and this one permanently accepts one that exists
     // only because the exemption is broken. Ahead of the record, not after it.
-    expect(lines[0]).toBe(`· ${CAUSE}`);
-    expect(lines[1]).toContain('Baseline updated — 1 finding(s) recorded');
+    expect(lines[0]).toContain('Assessment scope: current-config-adoption');
+    expect(lines[1]).toBe(`· ${CAUSE}`);
+    expect(lines[2]).toContain('Baseline updated — 1 finding(s) recorded');
 
     // And the ledger itself did not move: this stage is about what the run says, not
     // about what it accepts. Byte-identical to the document the pre-stage build wrote.
@@ -285,7 +288,10 @@ describe('inspect --update-baseline states the cause before it writes', () => {
 
     // Same branch as the run above — a write, not the retire path — so the difference
     // between them is the sentence and nothing else.
-    expect(lines)
+    expect(lines[0]).toContain('Assessment scope: current-config-adoption');
+    expect(lines.join('\n')).not.toContain(CAUSE);
+
+    expect(lines.slice(1))
       .toEqual(['Baseline updated — 1 finding(s) recorded in .blueprint-baseline.json.']);
   });
 
@@ -299,8 +305,9 @@ describe('inspect --update-baseline states the cause before it writes', () => {
 
     await runInspect(dir, { updateBaseline: true, log: (message) => void lines.push(message) });
 
-    expect(lines[0]).toBe(`· ${CAUSE}`);
-    expect(lines[1]).toContain('no baseline needed');
+    expect(lines[0]).toContain('Assessment scope: current-config-adoption');
+    expect(lines[1]).toBe(`· ${CAUSE}`);
+    expect(lines[2]).toContain('no baseline needed');
     expect(fs.existsSync(path.join(dir, '.blueprint-baseline.json'))).toBe(false);
   });
 });

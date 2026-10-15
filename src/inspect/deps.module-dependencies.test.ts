@@ -108,7 +108,7 @@ describe('module facts · shared collection ownership', () => {
 
     expect(collect).toHaveBeenCalledTimes(1);
     expect(scan).toHaveBeenCalledExactlyOnceWith(root, 'src');
-    expect(filter).toHaveBeenCalledTimes(command === 'deps' ? 1 : 2);
+    expect(filter).toHaveBeenCalledTimes(2);
     expect(outsideScan).toHaveBeenCalledTimes(command === 'deps' ? 0 : 1);
     const collected = collect.mock.results[0].value;
 

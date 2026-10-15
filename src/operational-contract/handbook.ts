@@ -29,10 +29,10 @@ export function renderHeader(name: string | undefined): string {
 
   return [
     `# ${title}`,
-    renderAssessmentGuidance(),
     '',
     '> Generated from `blueprint.config` by `@kekkai/blueprint` — edit the blueprint, '
     + 'not this file.',
+    renderAssessmentGuidance(),
   ].join('\n');
 }
 

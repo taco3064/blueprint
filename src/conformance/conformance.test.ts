@@ -129,9 +129,13 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(0);
+
     // A `--no-install` fixture has no resolvable eslint, so the survival check cannot
     // run — and the banner no longer counts that skip as a pass (field run #129).
-    expect(doctor.output).toContain('⊘ Adoption unverified — 10 of 12 checks passed');
+    expect(doctor.output).toContain(
+      'Adoption unverified: required executable evidence could not run.',
+    );
+
     expect(doctor.output).not.toContain('all 12 checks passed');
   });
 });
@@ -150,7 +154,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(0);
-    expect(doctor.output).toContain('10 of 12 checks passed');
+    expect(doctor.output).toContain('Executable gates: unverified (0 failed, 2 unverified)');
     expect(doctor.output).toContain('nothing adoption wrote is committed');
     expect(doctor.output).toContain('not installed');
     // The remedy, and whose call it is — a note that only states the problem sends an
@@ -173,7 +177,11 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // The banner is the LAST line, not merely followed by no VCS wording: the note
     // rides in a `? [x] : []` spread, and an empty arm is only pinned by a seam that
     // would notice anything appearing in it.
-    expect(doctor.output.trimEnd().endsWith('proves what those checks cover.')).toBe(true);
+    expect(doctor.output).not.toContain('nothing adoption wrote is committed');
+
+    expect(doctor.output.trimEnd().endsWith(
+      'Adoption unverified: required executable evidence could not run.',
+    )).toBe(true);
   });
 
   it('carries the same note on the JSON channel', async () => {

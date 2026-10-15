@@ -20,6 +20,7 @@ function facts() {
   fs.writeFileSync(path.join(root, 'src/auth/components/Login.ts'), 'export const login = 1;');
 
   return collectArchitectureFacts(root, { framework: 'react', architecture: {
+    alias: '@',
     modules: [{ name: 'auth', does: 'authentication' }],
     layers: [{ name: 'components', does: 'UI', layout: 'file' }],
   } }, { demand: 'application-scope' });
@@ -95,7 +96,10 @@ describe('assessTransformation', () => {
   it('keeps unavailable source evidence visible independently of recorded decisions', () => {
     const measured = facts();
 
-    measured.outsideScope = { status: 'unavailable', reason: 'permission-denied' };
+    measured.outsideScope = {
+      status: 'unavailable', inventoryMode: 'none', reason: 'permission-denied',
+    };
+
     const result = assessTransformation(obligation(), [], measured);
 
     expect(result.gates.status).toBe('passed');
