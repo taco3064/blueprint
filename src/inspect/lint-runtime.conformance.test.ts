@@ -1,3 +1,5 @@
+import { deriveAdoptionAssessment } from './adoption-assessment';
+import { doctorAssessmentItems } from './assessment-runtime';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -92,8 +94,16 @@ describe('executable prohibitions through real ESLint CLI and Doctor reporting',
         observation: !error, affectsExit: error })));
 
     const check = liveLintCheck(evidence, assessment);
-    const human = renderDoctorReport([check], {});
-    const json = JSON.parse(renderDoctorReport([check], { json: true }));
+
+    const human = renderDoctorReport([check], {
+      assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [check])),
+    });
+
+    const json = JSON.parse(renderDoctorReport([check], {
+      assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [check])), json: true,
+    }));
 
     expect(check.ok).toBe(!error);
     expect(human).toContain('render-ui');

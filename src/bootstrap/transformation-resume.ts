@@ -14,6 +14,7 @@ import {
 } from '../project';
 import type { ProjectState } from '../project';
 import {
+  renderAssessmentText,
   renderDestructiveActionFailure,
   renderTransformationObligationError,
   renderTransformationRetireNote, renderActionLine,
@@ -26,6 +27,7 @@ export function transformationRetirement(input: {
   state: ProjectState;
   blueprint: Blueprint | null;
   authoring?: boolean;
+  log?: (line: string) => void;
   requestedTopology?: 'layer-first' | 'module-first';
 }): Extract<Action, { kind: 'rm' }>[] | null {
   const obligation = readTransformationObligation(input.root);
@@ -63,6 +65,8 @@ export function transformationRetirement(input: {
     blueprint: input.blueprint,
     state: input.state,
   });
+
+  input.log?.(renderAssessmentText(verification.assessment));
 
   if (!verification.ok) {
     throw new Error(renderTransformationObligationError({

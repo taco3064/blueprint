@@ -198,7 +198,7 @@ describe('verifyTransformationObligation authority', () => {
       blueprint: blueprint(),
       state: state(dir),
       git: git(dir),
-    })).toEqual({ ok: true, failures: [] });
+    })).toMatchObject({ ok: true, failures: [] });
   });
 
   it('reports unavailable and changed repository authority', () => {
@@ -338,7 +338,7 @@ describe('verifyTransformationObligation origin inventory', () => {
       expect(verifyTransformationObligation({
         root: dir, state: state(dir), blueprint: blueprint(), obligation: seedless,
         git: git(dir, { tree: { status: 1, stdout } }),
-      })).toEqual({
+      })).toMatchObject({
         ok: false,
         failures: [{ code: 'origin-inventory-unavailable', expected: 'origin-head' }],
       });

@@ -1,3 +1,4 @@
+import type { AdoptionAssessment } from '../config';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
 
@@ -145,7 +146,7 @@ export interface UpgradeVerificationFact {
   application: string;
   inspect: { ok: boolean; findings: number };
   doctor: {
-    verdict: 'complete' | 'unverified' | 'incomplete';
+    assessment: AdoptionAssessment;
     failed: string[];
     skipped: string[];
   };
@@ -160,14 +161,18 @@ export function renderUpgradeVerificationResult(fact: UpgradeVerificationFact): 
       + 'baseline) — run `npx blueprint inspect --baseline` there; fix regressions, record only '
       + 'understood pre-existing debt, and never lower a rule to reach green';
 
-  const doctor = fact.doctor.verdict === 'complete'
-    ? `  ✓ doctor complete in ${app}`
-    : `  ✗ doctor ${fact.doctor.verdict} in ${app}${fact.doctor.failed.length
+  const doctor = fact.doctor.assessment.gates.status === 'passed'
+    ? `  ✓ doctor executable gates passed in ${app}`
+    : `  ✗ doctor executable gates ${fact.doctor.assessment.gates.status} in ${app}${fact.doctor.failed.length
       ? ` — failed: ${fact.doctor.failed.join('; ')}`
       : ''}${fact.doctor.skipped.length ? ` — could not run: ${fact.doctor.skipped.join('; ')}` : ''}`
-      + ' — run `npx blueprint doctor` there; the upgrade stays pending until it reports complete';
+      + ' — run `npx blueprint doctor` there; the upgrade stays pending '
+      + 'until its executable gates pass';
 
-  return operationalText([inspect, doctor]);
+  return operationalText([inspect, doctor,
+    '  Current-config review remains separate from lifecycle completion; inspect the Doctor '
+    + 'assessment for responsibility, reach, and known debt.',
+  ]);
 }
 
 export function renderUpgradeVerificationPending(): OperationalText {
@@ -178,6 +183,7 @@ export function renderUpgradeVerificationPending(): OperationalText {
 export function renderUpgradeComplete(source: string, target: string): OperationalText {
   return operationalText(`Blueprint upgrade complete: lifecycle ${source} → ${target} recorded after `
     + '`blueprint inspect --baseline` and `blueprint doctor` passed in every adopted application. '
+    + 'This records the bounded lifecycle workflow, not semantic ownership correctness. '
     + 'Run the project\'s own lint, typecheck, test, and build commands before committing.');
 }
 

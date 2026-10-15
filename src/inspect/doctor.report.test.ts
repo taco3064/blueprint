@@ -192,7 +192,7 @@ describe('runDoctor · what the run reports', () => {
     // A failure outranks a skip in the verdict: rewrites of `verdictOf`'s failure test
     // all fall through to `unverified` on exactly this shape.
     expect(JSON.parse(json).verdict).toBe('incomplete');
-    expect(output).toContain('1 of 12 check(s) failed');
+    expect(output).toContain('Adoption blocked: executable gates failed.');
 
     // The two arms this fixture is NOT in, so a rewrite that picks one of them is red.
     expect(output).not.toContain('Adoption complete');
@@ -230,7 +230,7 @@ describe('runDoctor · what the run reports', () => {
     });
 
     expect(green.verdict).toBe('unverified');
-    expect(complete).toContain('⊘ Adoption unverified');
+    expect(complete).toContain('Adoption unverified');
     expect(JSON.parse(json).counts).toEqual({ total: 12, passed: 11, failed: 0, skipped: 1 });
 
     // And one failure with still nothing skipped: the third arm, and the clause about
@@ -246,7 +246,7 @@ describe('runDoctor · what the run reports', () => {
     });
 
     expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 12 check(s) failed, and 1 could not run');
+    expect(red).toContain('Adoption blocked: executable gates failed.');
   });
 
   it('gives the JSON the same banner and ratio the screen gets', async () => {
@@ -268,7 +268,7 @@ describe('runDoctor · what the run reports', () => {
     // Byte-for-byte the line the reader gets, because two channels wording the same
     // verdict differently is how the reader and the automation start disagreeing.
     expect(text).toContain(parsed.summary);
-    expect(parsed.summary).toContain('⊘ Adoption unverified');
+    expect(parsed.summary).toContain('Adoption unverified');
 
     // `ok` stays "nothing FAILED" — the same thing this command's exit code means.
     // Flipping it on a skip would push a consumer following it into failing on a red

@@ -1,3 +1,4 @@
+import { renderAssessmentGuidance } from './adoption-assessment';
 import { renderLifecycle } from './agent';
 
 function joinLine(...parts: string[]): string {
@@ -6,6 +7,7 @@ function joinLine(...parts: string[]): string {
 
 const PACKAGED_AGENT_CONTRACT = [
   '# Blueprint agent operating discipline',
+  renderAssessmentGuidance(),
   '',
   joinLine(
     '> Shipped with `@kekkai/blueprint`. This is the ',

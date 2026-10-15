@@ -1,3 +1,4 @@
+import type { AdoptionAssessment } from '../config';
 import type { AliasConsumer, AliasConsumerStatus } from '../project';
 
 export type Severity = 'error' | 'warn' | 'info';
@@ -66,8 +67,11 @@ export interface ScanResult {
   governedWork?: ScanWork;
 }
 
-/** One adoption-completeness check — the unit of the doctor report. */
+/** One executable gate check — the unit of the doctor report. */
 export interface DoctorCheck {
+  assessment?: AdoptionAssessment;
+  /** Source-owned stable check kind and canonical target. */
+  sourceKey?: string;
   label: string;
   ok: boolean;
   /** The independently measured alias consumer, when this is an alias check. */

@@ -359,7 +359,8 @@ describe('doctor and the playbook define "done" identically (field issue #13)', 
     const done = await cli(dir, ['doctor']);
 
     expect(done.code).toBe(0);
-    expect(done.output).toContain('10 of 12 checks passed');
+    expect(done.output).toContain('Executable gates: unverified');
+    expect(done.output).not.toContain('Adoption complete');
     expect(done.output).not.toContain('blueprint-authoring.md');
   });
 

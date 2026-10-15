@@ -49,24 +49,24 @@ const prompts = {
 The topology has already been selected; do not re-infer or change it from the current source shape.
 Start by running \`npx @kekkai/blueprint init --topology layer-first\`.
 Follow Blueprint's generated instructions and runtime evidence from there.
-Do not bypass failed, incomplete, or unverified checks, and do not claim completion until Blueprint's verification reports the adoption complete.`,
+Do not bypass failed or unverified checks. Read Doctor's assessment and separately report gates, structural evidence, reach, and remaining semantic review. Green gates do not prove ownership, placement, topology, or product correctness; retain known debt and limitations.`,
     'module-first': `Adopt @kekkai/blueprint in this repository using the module-first topology.
 The topology has already been selected; do not re-infer or change it from the current source shape.
 Start by running \`npx @kekkai/blueprint init --topology module-first\`.
 Follow Blueprint's generated instructions and runtime evidence from there.
-Do not bypass failed, incomplete, or unverified checks, and do not claim completion until Blueprint's verification reports the adoption complete.`,
+Do not bypass failed or unverified checks. Read Doctor's assessment and separately report gates, structural evidence, reach, and remaining semantic review. Green gates do not prove ownership, placement, topology, or product correctness; retain known debt and limitations.`,
   },
   'zh-TW': {
     'layer-first': `請在這個專案以 layer-first 拓樸導入 @kekkai/blueprint。
 拓樸已由使用者明確選定；不要根據目前的原始碼結構重新推斷或改成其他拓樸。
 先執行 \`npx @kekkai/blueprint init --topology layer-first\`。
 後續以 Blueprint 產生的指示與執行階段證據為依據。
-不得略過標示為 failed、incomplete 或 unverified 的檢查，也不能在 Blueprint 驗證導入完成前宣稱完成。`,
+不得略過失敗或未驗證的檢查。請讀取 Doctor 的 assessment，分別回報檢查結果、結構證據、涵蓋範圍與待審查項目。檢查全綠不能證明模組歸屬、分層、拓樸或產品模型正確；必須保留既有債務與證據限制。`,
     'module-first': `請在這個專案以 module-first 拓樸導入 @kekkai/blueprint。
 拓樸已由使用者明確選定；不要根據目前的原始碼結構重新推斷或改成其他拓樸。
 先執行 \`npx @kekkai/blueprint init --topology module-first\`。
 後續以 Blueprint 產生的指示與執行階段證據為依據。
-不得略過標示為 failed、incomplete 或 unverified 的檢查，也不能在 Blueprint 驗證導入完成前宣稱完成。`,
+不得略過失敗或未驗證的檢查。請讀取 Doctor 的 assessment，分別回報檢查結果、結構證據、涵蓋範圍與待審查項目。檢查全綠不能證明模組歸屬、分層、拓樸或產品模型正確；必須保留既有債務與證據限制。`,
   },
 } as const;
 

@@ -15,6 +15,7 @@ export interface ResolvedMustNotCheck {
 }
 
 export interface ResolvedProhibition {
+  declarationSlot: number;
   layer: string;
   id: string | null;
   description: string;
@@ -34,8 +35,9 @@ export function resolveProhibitions(
   context: ProhibitionContext = {},
   runway = false,
 ): ResolvedProhibition[] {
-  return (layer.mustNot ?? []).map((entry) => {
+  return (layer.mustNot ?? []).map((entry, declarationSlot) => {
     const base = {
+      declarationSlot,
       layer: layer.name,
       reach: runway ? 'runway' as const : 'unmeasured' as const,
       severity: context.severity ?? 'error',

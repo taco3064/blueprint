@@ -1,3 +1,5 @@
+import { deriveAdoptionAssessment } from '../inspect/adoption-assessment';
+import { doctorAssessmentItems } from '../inspect/assessment-runtime';
 import { describe, expect, it } from 'vitest';
 import { resolveArchitecture, resolveProhibitions } from '../config';
 import type { ResolvedProhibition } from '../config';
@@ -46,12 +48,18 @@ describe('prohibition report composition', () => {
   });
 
   it('retains supplied doctor facts in JSON without inventing an absent catalog', () => {
-    expect(JSON.parse(renderDoctorReport([], { json: true }))).not.toHaveProperty('prohibitions');
+    expect(JSON.parse(renderDoctorReport([],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [])), json: true }))).not.toHaveProperty('prohibitions');
 
-    expect(JSON.parse(renderDoctorReport([], { json: true, prohibitions: [] })).prohibitions)
+    expect(JSON.parse(renderDoctorReport([],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [])), json: true, prohibitions: [] })).prohibitions)
       .toEqual([]);
 
-    expect(JSON.parse(renderDoctorReport([], { json: true, prohibitions: [fact()] })).prohibitions)
+    expect(JSON.parse(renderDoctorReport([],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [])), json: true, prohibitions: [fact()] })).prohibitions)
       .toEqual([fact()]);
   });
 });

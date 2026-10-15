@@ -227,10 +227,12 @@ describe('transformation obligation authority evidence', () => {
       const prefix = applicationRoot === '.' ? '' : `${applicationRoot}/`;
 
       const reader = vi.fn(git(repository, {
-        tree: { status: 0, stdout: `${prefix}src/containers/Login.ts\n${prefix}src/pages/Login.ts\n` },
+        tree: { status: 0,
+          stdout: `${prefix}src/containers/Login.ts\n${prefix}src/pages/Login.ts\n` },
       }));
 
-      expect(verify(dir, { obligation: changed, git: reader })).toEqual({ ok: true, failures: [] });
+      expect(verify(dir, { obligation: changed, git: reader })).toMatchObject({ ok: true,
+        failures: [] });
 
       expect(reader).toHaveBeenCalledWith([
         'ls-tree', '-r', '--name-only', 'origin-head', '--', `${prefix}src`,
@@ -249,7 +251,7 @@ describe('transformation obligation inventory and final evidence', () => {
 
     expect(verify(dir, {
       obligation: seedless, git: git(dir, { tree: { status: 0, stdout: '' } }),
-    })).toEqual({ ok: true, failures: [] });
+    })).toMatchObject({ ok: true, failures: [] });
   });
 
   it('compares members even when the role and unit have not changed', () => {
@@ -296,7 +298,7 @@ describe('transformation obligation inventory and final evidence', () => {
       obligation: next,
       state: state(dir, { nextRouter: 'app' }),
       git: git(dir, { tree: { status: 0, stdout: 'src/app/login/page.tsx\n' } }),
-    })).toEqual({ ok: true, failures: [] });
+    })).toMatchObject({ ok: true, failures: [] });
   });
 
   it('ignores source-looking backup files and preserves dots in route unit names', () => {
@@ -315,7 +317,7 @@ describe('transformation obligation inventory and final evidence', () => {
         status: 0,
         stdout: 'src/containers/Login.ts\nsrc/pages/Login.route.ts\nsrc/pages/Backup.ts.old\n',
       },
-    }) })).toEqual({ ok: true, failures: [] });
+    }) })).toMatchObject({ ok: true, failures: [] });
   });
 
   it('does not permit a baseline to hide remaining architecture errors', () => {

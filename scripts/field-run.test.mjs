@@ -46,7 +46,7 @@ const run = (over = {}) => ({
   dir: '/tmp/field/new-claude',
   code: 0,
   minutes: '8.1',
-  doctor: { code: 0, output: '✓ Adoption complete — all 7 checks passed.\n(not a git repo)' },
+  doctor: { code: 0, output: 'Gates passed; semantic review remains required.\n(not a git repo)' },
   inspect: { code: 0, output: '' },
   feedback: feedback(),
   ...over,
@@ -58,6 +58,21 @@ const compose = (runs) => composeIssue({
   skipped: [],
   tree: 'abc1234',
   packedVersion: '3.0.0',
+});
+
+it.each([
+  'Gates passed; semantic review remains required.',
+  'Gates passed for current source; declared positions remain unexercised.',
+  'Adoption blocked: executable gates failed.',
+  'Adoption unverified: required evidence is incomplete or unavailable.',
+])('keeps the assessment headline in field evidence: %s', (headline) => {
+  const outcome = compose([run({
+    feedback: feedback({ blocked: 1 }),
+    doctor: { code: 0, output: `blueprint doctor\n${headline}\nUNRELATED-TAIL` },
+  })]);
+
+  expect(outcome.body).toContain(`doctor exit 0 — ${headline}`);
+  expect(outcome.body).not.toContain('doctor exit 0 — UNRELATED-TAIL');
 });
 
 describe('field prompt topology arguments', () => {

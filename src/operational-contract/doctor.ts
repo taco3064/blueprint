@@ -11,6 +11,7 @@ import { renderAliasConsumer } from './doctor-alias';
 import type { AliasConsumerEvidence } from './doctor-alias';
 
 export interface DoctorCheckView {
+  sourceKey?: string;
   prohibitionFindings?: {
     filePath: string;
     message: string;
@@ -117,6 +118,16 @@ type TransformationCheckFact = Extract<DoctorCheckFact, { kind: 'transformation'
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
 export function renderDoctorCheck(fact: DoctorCheckFact): DoctorCheckView {
+  const target = fact.kind === 'alias-consumer'
+    ? fact.evidence.consumer
+    : fact.kind === 'suppressions' ? fact.ledger ?? SUPPRESSIONS_FILE : '';
+
+  const kind = fact.kind.startsWith('wiring-') ? 'wiring' : fact.kind;
+
+  return { ...renderCheckFact(fact), sourceKey: `${kind}\0${target}` };
+}
+
+function renderCheckFact(fact: DoctorCheckFact): DoctorCheckView {
   if (fact.kind === 'alias-consumer') {
     return renderAliasConsumer(fact);
   }

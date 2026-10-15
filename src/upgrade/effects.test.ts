@@ -1,9 +1,9 @@
+import { deriveAdoptionAssessment, runInspect } from '../inspect';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runInspect } from '../inspect';
 import {
   defaultHandoff,
   defaultReconciler,
@@ -60,7 +60,7 @@ describe('upgrade effects', () => {
 
     expect(result.application).toBe('.');
     expect(result.inspect).toEqual({ ok: true, findings: 1 });
-    expect(result.doctor.verdict).toBe('incomplete');
+    expect(result.doctor.assessment.gates.status).toBe('failed');
     expect(result.doctor.failed).toEqual(['eslint wired to emitLint']);
     expect(verificationPassed(result)).toBe(false);
   });
@@ -85,11 +85,13 @@ describe('upgrade effects', () => {
     expect(log).not.toHaveBeenCalled();
     expect(before.inspect).toEqual({ ok: false, findings: 1 });
 
-    expect(after).toEqual({
+    expect(after).toMatchObject({
       application: '.',
       inspect: { ok: true, findings: 0 },
       doctor: {
-        verdict: 'incomplete',
+        assessment: { scope: 'current-config-adoption', gates: { status: 'failed', failed: 1,
+          unverified: 3 },
+        conformance: { baselinedDebt: 1 }, review: { status: 'required' } },
         failed: ['eslint wired to emitLint'],
         skipped: [
           'normal lint entrypoint reaches eslint',
@@ -120,17 +122,20 @@ describe('upgrade effects', () => {
     expect(defaultHandoff({ root: installed, version: '4.1.0' }, root)).toBe(1);
   });
 
-  it('passes only when inspect passes and doctor is complete', () => {
+  it('passes only when inspect passes and Doctor executable gates pass', () => {
     const passing = {
       application: '.',
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'complete' as const, failed: [], skipped: [] },
+      doctor: { assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+        gates: { status: 'passed' as const, failed: 0, unverified: 0 } }, failed: [], skipped: [] },
     };
 
     expect(verificationPassed(passing)).toBe(true);
     expect(verificationPassed({ ...passing, inspect: { ok: false, findings: 1 } })).toBe(false);
 
-    expect(verificationPassed({ ...passing, doctor: { ...passing.doctor, verdict: 'unverified' } }))
+    expect(verificationPassed({ ...passing, doctor: { ...passing.doctor,
+      assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+        gates: { status: 'unverified', failed: 0, unverified: 1 } } } }))
       .toBe(false);
   });
 });

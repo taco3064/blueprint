@@ -71,7 +71,7 @@ describe('runDoctor · the verdict and the banner it prints', () => {
     // eslint resolvable here the survival check cannot run, and the banner used to fold
     // that skip into the pass count — so this suite asserted a verdict resting on a check
     // that never ran, exactly as a field agent found in the wild (#129).
-    expect(output).toContain('⊘ Adoption unverified — 10 of 12 checks passed, 2 could not run');
+    expect(output).toContain('Adoption unverified: required executable evidence could not run.');
     expect(output).toContain('nothing here proves the emitted rules are alive in it');
     expect(output).not.toContain('all 12 checks passed');
     // Truly clean, no baseline — the label stays plain instead of claiming
@@ -90,7 +90,7 @@ describe('runDoctor · the verdict and the banner it prints', () => {
     expect(checks.find((c) => c.label.includes('leftover'))?.detail).toBeUndefined();
   });
 
-  it('stays silent about an owns package that is not installed', async () => {
+  it('retains declaratory package evidence without failing the check', async () => {
     // The fixture installs `vue` only, so `inspect` reports `pinia` and `axios`
     // as declared-not-installed. doctor runs the same analysis and says nothing:
     // ownership declared ahead of the install is most legitimate at adoption,
@@ -102,9 +102,9 @@ describe('runDoctor · the verdict and the banner it prints', () => {
     const result = await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
 
     expect(result.ok).toBe(true);
-    expect(output).not.toContain('owns-not-installed');
-    expect(output).not.toContain('pinia');
-    expect(output).not.toContain('axios');
+    expect(output).toContain('owns-not-installed');
+    expect(output).toContain('pinia');
+    expect(output).toContain('axios');
 
     expect(result.checks.find((c) => c.label.includes('architecture'))?.detail)
       .not.toContain('not in package.json');
@@ -147,14 +147,14 @@ describe('runDoctor · files the adoption should have removed', () => {
     const detail = checks.find((c) => c.label.includes('reference'))?.detail;
 
     expect(detail).toContain('CLAUDE.blueprint.md');
-    expect(output).toContain('Adoption incomplete');
+    expect(output).toContain('Adoption blocked');
 
     // This fixture also SKIPS the survival check (no eslint resolvable here), and the
     // red arm used to count only failures — so the banner said "1 of 8 failed" while
     // the JSON said `skipped: 1`. An agent reads the banner and stops (#129): fixing
     // the ✗ would have handed it a green it was never told was partly unproven.
-    expect(output).toContain('could not run (⊘ above)');
-    expect(output).toContain('fixing the ✗ leaves those still unproven');
+    expect(output).toContain('Executable gates: failed');
+    expect(output).toContain('unverified');
 
     // Only a reference is on disk, so its clause is the whole detail. The
     // authoring and stale-contract slots sit after it, and a doctor claiming a

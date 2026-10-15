@@ -2,13 +2,30 @@ export type OperationalDelivery = 'runtime' | 'generated' | 'checked-in';
 export type OperationalChannel = 'agent-contract' | 'authoring' | 'bootstrap' | 'cli'
   | 'field' | 'handbook' | 'lifecycle' | 'transformation';
 export interface OperationalSurface {
-  id: string; owner: string;
-  channel: OperationalChannel; delivery: OperationalDelivery;
+  id: string; owner: string; channel: OperationalChannel; delivery: OperationalDelivery;
   audiences: readonly string[]; factProviders: readonly string[];
   consumers: readonly string[]; targets: readonly string[];
   verification: readonly string[];
 }
 export const OPERATIONAL_SURFACES = [
+  {
+    id: 'assessment-claims', owner: 'assessment-claims.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['adopters', 'coding agents'],
+    factProviders: ['assessment item identity and required action'],
+    consumers: ['src/inspect/assessment-item.ts', 'src/inspect/assessment-responsibility.ts',
+      'src/inspect/assessment-prohibitions.ts', 'src/inspect/transformation-assessment.ts',
+      'src/upgrade/assessment.ts'], targets: ['assessment claims and next steps'],
+    verification: ['source claim and action vocabulary'],
+  },
+  {
+    id: 'adoption-assessment', owner: 'adoption-assessment.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['adopters', 'coding agents'],
+    factProviders: ['shared adoption assessment', 'source-owned headline'],
+    consumers: ['src/inspect/inspect.ts', 'src/inspect/doctor.ts',
+      'src/inspect/adoption-assessment.ts', 'src/inspect/assessment-runtime.ts'],
+    targets: ['Inspect', 'Doctor', 'Agent contract', 'handbook', 'authoring playbook'],
+    verification: ['assessment rendering contrasts', 'generated guidance parity'],
+  },
   {
     id: 'module-dependencies', owner: 'module-dependencies.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['adopters', 'coding agents'],
@@ -49,8 +66,7 @@ export const OPERATIONAL_SURFACES = [
     delivery: 'generated', audiences: ['coding agents'],
     factProviders: ['resolved Blueprint', 'measured lint integration'],
     consumers: ['src/emit/agent/sections.ts', 'src/remove/signatures.ts'],
-    targets: ['AGENTS.md', 'CLAUDE.md'],
-    verification: ['byte snapshots', 'emitter parity'],
+    targets: ['AGENTS.md', 'CLAUDE.md'], verification: ['byte snapshots', 'emitter parity'],
   },
   {
     id: 'packaged-agent-contract', owner: 'agent-contract.ts', channel: 'agent-contract',
@@ -74,11 +90,9 @@ export const OPERATIONAL_SURFACES = [
   },
   {
     id: 'authoring-eslint', owner: 'authoring-eslint.ts', channel: 'authoring',
-    delivery: 'generated', audiences: ['adoption agents'],
-    factProviders: [
+    delivery: 'generated', audiences: ['adoption agents'], factProviders: [
       'project state', 'Blueprint', 'effective eslint owner', 'application base path',
-    ],
-    consumers: ['src/bootstrap/eslint.ts'], targets: ['eslint.config.blueprint.mjs'],
+    ], consumers: ['src/bootstrap/eslint.ts'], targets: ['eslint.config.blueprint.mjs'],
     verification: ['eslint config tests', 'nested-application conformance'],
   },
   {
@@ -147,8 +161,7 @@ export const OPERATIONAL_SURFACES = [
       'src/project/resolve.ts',
       'src/remove/proven.ts',
       'src/survey/module-mapping.ts',
-    ],
-    targets: ['init output', 'generated launcher and gitignore comments'],
+    ], targets: ['init output', 'generated launcher and gitignore comments'],
     verification: ['runtime fact contrast tests', 'OperationalText type gate'],
   },
   {
@@ -170,8 +183,7 @@ export const OPERATIONAL_SURFACES = [
       'src/bootstrap/plan.ts', 'src/emit/agent/agent.ts', 'src/emit/agent/targets.ts',
       'src/emit/docs/docs.ts', 'src/presets/presets.ts', 'src/project/blueprints.ts',
       'src/project/resolve.ts',
-    ],
-    targets: ['config-load errors', 'init errors', 'composition errors', 'emitter errors'],
+    ], targets: ['config-load errors', 'init errors', 'composition errors', 'emitter errors'],
     verification: ['validation message tests', 'OperationalText type gate', 'AST bypass guard'],
   },
   {
@@ -187,9 +199,7 @@ export const OPERATIONAL_SURFACES = [
     consumers: [
       'src/inspect/doctor-lint.ts', 'src/inspect/doctor.ts',
       'src/inspect/wiring.ts',
-    ],
-    targets: ['doctor text and JSON'],
-    verification: ['doctor contrast tests'],
+    ], targets: ['doctor text and JSON'], verification: ['doctor contrast tests'],
   },
   {
     id: 'doctor-alias', owner: 'doctor-alias.ts', channel: 'cli',
@@ -203,8 +213,7 @@ export const OPERATIONAL_SURFACES = [
     id: 'doctor-report', owner: 'doctor-report.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
     factProviders: ['doctor checks', 'current-config adoption scope'],
-    consumers: ['src/inspect/doctor.ts'],
-    targets: ['doctor report text and JSON'],
+    consumers: ['src/inspect/doctor.ts'], targets: ['doctor report text and JSON'],
     verification: ['doctor report contrast tests'],
   },
   {
@@ -221,8 +230,7 @@ export const OPERATIONAL_SURFACES = [
     consumers: [
       'src/inspect/analyze.ts', 'src/inspect/dependency.ts', 'src/inspect/folders.ts',
       'src/inspect/scope.ts', 'src/inspect/root-units.ts',
-    ],
-    targets: ['inspect text and JSON'], verification: ['finding matrix tests'],
+    ], targets: ['inspect text and JSON'], verification: ['finding matrix tests'],
   },
   {
     id: 'inspect-diagnostics', owner: 'inspect.ts', channel: 'cli',
@@ -231,8 +239,7 @@ export const OPERATIONAL_SURFACES = [
     consumers: [
       'src/inspect/baseline.ts', 'src/inspect/coverage.ts', 'src/inspect/inspect.ts',
       'src/inspect/report.ts',
-    ],
-    targets: ['inspect text and JSON'], verification: ['baseline and coverage contrast tests'],
+    ], targets: ['inspect text and JSON'], verification: ['baseline and coverage contrast tests'],
   },
   {
     id: 'rules-diagnostics', owner: 'rules.ts', channel: 'cli',
@@ -281,8 +288,7 @@ export const OPERATIONAL_SURFACES = [
     consumers: [
       'src/emit/lint/container.ts', 'src/emit/lint/lint.ts',
       'src/emit/lint/structural.ts',
-    ],
-    targets: ['generated ESLint rules', 'rules and impact output'],
+    ], targets: ['generated ESLint rules', 'rules and impact output'],
     verification: ['lint message matrix tests', 'byte parity'],
   },
   {
@@ -304,8 +310,7 @@ export const OPERATIONAL_SURFACES = [
       'src/bootstrap/transformation-recovery.ts',
       'src/project/transformation-obligation.ts',
       'src/project/transformation-authority.ts',
-    ],
-    targets: ['terminal actions'], verification: ['transformation tests'],
+    ], targets: ['terminal actions'], verification: ['transformation tests'],
   },
   {
     id: 'transformation-recovery-playbook', owner: 'transformation-recovery.ts',
@@ -347,15 +352,14 @@ export const OPERATIONAL_SURFACES = [
     id: 'lifecycle-help', owner: 'lifecycle-help.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
     factProviders: ['lifecycle command registry'],
-    consumers: ['src/cli/help.ts'], targets: ['stdout'],
-    verification: ['command coverage tests'],
+    consumers: ['src/cli/help.ts'], targets: ['stdout'], verification: ['command coverage tests'],
   },
   {
     id: 'upgrade-runtime', owner: 'upgrade.ts', channel: 'lifecycle',
     delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
     factProviders: ['upgrade facts', 'resolved upgrade plan', 'verification results'],
-    consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/decide.ts', 'src/upgrade/effects.ts'],
-    targets: ['upgrade output'],
+    consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/decide.ts',
+      'src/upgrade/effects.ts', 'src/upgrade/assessment.ts'], targets: ['upgrade output'],
     verification: ['upgrade runtime tests', 'OperationalText type gate'],
   },
   {
@@ -370,23 +374,20 @@ export const OPERATIONAL_SURFACES = [
     delivery: 'generated', audiences: ['coding agents'],
     factProviders: ['upgrade catalog operations'],
     consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/semantic.ts'],
-    targets: ['blueprint-upgrade.md'],
-    verification: ['catalog instruction parity tests'],
+    targets: ['blueprint-upgrade.md'], verification: ['catalog instruction parity tests'],
   },
   {
     id: 'upgrade-playbook', owner: 'upgrade-playbook.ts', channel: 'lifecycle',
     delivery: 'generated', audiences: ['coding agents'],
     factProviders: ['pending upgrade', 'upgrade catalog operations'],
-    consumers: ['src/upgrade/semantic.ts'],
-    targets: ['blueprint-upgrade.md'],
+    consumers: ['src/upgrade/semantic.ts'], targets: ['blueprint-upgrade.md'],
     verification: ['upgrade playbook tests'],
   },
   {
     id: 'remove-runtime', owner: 'remove.ts', channel: 'lifecycle',
     delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
     factProviders: ['removal plan', 'ownership evidence', 'post-removal footprint'],
-    consumers: ['src/remove/apply.ts', 'src/remove/remove.ts'],
-    targets: ['remove output'],
+    consumers: ['src/remove/apply.ts', 'src/remove/remove.ts'], targets: ['remove output'],
     verification: ['remove runtime tests', 'init to remove round-trip fixtures'],
   },
   {

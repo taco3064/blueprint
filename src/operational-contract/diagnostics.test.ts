@@ -1,3 +1,5 @@
+import { deriveAdoptionAssessment } from '../inspect/adoption-assessment';
+import { doctorAssessmentItems } from '../inspect/assessment-runtime';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -59,15 +61,27 @@ describe('operational diagnostic prose', () => {
       ok: true, skipped: expect.stringContaining('unverified path'),
     });
 
-    expect(passed).toEqual({ label: 'blueprint.config.mjs present', ok: true });
+    expect(passed).toEqual({ sourceKey: 'config\0', label: 'blueprint.config.mjs present',
+      ok: true });
 
-    const complete = renderDoctorReport([passed], {});
+    const complete = renderDoctorReport([passed],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [passed])) });
 
-    expect(complete).toContain('Adoption complete');
+    expect(complete).toContain('Gates passed; Blueprint found no known review item');
     expect(complete).not.toContain('Stryker was here');
-    expect(renderDoctorReport([skipped], {})).toContain('Adoption unverified');
-    expect(renderDoctorReport([opaque], {})).toContain('Adoption unverified');
-    expect(renderDoctorReport([failed], {})).toContain('Adoption incomplete');
+
+    expect(renderDoctorReport([skipped],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [skipped])) })).toContain('Adoption unverified');
+
+    expect(renderDoctorReport([opaque],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [opaque])) })).toContain('Adoption unverified');
+
+    expect(renderDoctorReport([failed],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [failed])) })).toContain('Adoption blocked');
   });
 
   it('renders finding actions from distinct measured facts', () => {

@@ -39,7 +39,7 @@ export function renderOutsideScopeAnalysis(fact: OutsideScopeView): OperationalT
 }
 
 export function renderOutsideScopeDoctorCheck(fact: OutsideScopeView): {
-  label: string; ok: boolean; detail: string;
+  sourceKey: string; label: string; ok: boolean; detail: string;
 } | undefined {
   const detail = renderOutsideScopeAnalysis(fact);
 
@@ -47,7 +47,8 @@ export function renderOutsideScopeDoctorCheck(fact: OutsideScopeView): {
     return undefined;
   }
 
-  return { label: 'Application source scope', ok: fact.status === 'complete', detail };
+  return { sourceKey: 'outside-scope\0', label: 'Application source scope',
+    ok: fact.status === 'complete', detail };
 }
 
 export function renderOutsideScopeError(kind: 'inventory' | 'not-requested'): OperationalText {

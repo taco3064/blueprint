@@ -67,7 +67,8 @@ describe('resolved prohibition authority', () => {
 
     const result = resolveProhibitions(layer, { severity: 'warn' });
 
-    expect(result.slice(0, 2)).toEqual(['', 'render UI'].map((description) => ({
+    expect(result.slice(0, 2)).toEqual(['', 'render UI'].map((description, declarationSlot) => ({
+      declarationSlot,
       layer: 'render-ui',
       id: null,
       description,
@@ -83,6 +84,7 @@ describe('resolved prohibition authority', () => {
     })));
 
     expect(result[2]).toMatchObject({ id: 'ban',
+      declarationSlot: 2,
       description: 'useState',
       mode: 'executable',
       status: 'active',

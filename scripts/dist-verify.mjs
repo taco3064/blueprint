@@ -473,7 +473,34 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
   const greenDoctor = runNpm(['exec', '--', 'blueprint', 'doctor'], { cwd: fixture });
 
   expect(greenDoctor.code === 0, `installed doctor green exited ${greenDoctor.code}\n${greenDoctor.output}`);
-  expect(greenDoctor.output.includes('all 12 checks passed'), 'installed doctor did not complete');
+
+  expect(greenDoctor.output.includes('Executable gates: passed'),
+    'installed doctor did not report passing executable gates');
+
+  expect(greenDoctor.output.includes('Gates passed; semantic review remains required.'),
+    'installed doctor hid the occupied layer responsibility review');
+
+  expect(!greenDoctor.output.includes('Adoption complete'),
+    'installed doctor overstated current-config evidence');
+
+  const greenJsonDoctor = runNpm(['exec', '--', 'blueprint', 'doctor', '--json'], { cwd: fixture });
+
+  const greenReport = JSON.parse(greenJsonDoctor.output.slice(
+    greenJsonDoctor.output.indexOf('{'), greenJsonDoctor.output.lastIndexOf('}') + 1,
+  ));
+
+  expect(greenJsonDoctor.code === 0 && greenReport.ok === true,
+    'installed JSON doctor changed the passing exit contract');
+
+  expect(greenReport.gateVerdict === 'complete' && greenReport.verdict === 'complete',
+    'installed JSON doctor lost the legacy gate-only compatibility fields');
+
+  expect(greenReport.assessment.scope === 'current-config-adoption'
+    && greenReport.assessment.gates.status === 'passed'
+    && greenReport.assessment.review.status === 'required'
+    && greenReport.assessment.items.some((item) => item.id === 'layer-responsibility'
+      && item.status === 'review-required'),
+  'installed JSON doctor did not separate executable gates from semantic review');
 
   expect(greenDoctor.output.includes('import alias · typescript'),
     'installed doctor did not report the TypeScript alias consumer');

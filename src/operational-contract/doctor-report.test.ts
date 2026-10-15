@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 
 import { renderDoctorCheck } from './doctor';
+import { deriveAdoptionAssessment } from '../inspect/adoption-assessment';
+import { doctorAssessmentItems } from '../inspect/assessment-runtime';
 import { renderDoctorReport } from './doctor-report';
 
 it.each([false, true])('renders ignored probes and losses with exclusive counts: %s', (mixed) => {
@@ -11,8 +13,12 @@ it.each([false, true])('renders ignored probes and losses with exclusive counts:
   });
 
   const checks = [renderDoctorCheck({ kind: 'config', present: true }), check];
-  const text = renderDoctorReport(checks, {});
-  const json = JSON.parse(renderDoctorReport(checks, { json: true }));
+
+  const assessment = deriveAdoptionAssessment('current-config-adoption',
+    doctorAssessmentItems('.', checks));
+
+  const text = renderDoctorReport(checks, { assessment });
+  const json = JSON.parse(renderDoctorReport(checks, { json: true, assessment }));
 
   expect(text).toContain(`${mixed ? '✗' : '⊘'} merged rule survival`);
   expect(text).toContain('src/assets/iconfont.js, src/assets/vendor.js');
@@ -25,10 +31,10 @@ it.each([false, true])('renders ignored probes and losses with exclusive counts:
 
   if (mixed) {
     expect(text).toContain('views: no-restricted-imports lost 3 structural pattern group(s)');
-    expect(text).toContain('1 of 2 check(s) failed.');
+    expect(text).toContain('Adoption blocked: executable gates failed.');
     expect(check.skipped).toBeUndefined();
   } else {
-    expect(text).toContain('1 of 2 checks passed, 1 could not run');
+    expect(text).toContain('Adoption unverified: required executable evidence could not run.');
     expect(check.detail).toBeUndefined();
   }
 });
@@ -44,11 +50,45 @@ it.each([[], ['CLAUDE.blueprint.md']])('allows omitted retained: %j', (...refere
 });
 
 it('does not invent finding lines for a check without prohibition findings', () => {
-  expect(renderDoctorReport([{ label: 'config', ok: true }], {})).toBe([
-    'blueprint doctor',
-    'Scope: current-config adoption; this is not proof of a historical topology transformation.',
-    '  ✓ config',
-    '',
-    '✓ Adoption complete — all 1 checks passed.',
-  ].join('\n'));
+  const checks = [renderDoctorCheck({ kind: 'config', present: true })];
+
+  const assessment = deriveAdoptionAssessment('current-config-adoption',
+    doctorAssessmentItems('.', checks));
+
+  const output = renderDoctorReport(checks, { assessment });
+
+  expect(output).toContain('✓ blueprint.config.mjs present');
+  expect(output).toContain('Gates passed; Blueprint found no known review item');
+  expect(output).not.toContain('severity:');
+  expect(output).not.toContain('Adoption complete');
+});
+
+it('renders workflow evidence separately without overriding current-config facts', () => {
+  const checks = [renderDoctorCheck({ kind: 'config', present: true })];
+
+  const current = deriveAdoptionAssessment('current-config-adoption',
+    doctorAssessmentItems('.', checks));
+
+  const workflow = { ...current, scope: 'topology-transformation' as const,
+    headline: 'blocked' as const,
+    gates: { status: 'failed' as const, failed: 1, unverified: 0 } };
+
+  const report = { assessment: current, workflowAssessments: [workflow] };
+  const json = JSON.parse(renderDoctorReport(checks, { ...report, json: true }));
+  const text = renderDoctorReport(checks, report);
+
+  expect(json.assessment).toEqual(current);
+  expect(json.workflowAssessments).toEqual([workflow]);
+  expect(json.gateVerdict).toBe('complete');
+  expect(json.summary).toContain('Gates passed; Blueprint found no known review item');
+
+  expect(text.indexOf('Assessment scope: current-config-adoption')).toBeLessThan(
+    text.indexOf('Assessment scope: topology-transformation'),
+  );
+
+  expect(text).toContain('Executable gates: failed (1 failed, 0 unverified)');
+
+  expect(JSON.parse(renderDoctorReport(checks, { assessment: current,
+    json: true })).workflowAssessments)
+    .toEqual([]);
 });
