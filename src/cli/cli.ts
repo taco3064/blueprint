@@ -163,6 +163,6 @@ export function isCliEntry(argv1: string | undefined): boolean {
    having done nothing while every in-process test passed. */
 // Stryker disable next-line ConditionalExpression: tests import rather than execute this entry.
 if (isCliEntry(process.argv[1])) {
-  run(process.argv.slice(2)).then((code) => process.exit(code));
+  process.exitCode = await run(process.argv.slice(2));
 }
 /* v8 ignore stop */

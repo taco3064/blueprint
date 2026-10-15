@@ -215,7 +215,10 @@ describe('verifyProhibitions exact carrier controls', () => {
       reach: 'vacuous',
       lintIntegration: 'verified' });
 
-    expect(prohibitionDoctorChecks(facts)[0]).toEqual({ sourceKey: `prohibition\0${facts[0].position}\0${facts[0].id}`,
+    expect(prohibitionDoctorChecks(facts)[0]).toEqual({
+      sourceKey: JSON.stringify([
+        'prohibition', facts[0].position, facts[0].id, facts[0].probeFile,
+      ]),
       label: expect.any(String), ok: true });
   });
 

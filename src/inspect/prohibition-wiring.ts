@@ -98,7 +98,7 @@ async function probeFact(fact: ProhibitionFact, context: {
       return { ...compareProhibition(fact, config, { ...context, file }),
         probeFile: file };
     } catch (error) {
-      return evidence(fact, 'unverified', String(error));
+      return { ...evidence(fact, 'unverified', String(error)), probeFile: file };
     }
   }));
 }
@@ -207,7 +207,7 @@ export function prohibitionDoctorChecks(facts: ProhibitionEvidence[]): DoctorChe
     const label = renderProhibitionDoctorMessage(fact);
 
     return {
-      sourceKey: `prohibition\0${fact.position}\0${fact.id}`,
+      sourceKey: JSON.stringify(['prohibition', fact.position, fact.id, fact.probeFile]),
       label,
       ok: fact.gate !== 'failed',
       ...(fact.gate === 'unverified' ? { skipped: label } : {}),
