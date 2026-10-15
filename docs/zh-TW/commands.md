@@ -204,6 +204,19 @@ npx @kekkai/blueprint inspect --baseline --json
 `inspect` 不接受位置參數路徑。請在應用程式根目錄執行，掃描範圍由
 `architecture.sourceRoot` 決定；額外傳入路徑會被拒絕，不會默默忽略。
 
+Module-first 專案中，`sourceRoot` 外的原始碼與受管原始碼相依時，
+`uncovered-application-source` 仍屬於錯誤。如果外部匯入者確實是工具或其他外部使用端，
+負責人可以在 [`architecture.consumerFiles`](./configuration.md#external-consumers) 宣告
+相對於應用程式根目錄的精確模式；若它其實是應用程式原始碼，就應擴大或重新整理受管範圍，
+或移除相依。資料夾名稱不會自動取得豁免，模式應盡量限縮，避免掩蓋真正的應用程式原始碼。
+
+外部使用端宣告只會移除「外部匯入內部」的範圍證據。若受管原始碼反向匯入使用端，仍須移除
+該相依，或把目標搬入受管架構並正確宣告。雙向相依時，反向那條仍會阻擋。這個角色不賦予
+拓樸身分，也不證明目標 API 或公開入口的使用正確。`testFiles` 維持獨立且優先的雙向豁免；
+`layerFilesIgnore` 不會隱藏範圍證據。省略或清空使用端宣告、layer-first 專案，以及
+`sourceRoot: '.'` 都維持既有行為。允許的使用端相依不新增訊息，也不改變結束碼。基準線用來
+記錄債務，不能取代外部使用端的角色宣告。
+
 ## `impact`
 
 `impact` 會在正式接線前，只預覽 Blueprint 產生的規則將新增哪些 lint 問題。它使用專案

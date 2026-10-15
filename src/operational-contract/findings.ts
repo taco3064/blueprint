@@ -148,14 +148,24 @@ function renderUncoveredApplicationSource(
     importing.length === 0 ? '' : `code under "${sourceRoot}" is imported by ${named(importing)}`,
   ].filter(Boolean).join(', and ');
 
+  const remedy = imported.length === 0
+    ? 'If the outside importers are intentional external consumers, declare their exact files in '
+    + '`architecture.consumerFiles`. Otherwise widen or restructure `architecture.sourceRoot` '
+    + 'and declare the application source correctly, or remove the dependency.'
+    : 'A consumer declaration never legalizes governed source depending on outside tooling. '
+      + 'Remove that dependency, or move its target into the governed architecture and declare it '
+      + 'correctly.';
+
+  const both = imported.length > 0 && importing.length > 0
+    ? ' Declaring intentional outside importers in `architecture.consumerFiles` can remove only '
+    + 'the consumer-to-application half; the reverse edge still blocks.'
+    : '';
+
   return `Module-first is closed-world at the source root: the folders under "${sourceRoot}" are `
-    + `the whole module universe. Here ${edges} — a dependency either way makes that source part `
-    + 'of this application\'s architecture, and nothing here observes it: no flow rule, no cycle '
-    + 'check, no coverage number. The scan boundary is not the topology root, so narrowing '
-    + '`architecture.sourceRoot` hides the dependency rather than removing it. Widen it to the '
-    + 'directory that holds the whole application and declare what lives at that level, or, where '
-    + 'the named folder is tooling rather than architecture, break the dependency so the module '
-    + 'universe stands alone.';
+    + `the whole module universe. Here ${edges} — these dependencies cross the governed source `
+    + 'boundary. The scan boundary is not the topology root, so narrowing '
+    + '`architecture.sourceRoot` hides the dependency rather than removing it. '
+    + remedy + both;
 }
 
 function renderFolderFinding(fact: FolderFindingFact): string {

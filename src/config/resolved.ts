@@ -13,6 +13,7 @@ import { resolveImportReference } from './import-reference';
 import type { ResolvedImportReference } from './import-reference';
 import { resolveModules } from './modules';
 import type { ResolvedModule } from './modules';
+import { resolveConsumerFiles } from './consumer-files';
 import { resolveTestFiles } from './test-files';
 import { FRAMEWORK_EXTS, resolveRootUnits } from './root-unit';
 import type { ResolvedRootUnit } from './root-unit';
@@ -72,6 +73,7 @@ export interface ResolvedArchitecture {
   diagramEdges: DiagramEdge[];
   hasSelfOnly: boolean;
   testFiles: ReturnType<typeof resolveTestFiles>;
+  consumerFiles: ReturnType<typeof resolveConsumerFiles>;
   classify(file: string | string[]): ResolvedSourcePosition | null;
   matchLayer(file: string | string[]): ResolvedLayer | null;
   resolveLayerRoot(layer: string, module?: string): string | null;
@@ -239,6 +241,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     diagramEdges: resolveDiagramEdges(layers),
     hasSelfOnly: layers.some((layer) => layer.allowedImporters.some((entry) => entry.selfOnly)),
     testFiles: resolveTestFiles(definition.testFiles),
+    consumerFiles: resolveConsumerFiles(definition.consumerFiles, sourceRoot),
     classify,
     matchLayer(file) {
       const position = classify(file);

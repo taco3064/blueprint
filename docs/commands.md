@@ -222,6 +222,22 @@ closed because they can hide dependency edges.
 `inspect` does not accept a positional path. Run it from the application root; the configured
 `architecture.sourceRoot` determines its scan scope. An extra path is rejected rather than ignored.
 
+For module-first projects, `uncovered-application-source` remains an error when source outside
+`sourceRoot` couples to governed source. If an outside importer is intentional tooling or another
+external consumer, the owner can declare its exact application-relative patterns in
+[`architecture.consumerFiles`](./configuration.md#external-consumers). Otherwise widen or
+restructure the governed source universe, or remove the dependency. Directory names grant no
+exemption; narrow patterns avoid hiding actual application source.
+
+A consumer declaration removes only the outside-to-inside scope evidence. If governed source
+imports the consumer, remove that dependency or move the target into the governed architecture
+and declare it correctly. When both directions exist, the reverse edge still blocks. The role
+confers no topology identity or proof of target API/public-entry correctness. `testFiles` retains
+its separate, higher-priority two-way exemption; `layerFilesIgnore` does not hide scope evidence.
+Omitted/empty consumer declarations, layer-first projects, and `sourceRoot: '.'` retain existing
+behavior. Allowed consumer edges add no finding or exit-code change. Baselines record debt;
+they do not author an intentional consumer role.
+
 ## `impact`
 
 `impact` previews only the lint findings that Blueprint's emitted rules would introduce before

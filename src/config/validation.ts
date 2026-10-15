@@ -9,6 +9,7 @@ export type ConfigValidationFact
     }
     | { kind: 'architecture-layers-array' }
     | { kind: 'architecture-alias' }
+    | { kind: 'consumer-files' }
     | { kind: 'architecture-layers-empty' }
     | { kind: 'layer-name-empty' }
     | { kind: 'duplicate-layer'; name: string }

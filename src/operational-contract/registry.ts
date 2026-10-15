@@ -23,6 +23,14 @@ export interface OperationalSurface {
 
 export const OPERATIONAL_SURFACES = [
   {
+    id: 'external-consumer-guidance', owner: 'consumer-files.ts', channel: 'agent-contract',
+    delivery: 'generated', audiences: ['coding agents', 'repository maintainers'],
+    factProviders: ['resolved consumerFiles', 'resolved topology'],
+    consumers: ['src/emit/agent/agent.ts', 'src/emit/docs/docs.ts'],
+    targets: ['AGENTS.md', 'CLAUDE.md', 'docs/architecture-handbook.md'],
+    verification: ['consumer guidance contrasts', 'emitter parity'],
+  },
+  {
     id: 'must-not-prohibitions', owner: 'prohibitions.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['adopters', 'coding agents'],
     factProviders: ['resolved prohibition plan', 'measured reach', 'effective lint evidence'],

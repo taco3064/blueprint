@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef } from '../config';
+import type { ArchitectureDef, ResolvedArchitecture } from '../config';
 import { renderFindingMessage } from '../operational-contract';
 import type { Finding, ScanResult, ScannedFile } from './types';
 
@@ -15,7 +15,7 @@ export function applicationScopeFindings(
     return [];
   }
 
-  const coupled = coupledDirectories(scan, resolved.aliasMappings, resolved.sourceRoot);
+  const coupled = coupledDirectories(scan, resolved);
   const named = [...new Set([...coupled.imported, ...coupled.importing])].sort();
 
   return named.length === 0
@@ -36,8 +36,7 @@ export function applicationScopeFindings(
 
 function coupledDirectories(
   scan: ScanResult,
-  aliases: [string, string][],
-  sourceRoot: string,
+  { aliasMappings: aliases, sourceRoot, consumerFiles }: ResolvedArchitecture,
 ): { imported: string[]; importing: string[] } {
   const root = sourceRoot.split('/');
 
@@ -51,10 +50,12 @@ function coupledDirectories(
     .map((target) => outsideDirectory(target.split('/'), root))
     .filter((directory) => outside.has(directory)));
 
-  const importing = outsideFiles.flatMap((entry) =>
-    importedPaths(entry.file, aliases).some((target) => isUnder(target, sourceRoot))
-      ? [entry.directory]
-      : []);
+  const importing = outsideFiles
+    .filter((entry) => !consumerFiles.matches(entry.file.path))
+    .flatMap((entry) =>
+      importedPaths(entry.file, aliases).some((target) => isUnder(target, sourceRoot))
+        ? [entry.directory]
+        : []);
 
   return { imported: unique(imported), importing: unique(importing) };
 }
