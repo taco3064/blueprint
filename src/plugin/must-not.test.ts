@@ -104,6 +104,7 @@ describe('must-not project checks', () => {
     'export type * as L from "leaflet"',
   ])('requires a whole-package ban for namespace references %s', (source) => {
     expect(lint(source, { package: 'leaflet', imports: ['divIcon'] })).toEqual([]);
+    expect(lint(source, { package: 'leaflet', imports: ['default'] })).toEqual([]);
 
     expect(lint(source, { package: 'leaflet' })).toMatchObject([
       { ruleId: 'blueprint/must-not', severity: 2 },
