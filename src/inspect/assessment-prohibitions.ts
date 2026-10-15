@@ -46,11 +46,15 @@ function warningItems(application: string, context: { sourceKey: string; positio
   group: (ProhibitionFact | ProhibitionEvidence)[]): AssessmentItem[] {
   const { sourceKey, position } = context;
 
-  const findings = group.flatMap((entry) => isMeasured(entry)
+  const findings = group.flatMap((entry) => {
+    if (isMeasured(entry)) {
+      // Stryker disable next-line ArrayDeclaration: strings lack warn severity and are filtered
+      return entry.prohibitionFindings ?? [];
+    }
+
     // Stryker disable next-line ArrayDeclaration: strings lack warn severity and are filtered
-    ? entry.prohibitionFindings ?? []
-    // Stryker disable next-line ArrayDeclaration: strings lack warn severity and are filtered
-    : []);
+    return [];
+  });
 
   const warning = [...new Map(findings.filter((finding) => finding.severity === 'warn')
     .map((finding) => [finding.filePath, finding])).values()];
