@@ -11,10 +11,18 @@ export function unresolvedProjectReferences(
   files: ScannedFile[],
   aliases: [string, string][],
 ): string[] {
-  return files.flatMap((file) => [...new Set((file.moduleSpecifiers ?? [])
-    .map((specifier) => importedPath(specifier, file.path, aliases)).filter(Boolean))]
+  return files.flatMap((file) => [...new Set(modulePaths(file, aliases))]
     .filter((target) => !referenceExists(root, target))
     .map((target) => `${file.path}: unresolved project reference ${target}`));
+}
+
+function modulePaths(file: ScannedFile, aliases: [string, string][]): string[] {
+  if (file.moduleSpecifiers === undefined) {
+    return [];
+  }
+
+  return file.moduleSpecifiers
+    .map((specifier) => importedPath(specifier, file.path, aliases)).filter(Boolean);
 }
 
 function referenceExists(root: string, target: string): boolean {

@@ -9,6 +9,15 @@ const healthy = { status: 'healthy' as const, scannedFiles: 0, parsedFiles: 0,
   unknownDynamicImports: 0, parseFailures: [] };
 
 describe('outside scope output', () => {
+  it('explains unrequested evidence without claiming an inventory was measured', () => {
+    const text = renderOutsideScopeAnalysis({ status: 'not-requested' });
+
+    expect(text).toContain('was not requested');
+    expect(text).toContain('Collect full architecture facts');
+    expect(text).not.toContain('undefined');
+    expect(text).not.toContain('Application scope:');
+  });
+
   it('keeps topology exclusions silent without inventing a failed check', () => {
     const fact = { status: 'not-applicable' as const, reason: 'layer-first' };
 

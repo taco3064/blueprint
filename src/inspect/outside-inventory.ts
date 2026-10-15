@@ -29,8 +29,7 @@ export function consumerSearchRoot(glob: string): string {
   const normalized = glob.split(/[\\/]/)
     .filter((segment) => segment !== '' && segment !== '.').join('/');
 
-  const index = normalized.search(/[*?]|\{[^}]*\}/);
-  const literal = index === -1 ? normalized : normalized.slice(0, index);
+  const [literal] = normalized.split(/[*?]|\{[^}]*\}/, 1);
 
   return literal.split('/').slice(0, -1).join('/');
 }
@@ -99,7 +98,11 @@ function collectGitFiles(root: string, git: GitReader, add: (file: string) => vo
     throw new Error(renderOutsideScopeError('inventory'));
   }
 
-  for (const file of result.stdout.split('\0').filter(Boolean)) {
+  const visible = result.stdout.split('\0')
+    // Stryker disable next-line MethodExpression: empty paths name the rejected root directory.
+    .filter(Boolean);
+
+  for (const file of visible) {
     const entry = fs.lstatSync(path.join(root, file), { throwIfNoEntry: false });
 
     if (entry?.isFile() || entry?.isSymbolicLink()) {
@@ -138,6 +141,7 @@ export function outsideInventory(
 
   const inventory: OutsideInventory = {
     mode: repository.ok ? 'git-visible' : 'filesystem-fallback',
+    // Stryker disable next-line ArrayDeclaration: assigned from candidates before any read.
     files: [], directoryWalks: 0,
     contributions: { repositoryVisible: 0, explicitConsumerRoot: 0, governedReference: 0 },
   };
