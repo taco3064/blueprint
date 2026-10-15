@@ -216,3 +216,24 @@ it('shared full facts block transformation on unknown outside relations without 
     scan.mockRestore();
   }
 });
+
+it('degraded governed analysis independently blocks a complete application scope', () => {
+  const dir = root();
+
+  expect(codes({ root: dir })).toEqual([]);
+  write(dir, 'src/auth/components/Item.test.ts', 'const broken: = 1;');
+  const facts = collectArchitectureFacts(dir, blueprint(), { demand: 'application-scope' });
+
+  expect(facts.scopeComplete).toBe(true);
+  expect(facts.analysis.status).toBe('degraded');
+
+  expect(facts.analysis.parseFailures.map((failure) => failure.path))
+    .toEqual(['src/auth/components/Item.test.ts']);
+
+  const result = verifyTransformationObligation({
+    root: dir, state: state(dir), obligation: obligation(), blueprint: blueprint(),
+    git: git(dir), facts,
+  });
+
+  expect(result).toEqual({ ok: false, failures: [{ code: 'final-import-analysis-failed' }] });
+});

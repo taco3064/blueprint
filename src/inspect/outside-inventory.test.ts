@@ -32,6 +32,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(`${root}-external.ts`, { force: true });
+  fs.rmSync(`${root}-external`, { recursive: true, force: true });
 });
 
 describe('outside inventory policy boundaries', () => {
@@ -170,6 +171,62 @@ describe('consumer literal roots follow the portable glob dialect', () => {
         files: [{ path: `${directory}/consumer.ts` }, { path: `${directory}/ordinary.ts` }],
         contributions: { repositoryVisible: 0, explicitConsumerRoot: 2, governedReference: 0 },
       });
+    },
+  );
+});
+
+describe('outside inventory mutation witnesses', () => {
+  it.each([
+    ['tools//nested/entry.ts', 'tools/nested'],
+    ['tools/nested/entry.ts', 'tools/nested'],
+    ['entry.ts', ''], ['a', ''], ['tools/nested/a', 'tools/nested'],
+    ['t*/nested/entry.ts', ''],
+  ])('preserves literal-root boundaries for %s', (pattern, expected) => {
+    expect(consumerSearchRoot(pattern)).toBe(expected);
+  });
+
+  it('does not inventory a physically existing escaping explicit root', () => {
+    fs.mkdirSync(`${root}-external`);
+    fs.writeFileSync(path.join(`${root}-external`, 'noise.ts'), 'not parsed');
+
+    const resolved = resolveArchitecture({
+      ...definition, consumerFiles: `../${path.basename(root)}-external/**`,
+    });
+
+    expect(outsideInventory(root, resolved, { scan: scan(root) })).toMatchObject({
+      files: [], directoryWalks: 0,
+      contributions: { repositoryVisible: 0, explicitConsumerRoot: 0, governedReference: 0 },
+    });
+  });
+
+  it('does not expand empty directory identities from package and governed references', () => {
+    write('.gitignore', 'noise/\n');
+    write('noise/ignored.ts');
+    write('src/auth/index.ts', 'import \'react\'; import \'~app/auth\';');
+
+    expect(outsideInventory(root, resolveArchitecture(definition), { scan: scan(root) }))
+      .toMatchObject({ files: [], directoryWalks: 0 });
+  });
+
+  it.each(['explicit', 'referenced'])(
+    'visits %s directories in deterministic sorted order', (mode) => {
+      write('.gitignore', 'z/\na/\n');
+      write('z/run.ts');
+      write('a/run.ts');
+      write('src/auth/index.ts', 'import \'../../z/run\'; import \'../../a/run\';');
+
+      const resolved = resolveArchitecture({
+        ...definition, consumerFiles: mode === 'explicit' ? ['z/**', 'a/**'] : [],
+      });
+
+      const source = scan(root);
+      const read = vi.spyOn(fs, 'readdirSync');
+
+      expect(outsideInventory(root, resolved, { scan: source }).files)
+        .toEqual(['a/run.ts', 'z/run.ts']);
+
+      expect(read.mock.calls.map(([directory]) => directory))
+        .toEqual([path.join(root, 'a'), path.join(root, 'z')]);
     },
   );
 });

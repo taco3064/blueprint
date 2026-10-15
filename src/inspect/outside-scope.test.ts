@@ -10,6 +10,7 @@ import { collectOutsideScope, collectOutsideScopeWith } from './outside-scope';
 import { consumerSearchRoot } from './outside-inventory';
 import { readSourceFile, scan } from './scan';
 import { applicationScopeFindings } from './scope';
+import type { ScannedFile } from './types';
 
 const roots: string[] = [];
 
@@ -133,6 +134,7 @@ describe('outside scope collection', () => {
     expect(result).toMatchObject({
       status: 'complete', inventoryMode: 'filesystem-fallback', inventoryFiles: 2,
       readFiles: 1, parsedFiles: 1, testFilesExcluded: 1, directoryWalks: 2,
+      fallbackReason: 'Git repository visibility is unavailable.',
     });
 
     expect(readFile.mock.calls).toEqual([[root, 'tools/run.ts']]);
@@ -218,5 +220,70 @@ describe('outside scope evidence health', () => {
     ['./tools\\entry.ts', 'tools'], ['tools/a?/run.ts', 'tools'],
   ])('derives narrow literal root for %s', (pattern, expected) => {
     expect(consumerSearchRoot(pattern)).toBe(expected);
+  });
+});
+
+describe('outside evidence independent limitations', () => {
+  const cases: { name: string; facts: Partial<ScannedFile>; partial: boolean }[] = [
+    { name: 'absent optional analysis', facts: {}, partial: false },
+    { name: 'dynamic imports alone',
+      facts: { importAnalysis: { unknownDynamicImports: 1 }, unknownModuleSpecifiers: 0 },
+      partial: true },
+    { name: 'module specifiers alone',
+      facts: { importAnalysis: { unknownDynamicImports: 0 }, unknownModuleSpecifiers: 1 },
+      partial: true },
+  ];
+
+  it.each(cases)('$name preserves outside read evidence', ({ facts, partial }) => {
+    const root = fixture({ 'tools/run.ts': '' }, false);
+
+    const file: ScannedFile = {
+      path: 'tools/run.ts', segments: ['tools', 'run.ts'], imports: [], ...facts,
+    };
+
+    const result = collectOutsideScopeWith(root, resolveArchitecture(architecture), {
+      scan: { topDirs: [], files: [] }, options: { readFile: () => file },
+    });
+
+    expect(result).toMatchObject({
+      status: partial ? 'partial' : 'complete', files: [file], readFiles: 1, parsedFiles: 1,
+      limitations: partial ? ['tools/run.ts: unresolved import targets'] : [],
+    });
+  });
+
+  it.each(cases)('$name preserves governed evidence', ({ facts, partial }) => {
+    const root = fixture({ 'src/auth/index.ts': '' }, false);
+
+    const file: ScannedFile = {
+      path: 'src/auth/index.ts', segments: ['auth', 'index.ts'], imports: [], ...facts,
+    };
+
+    const result = collectOutsideScopeWith(root, resolveArchitecture(architecture), {
+      scan: { topDirs: ['auth'], files: [file] },
+    });
+
+    expect(result).toMatchObject({
+      status: partial ? 'partial' : 'complete', files: [], readFiles: 0, parsedFiles: 0,
+      limitations: partial ? ['src/auth/index.ts: unresolved governed import targets'] : [],
+    });
+  });
+
+  it('refuses a source-named symlink to the exact parent before calling the reader', () => {
+    const parent = fixture({ 'app/src/auth/index.ts': '' }, false);
+    const root = path.join(parent, 'app');
+
+    fs.symlinkSync(parent, path.join(root, 'escape.ts'), 'junction');
+    const readFile = vi.fn(readSourceFile);
+
+    const result = collectOutsideScopeWith(root, resolveArchitecture(architecture), {
+      scan: scan(root), options: { readFile },
+    });
+
+    expect(result).toMatchObject({
+      status: 'partial', inventoryFiles: 1, readFiles: 0, parsedFiles: 0, files: [],
+      limitations: ['escape.ts: source resolves outside the application root'],
+    });
+
+    expect(readFile).not.toHaveBeenCalled();
   });
 });

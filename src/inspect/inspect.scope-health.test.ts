@@ -90,6 +90,7 @@ it('baseline may ratchet proven relations without erasing unknown outside health
 
 it('inspect and doctor expose the same relation identity and measured health', async () => {
   write('tools/Consumer.ts', 'import \'~app/shop/components/Item\';');
+  write('src/shop/components/Item.ts', 'import \'../../../tools/Consumer\';');
   let inspectOutput = '';
   let doctorOutput = '';
 
@@ -105,6 +106,9 @@ it('inspect and doctor expose the same relation identity and measured health', a
 
   expect(identities)
     .toEqual([{ rule: 'uncovered-application-source', path: 'src', subject: 'tools' }]);
+
+  expect(inspected.findings.map((finding: { rule: string }) => finding.rule))
+    .toContain('relative-escape');
 
   expect(diagnosed.applicationScope).toEqual(identities);
   expect(diagnosed.outsideScope).toEqual(inspected.outsideScope);

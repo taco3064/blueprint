@@ -10,10 +10,11 @@ import { extractImports } from './scan';
 let root: string;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-references-'));
+  root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'outside-references-')), 'app');
+  fs.mkdirSync(root);
 });
 
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+afterEach(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
 
 function limitations(source: string) {
   return unresolvedProjectReferences(root, [{
@@ -92,5 +93,22 @@ describe('outside unresolved project reference evidence', () => {
     expect(unresolvedProjectReferences(root, [{
       path: 'entry.ts', segments: ['entry.ts'], imports: extractImports('import \'./missing\';'),
     }], [])).toEqual([]);
+  });
+
+  it('does not resolve existing files or directory indexes beyond the application root', () => {
+    fs.writeFileSync(path.join(root, '../existing.ts'), 'not parsed');
+    fs.writeFileSync(path.join(root, '../index.ts'), 'not parsed');
+
+    expect(limitations('import \'..\'; import \'../existing\';')).toEqual([
+      'entry.ts: unresolved project reference ..',
+      'entry.ts: unresolved project reference ../existing',
+    ]);
+  });
+
+  it('does not strip a runtime extension inside the basename', () => {
+    fs.writeFileSync(path.join(root, 'target.extra.ts'), 'not parsed');
+
+    expect(limitations('import \'./target.js.extra\';'))
+      .toEqual(['entry.ts: unresolved project reference target.js.extra']);
   });
 });
