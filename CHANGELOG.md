@@ -1,5 +1,30 @@
 # @kekkai/blueprint
 
+## 4.2.0
+
+Blueprint 4.2 reports executable gates, structural conformance, source reach, and semantic review as independent evidence. Passing machine checks does not establish correct ownership, presentation placement, or complete adoption.
+
+Ordinary module roots now have one canonical `index` entry; direct root siblings are private. Layer-only modules and reserved `app` do not need an empty root barrel. Upgrading from an earlier release activates `review-module-root-unit`: review public exports, external imports, and presentation placement, then explicitly complete the operation. Blueprint does not choose the application's public API or move presentation code automatically. Existing module-first projects may need source and test changes to satisfy this contract.
+
+Executable `mustNot` declarations, explicit external consumers, and direct module-dependency reconciliation add opt-in controls without turning review-only strings into machine gates. React and Vue presentation guidance follows responsibility, including feature-private and single-consumer presenters. Source discovery and assessment retain explicit evidence limits, and large piped reports and distinct Doctor prohibition probes preserve their complete results.
+
+### Minor Changes
+
+- 78f4c1b: Report adoption as independent executable gates, structural conformance, source reach, and semantic review. Doctor and Inspect expose the shared assessment without treating green checks as proof of ownership or topology correctness. Preserve baseline debt, non-blocking violations, unavailable evidence, and bounded workflow scopes.
+
+  Add Doctor `gateVerdict` and deprecate `verdict` as its gate-only compatibility alias for 4.2; preserve existing exit semantics. Update generated Agent guidance, CLI help, and English and Traditional Chinese documentation to distinguish verified evidence from remaining review.
+
+- bdadd20: Add opt-in executable `mustNot` constraints for layer capabilities, package references, globals, and syntactic calls. ESLint enforces the declared checks while Rules, Inspect, Doctor, and generated guidance distinguish detector availability, file reach, wiring, and warning observations. Existing prose entries and presets remain review-only and introduce no new source failures.
+- 1f4db85: Add opt-in `architecture.consumerFiles` for explicit external consumers in module-first projects. Declared files outside `sourceRoot` may consume governed source without an uncovered-source finding; governed source depending back on them remains an error. Omitted and empty declarations preserve existing behavior. No preset infers consumers from tool names.
+- e1e05ac: Enforce one `index` entry for ordinary module roots with governed source. Direct siblings are private and Inspect reports proven unreachable root members. Layer-only modules and reserved `app` need no root barrel. Existing adopters must manually review entries, exports, imports, and presentation placement; upgrade never chooses their public API. Reverse topology mapping retains original per-member LF identities and custom entries, and stops on unproved provenance.
+- 137ca74: Expose source-observed direct module dependencies, deterministic evidence, reconciliation, and importer-scoped uncertainty in deps and inspect. Add the opt-in Inspect moduleDependencySync gate while preserving transitive import permission. Existing configurations and presets gain observability without new synchronization failures until owners enable the gate; no config migration or automatic dependsOn edits are required.
+- 3c2c26c: Bound module-first outside-source discovery to application-local Git visibility, explicit consumer search roots, and governed dependencies. Source-only commands no longer scan outside their source root. Inspect, Doctor, and transformation verification share scope evidence and refuse complete conformance when required import analysis is incomplete, even under a baseline. Non-Git applications retain an explicit complete filesystem fallback.
+
+### Patch Changes
+
+- 1fe33e4: Keep large CLI reports complete when piped to another program, and preserve each executable-prohibition probe in Doctor assessments without conflicting evidence identities.
+- 445c687: Classify React and Vue components by presentation responsibility, including feature-private and single-consumer presenters. Clarify local UI state and shared/public promotion in module-first authoring, both topology transformations, and the architecture guides.
+
 ## 4.1.0
 
 Blueprint 4.1 separates proven-empty greenfield adoption from brownfield adoption. A proven-empty React or Vue application, Next.js aside, can enter layer-first or module-first directly from the framework preset's complete canonical governance, and module-first opens with `modules: []` instead of an invented domain model. Existing projects keep the source-sensitive adoption rules: measured brownfield source can enter authoring, while the existing layer-first preset paths remain available where their current conditions apply.
