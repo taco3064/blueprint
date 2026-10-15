@@ -22,6 +22,17 @@ describe('portable glob compilation', () => {
     expect(pattern.test('other/tools/seed.ts')).toBe(false);
   });
 
+  it('consumes a leading double star and its directory separator', () => {
+    const pattern = globToRegExp('**/');
+
+    expect(pattern.source).toBe('^(?:.*\\/)?$');
+    expect(pattern.test('')).toBe(true);
+    expect(pattern.test('src/')).toBe(true);
+    expect(pattern.test('src/nested/')).toBe(true);
+    expect(pattern.test('src')).toBe(false);
+    expect(pattern.test('src/nested')).toBe(false);
+  });
+
   it('compiles an empty glob without reading a character', () => {
     const pattern = globToRegExp('');
 
