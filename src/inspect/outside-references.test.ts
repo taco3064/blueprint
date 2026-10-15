@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { analyzeModuleImports } from '../plugin';
 import { unresolvedProjectReferences } from './outside-references';
@@ -14,7 +14,10 @@ beforeEach(() => {
   fs.mkdirSync(root);
 });
 
-afterEach(() => fs.rmSync(path.dirname(root), { recursive: true, force: true }));
+afterEach(() => {
+  vi.restoreAllMocks();
+  fs.rmSync(path.dirname(root), { recursive: true, force: true });
+});
 
 function limitations(source: string) {
   return unresolvedProjectReferences(root, [{
@@ -110,5 +113,28 @@ describe('outside unresolved project reference evidence', () => {
 
     expect(limitations('import \'./target.js.extra\';'))
       .toEqual(['entry.ts: unresolved project reference target.js.extra']);
+  });
+
+  it.each([false, true])('checks physical symlink file targets, escaping=%s', (escaping) => {
+    const target = path.join(escaping ? path.dirname(root) : root, 'target.ts');
+
+    fs.writeFileSync(target, '');
+    fs.symlinkSync(target, path.join(root, 'linked.ts'), 'file');
+
+    expect(limitations('import \'./linked\';')).toEqual(escaping
+      ? ['entry.ts: unresolved project reference linked']
+      : []);
+  });
+
+  it('refuses a resolved file on another volume', () => {
+    fs.writeFileSync(path.join(root, 'target.ts'), '');
+    const relative = path.relative;
+    const canonical = fs.realpathSync.native(path.join(root, 'target.ts'));
+
+    vi.spyOn(path, 'relative').mockImplementation((from, to) =>
+      to === canonical ? path.resolve(path.sep, 'other-volume') : relative(from, to));
+
+    expect(limitations('import \'./target\';'))
+      .toEqual(['entry.ts: unresolved project reference target']);
   });
 });

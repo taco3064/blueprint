@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { canonicalPath } from '../project';
+
 import { importedPath } from './scope';
 import type { ScannedFile } from './types';
 
@@ -38,6 +40,12 @@ function referenceExists(root: string, target: string): boolean {
 
   return candidates.some((candidate) => {
     const absolute = path.join(root, candidate);
+
+    const relative = path.relative(canonicalPath(root), canonicalPath(absolute));
+
+    if (relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      return false;
+    }
 
     return fs.existsSync(absolute) && fs.statSync(absolute).isFile();
   });

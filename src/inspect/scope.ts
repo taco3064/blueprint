@@ -86,7 +86,11 @@ function unique(directories: string[]): string[] {
 }
 
 export function importedPaths(file: ScannedFile, aliases: [string, string][]): string[] {
-  return file.imports.map((ref) => importedPath(ref.specifier, file.path, aliases));
+  if (file.moduleSpecifiers === undefined) {
+    return [];
+  }
+
+  return file.moduleSpecifiers.map((specifier) => importedPath(specifier, file.path, aliases));
 }
 
 export function importedPath(

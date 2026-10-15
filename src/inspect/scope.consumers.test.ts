@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ArchitectureDef, Blueprint } from '../config';
+import { analyzeModuleImports } from '../plugin';
 import { analyze } from './analyze';
 import { buildUnitGraph } from './resolve';
 import { applicationScopeFindings } from './scope';
@@ -19,6 +20,9 @@ function file(path: string, ...specifiers: string[]): ScannedFile {
     path,
     segments: path.replace(/^src\//, '').split('/'),
     imports: specifiers.map((specifier) => ({ specifier, names: [], isExport: false })),
+    moduleSpecifiers: analyzeModuleImports(
+      specifiers.map((specifier) => `import ${JSON.stringify(specifier)};`).join('\n'), path,
+    ).specifiers,
   };
 }
 

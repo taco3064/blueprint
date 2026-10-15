@@ -13,6 +13,7 @@ export interface OutsideInventory {
   mode: 'git-visible' | 'filesystem-fallback';
   files: string[];
   directoryWalks: number;
+  limitations: string[];
   contributions: OutsideContributions;
   fallbackReason?: string;
 }
@@ -39,16 +40,32 @@ function excluded(file: string, sourceRoot: string): boolean {
     || file.split('/').some((segment) => NON_SOURCE_DIRS.has(segment));
 }
 
-function readableDirectory(root: string, directory: string): string | undefined {
+function readableDirectory(
+  root: string, directory: string, limitations: string[],
+): string | undefined {
   const absolute = path.resolve(root, directory);
-  const relative = path.relative(root, absolute);
+  const relative = path.relative(root, canonicalPath(absolute));
 
-  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)
-    || !fs.existsSync(absolute) || !fs.lstatSync(absolute).isDirectory()) {
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    limitations.push(`${directory}: directory resolves outside the application root`);
+
     return undefined;
   }
 
-  return absolute;
+  const entry = fs.lstatSync(absolute, { throwIfNoEntry: false });
+
+  if (entry?.isSymbolicLink()) {
+    limitations.push(`${directory}: symbolic-link directory could not be inventoried`);
+
+    return undefined;
+  }
+
+  return entry?.isDirectory() ? absolute : undefined;
+}
+
+function isDirectoryLink(root: string, file: string, entry: fs.Dirent): boolean {
+  return entry.isSymbolicLink() && !SOURCE_EXT.test(file)
+    && !fs.statSync(path.join(root, file), { throwIfNoEntry: false })?.isFile();
 }
 
 function inventoryCollector(root: string, sourceRoot: string, inventory: OutsideInventory) {
@@ -67,7 +84,7 @@ function inventoryCollector(root: string, sourceRoot: string, inventory: Outside
       return;
     }
 
-    const absolute = readableDirectory(root, directory);
+    const absolute = readableDirectory(root, directory, inventory.limitations);
 
     if (!absolute) {
       return;
@@ -83,6 +100,10 @@ function inventoryCollector(root: string, sourceRoot: string, inventory: Outside
         walk(file, reason);
       } else if (entry.isFile() || entry.isSymbolicLink()) {
         add(file, reason);
+
+        if (isDirectoryLink(root, file, entry)) {
+          walk(file, reason);
+        }
       }
     }
   };
@@ -143,6 +164,7 @@ export function outsideInventory(
     mode: repository.ok ? 'git-visible' : 'filesystem-fallback',
     // Stryker disable next-line ArrayDeclaration: assigned from candidates before any read.
     files: [], directoryWalks: 0,
+    limitations: [],
     contributions: { repositoryVisible: 0, explicitConsumerRoot: 0, governedReference: 0 },
   };
 

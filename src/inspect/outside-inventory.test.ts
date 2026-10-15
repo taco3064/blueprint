@@ -44,7 +44,7 @@ describe('outside inventory policy boundaries', () => {
     const resolved = resolveArchitecture({ ...definition, consumerFiles: `${directory}/**` });
 
     expect(outsideInventory(root, resolved, { scan: scan(root) })).toEqual({
-      mode: 'git-visible', files: ['keep.ts'], directoryWalks: 0,
+      mode: 'git-visible', files: ['keep.ts'], directoryWalks: 0, limitations: [],
       contributions: { repositoryVisible: 1, explicitConsumerRoot: 0, governedReference: 0 },
     });
   });
@@ -64,6 +64,7 @@ describe('outside inventory policy boundaries', () => {
 
     expect(run(patterns)).toEqual({
       mode: 'git-visible', files: ['tools/b.ts', 'tools/nested/a.ts'], directoryWalks: 2,
+      limitations: ['..: directory resolves outside the application root'],
       contributions: { repositoryVisible: 0, explicitConsumerRoot: 2, governedReference: 0 },
     });
 
