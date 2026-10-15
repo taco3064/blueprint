@@ -116,3 +116,27 @@ it('uses passed measurement ahead of the original unverified plan', () => {
   expect(result[0]).toMatchObject({ status: 'passed', affectsExit: false,
     evidence: { fact: source, measurements: [fact, source] } });
 });
+
+it('does not promote attached findings without measured gate evidence', () => {
+  const warning = { filePath: 'src/shop/views/A.ts', message: 'network', severity: 'warn',
+    gate: 'passed', observation: true, affectsExit: false } as const;
+
+  const unmeasured = { ...fact, prohibitionFindings: [warning] };
+  const result = prohibitionAssessmentItems('.', [unmeasured]);
+
+  expect(result.map((item) => [item.id, item.status])).toEqual([
+    ['must-not-executable', 'unverified'],
+  ]);
+
+  expect(result[0].evidence).toEqual({ fact: unmeasured, measurements: [unmeasured] });
+
+  const verified = prohibitionAssessmentItems('.', [measured('passed', {
+    prohibitionFindings: [warning],
+  })]);
+
+  expect(verified.map((item) => [item.id, item.status])).toEqual([
+    ['must-not-executable', 'passed'], ['must-not-match', 'failed'],
+  ]);
+
+  expect(verified[1].evidence).toEqual(warning);
+});
