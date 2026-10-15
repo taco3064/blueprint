@@ -7,6 +7,7 @@ function joinLine(...parts: string[]): string {
 }
 
 const FIELD_PROMPT_TEMPLATE = [
+  '分別回報可執行檢查、結構證據、涵蓋範圍與待審查責任。Doctor 綠燈不代表模組歸屬、分層或產品模型正確；請保留 assessment 的限制、既有債務及尚待審查項目。',
   joinLine(
     'Run npx @kekkai/blueprint init --topology {{topology}} ',
     '--authoring to adopt @kekkai/blueprint in this repo.',

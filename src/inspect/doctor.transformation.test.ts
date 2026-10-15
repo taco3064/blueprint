@@ -9,6 +9,7 @@ import { readTransformationObligation, writeTransformationAuthority } from '../p
 import type { LayerToModuleObligation } from '../project';
 import { runDoctor } from './doctor';
 import { verifyTransformationObligation } from './transformation-obligation';
+import { deriveAdoptionAssessment } from './adoption-assessment';
 
 vi.mock('./transformation-obligation', () => ({
   verifyTransformationObligation: vi.fn(),
@@ -116,6 +117,7 @@ describe('runDoctor transformation obligation', () => {
 
     verify.mockReturnValue({
       ok: false,
+      assessment: deriveAdoptionAssessment('topology-transformation', []),
       failures: [{ code: 'destination-missing', subject: 'src/modules/account' }],
     });
 
@@ -132,7 +134,9 @@ describe('runDoctor transformation obligation', () => {
   it('keeps a verified artifact red until init retires it', async () => {
     write('blueprint-transformation.json', JSON.stringify(obligation()));
     writeTransformationAuthority(root, obligation(), { status: 'pending' });
-    verify.mockReturnValue({ ok: true, failures: [] });
+
+    verify.mockReturnValue({ ok: true, failures: [],
+      assessment: deriveAdoptionAssessment('topology-transformation', []) });
 
     const result = await doctor();
     const check = result.checks.find((item) => item.label.includes('transformation'));
@@ -168,7 +172,12 @@ it('Doctor-hosted transformation verification reuses the measured current tree',
   const read = vi.spyOn(fs, 'readFileSync');
 
   try {
-    await doctor();
+    let json = '';
+
+    const result = await runDoctor(root, { loadConfig: async () => vuePreset(),
+      json: true, log: (line) => { json = line; } });
+
+    expectWorkflowAssessments(result, json);
     expect(verify).toHaveBeenCalledTimes(1);
     const supplied = verify.mock.calls[0][0].facts;
 
@@ -181,3 +190,10 @@ it('Doctor-hosted transformation verification reuses the measured current tree',
     read.mockRestore();
   }
 });
+
+function expectWorkflowAssessments(result: Awaited<ReturnType<typeof runDoctor>>, json: string) {
+  expect(result.assessment.scope).toBe('current-config-adoption');
+  expect(result.workflowAssessments).toHaveLength(1);
+  expect(result.workflowAssessments[0].scope).toBe('topology-transformation');
+  expect(JSON.parse(json).workflowAssessments).toEqual(result.workflowAssessments);
+}

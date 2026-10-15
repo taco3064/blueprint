@@ -1,3 +1,5 @@
+import { deriveAdoptionAssessment } from '../inspect/adoption-assessment';
+import { doctorAssessmentItems } from '../inspect/assessment-runtime';
 import { describe, expect, it } from 'vitest';
 import {
   renderOutsideScopeAnalysis, renderOutsideScopeDoctorCheck, renderOutsideScopeError,
@@ -34,7 +36,7 @@ describe('outside scope output', () => {
     expect(renderOutsideScopeAnalysis(fact)).toBe('Application scope: complete (git-visible).');
 
     expect(renderOutsideScopeDoctorCheck(fact)).toEqual({
-      label: 'Application source scope', ok: true,
+      sourceKey: 'outside-scope\0', label: 'Application source scope', ok: true,
       detail: 'Application scope: complete (git-visible).',
     });
 
@@ -100,10 +102,14 @@ describe('doctor scope facts transport', () => {
       applicationScope: [{ rule: 'uncovered-application-source', path: 'src', subject: 'tools' }],
     };
 
-    expect(JSON.parse(renderDoctorReport([], { json: true, architectureFacts })).architectureFacts)
+    expect(JSON.parse(renderDoctorReport([],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [])), json: true, architectureFacts })).architectureFacts)
       .toEqual(architectureFacts);
 
-    expect(JSON.parse(renderDoctorReport([], { json: true })))
+    expect(JSON.parse(renderDoctorReport([],
+      { assessment: deriveAdoptionAssessment('current-config-adoption',
+        doctorAssessmentItems('.', [])), json: true })))
       .not.toHaveProperty('architectureFacts');
   });
 });

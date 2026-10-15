@@ -1,3 +1,4 @@
+import { renderAssessmentGuidance } from './adoption-assessment';
 import type {
   ArchitectureDef,
   AxisDef,
@@ -28,6 +29,7 @@ export function renderHeader(name: string | undefined): string {
 
   return [
     `# ${title}`,
+    renderAssessmentGuidance(),
     '',
     '> Generated from `blueprint.config` by `@kekkai/blueprint` — edit the blueprint, '
     + 'not this file.',

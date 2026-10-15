@@ -359,7 +359,7 @@ unverified and names the probe path. Check global ignores and file matching; thi
 of overwritten rules. Real rule losses at other probes still fail. Suppressions ledgers in both
 the application and effective ESLint config directories are checked.
 
-`doctor` checks whether adoption is complete. It verifies config presence, stale temporary or
+`doctor` assesses current-config adoption evidence. It verifies config presence, stale temporary or
 Agent files, ESLint wiring, the reachable `package.json` lint entrypoint and its live ESLint leg,
 alias wiring, survival of emitted structural rules in the merged flat config, architecture status,
 and the suppressions ledger.
@@ -377,15 +377,35 @@ npx @kekkai/blueprint doctor
 npx @kekkai/blueprint doctor --json
 ```
 
-The only option is `--json`. Results have three meanings:
+The only option is `--json`. The public `runDoctor()` result and JSON expose authoritative
+`assessment` with four independent lanes:
 
-- **Complete** — every check passed; exit `0`.
-- **Incomplete** — at least one check failed; exit `1`.
-- **Unverified** — no check failed, but at least one had to skip; exit remains `0`.
+- `gates`: applicable executable checks passed, failed, or remain unverified.
+- `conformance`: fresh violations, baselined debt, and non-blocking observations. These counts
+  overlap and must not be summed; baseline suppression never erases evidence.
+- `reach`: covered, partial, and declaratory positions. Unavailable outside-source evidence stays
+  distinct in item evidence and contributes to `partial`. An intentional `modules: []` runway is
+  declaratory, not a failed adoption.
+- `review`: required or none-known, with required and recorded counts. None-known means only that
+  Blueprint generated no known review item; it does not prove the product model correct.
 
-Because a skipped check is not visible in the exit code, automation that requires proof must inspect
-the JSON checks/verdict and reject `skipped` results. Unsafe or ambiguous lint command lines are
-skipped rather than executed through a shell.
+The shared `assessment.headline` selects failed gates first, then combined executable/source
+uncertainty, executable-only uncertainty, required source-only uncertainty, semantic review,
+unexercised declarations, and finally no known review. Passing gates never override required
+incomplete source evidence. Items retain stable source identity, typed evidence, limitations,
+review signals, and existing exit policy. Consumer counts do not decide neutral ownership.
+
+`gateVerdict` preserves the former gate-only `complete | unverified | incomplete` result.
+`verdict` is its deprecated compatibility alias for 4.2; neither is the adoption conclusion.
+`ok` and exit codes remain compatible: no failed Doctor check means exit `0`, including skips;
+a failed check means exit `1`. Automation requiring verified evidence must read `assessment`
+rather than only exit codes. Unsafe or ambiguous lint commands skip instead of running a shell.
+
+`inspect` and public `runInspect()` expose the same assessment vocabulary for the architecture
+subset. Doctor aggregates current-config evidence; neither proves module ownership, layer/root
+responsibility, presentation responsibility, or historical topology transformation. Lifecycle
+upgrade and transformation keep their own bounded scopes and decision records. Static generated
+guidance explains these boundaries but never caches a live assessment.
 
 Doctor recognises `lint`, or `eslint` when `lint` is absent, as the normal lint script. If neither
 entrypoint can be identified, that check is unverified rather than a proven wiring failure.

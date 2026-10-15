@@ -41,7 +41,7 @@ export const verifyApplication: ApplicationVerifier = async (root, application) 
     application,
     inspect: { ok: inspect.ok, findings: inspect.findings.length },
     doctor: {
-      verdict: doctor.verdict,
+      assessment: doctor.assessment,
       failed: doctor.checks.filter((check) => !check.ok).map((check) => check.label),
       skipped: doctor.checks.filter((check) => check.skipped !== undefined)
         .map((check) => check.label),
@@ -50,5 +50,5 @@ export const verifyApplication: ApplicationVerifier = async (root, application) 
 };
 
 export function verificationPassed(fact: UpgradeVerificationFact): boolean {
-  return fact.inspect.ok && fact.doctor.verdict === 'complete';
+  return fact.inspect.ok && fact.doctor.assessment.gates.status === 'passed';
 }

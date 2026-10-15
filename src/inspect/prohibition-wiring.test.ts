@@ -215,7 +215,8 @@ describe('verifyProhibitions exact carrier controls', () => {
       reach: 'vacuous',
       lintIntegration: 'verified' });
 
-    expect(prohibitionDoctorChecks(facts)[0]).toEqual({ label: expect.any(String), ok: true });
+    expect(prohibitionDoctorChecks(facts)[0]).toEqual({ sourceKey: `prohibition\0${facts[0].position}\0${facts[0].id}`,
+      label: expect.any(String), ok: true });
   });
 
   it.each(['missing',

@@ -62,7 +62,7 @@ describe('runDoctor import-analysis authority', () => {
 
     expect(architecture?.detail).toContain('1/1 source files inside architecture nets');
     expect(architecture?.detail).toContain('import analysis failed (0/1 scanned files parsed)');
-    expect(output).toContain('Adoption incomplete');
+    expect(output).toContain('Adoption blocked');
     expect(output).not.toContain('Adoption complete');
   });
 });

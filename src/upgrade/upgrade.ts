@@ -17,6 +17,7 @@ import {
 import type { PackageLocation, UpgradeCatalog } from '../lifecycle';
 import type { GitReader } from '../project';
 import {
+  renderAssessmentText,
   renderUpgradeComplete,
   renderUpgradeCurrent,
   renderUpgradeHandoff,
@@ -31,7 +32,9 @@ import {
   renderUpgradeVerificationPending,
   renderUpgradeVerificationResult,
 } from '../operational-contract';
-import type { UpgradePlanFact, UpgradeRefusalFact } from '../operational-contract';
+import type { UpgradePlanFact, UpgradeRefusalFact,
+  UpgradeVerificationFact } from '../operational-contract';
+import { assessUpgrade } from './assessment';
 import { decideUpgrade } from './decide';
 import type { UpgradeProceed } from './decide';
 import {
@@ -237,13 +240,15 @@ async function continueUpgrade(decision: UpgradeProceed, facts: UpgradeFacts, co
   const remaining = remainingOperations(decision.pending);
 
   if (remaining.length) {
+    logAssessment(decision, facts, { context, verification: [] });
+
     writePlaybook(facts.root, { ...context, pending: decision.pending });
     context.log(renderUpgradePlaybookWritten(UPGRADE_PLAYBOOK_FILE, remaining.length));
 
     return 1;
   }
 
-  if (!(await verifyAdoptedApplications(facts, context))) {
+  if (!(await verifyAdoptedApplications(decision, facts, context))) {
     context.log(renderUpgradeVerificationPending());
 
     return 1;
@@ -255,17 +260,34 @@ async function continueUpgrade(decision: UpgradeProceed, facts: UpgradeFacts, co
   return 0;
 }
 
-async function verifyAdoptedApplications(facts: UpgradeFacts, context: Context): Promise<boolean> {
-  let passed = true;
+function logAssessment(
+  decision: UpgradeProceed, facts: UpgradeFacts,
+  input: { context: Context; verification: UpgradeVerificationFact[] },
+): void {
+  const { context, verification } = input;
+
+  context.log(renderAssessmentText(assessUpgrade({
+    pending: decision.pending, reconciled: true, verification,
+    migrations: decision.migrations,
+    reconciledApplications: facts.applications.map((application) => application.key),
+  })));
+}
+
+async function verifyAdoptedApplications(
+  decision: UpgradeProceed, facts: UpgradeFacts, context: Context,
+): Promise<boolean> {
+  const verification: UpgradeVerificationFact[] = [];
 
   for (const entry of facts.applications) {
     const result = await context.verify(entry.root, entry.key);
 
     context.log(renderUpgradeVerificationResult(result));
-    passed &&= verificationPassed(result);
+    verification.push(result);
   }
 
-  return passed;
+  logAssessment(decision, facts, { context, verification });
+
+  return verification.every(verificationPassed);
 }
 
 function recordCompletion(

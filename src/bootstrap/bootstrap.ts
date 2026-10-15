@@ -107,7 +107,7 @@ async function runPreparedTopology(
 
   const retirement = transformationRetirement({
     root, state, blueprint: resolved?.blueprint ?? null, authoring: options.authoring,
-    requestedTopology: options.topology,
+    requestedTopology: options.topology, log,
   });
 
   if (retirement) {

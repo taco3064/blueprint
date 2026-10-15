@@ -627,8 +627,9 @@ async function main() {
 function runFacts(run) {
   const lines = run.doctor.output.trim().split('\n');
 
-  const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete)/.test(line))
-    ?? lines[lines.length - 1];
+  const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete|blocked)/.test(line)
+    || line.startsWith('Gates passed'))
+  ?? lines[lines.length - 1];
 
   return [
     `- dir: ${run.dir}`,

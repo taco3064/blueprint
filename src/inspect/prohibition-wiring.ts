@@ -207,6 +207,7 @@ export function prohibitionDoctorChecks(facts: ProhibitionEvidence[]): DoctorChe
     const label = renderProhibitionDoctorMessage(fact);
 
     return {
+      sourceKey: `prohibition\0${fact.position}\0${fact.id}`,
       label,
       ok: fact.gate !== 'failed',
       ...(fact.gate === 'unverified' ? { skipped: label } : {}),

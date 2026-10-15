@@ -1,3 +1,4 @@
+import { deriveAdoptionAssessment } from '../inspect';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -53,6 +54,11 @@ const state = () => JSON.parse(
 
 const exists = (rel: string) => fs.existsSync(path.join(root, rel));
 const output = () => lines.join('\n');
+
+const includesOutput = (...values: string[]) => values.forEach((value) => {
+  expect(output()).toContain(value);
+});
+
 const playbook = () => fs.readFileSync(path.join(root, 'blueprint-upgrade.md'), 'utf-8');
 
 function options(patch: Partial<UpgradeOptions> = {}): UpgradeOptions {
@@ -67,7 +73,8 @@ function options(patch: Partial<UpgradeOptions> = {}): UpgradeOptions {
     verify: async (_root, application) => ({
       application,
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'complete', failed: [], skipped: [] },
+      doctor: { assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+        gates: { status: 'passed', failed: 0, unverified: 0 } }, failed: [], skipped: [] },
     }),
     ...patch,
   };
@@ -95,6 +102,7 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
     expect(output()).toContain('1. review-retired-module-private (4.0.0) → `.`');
     expect(output()).toContain('Safety: ✓ clean Git worktree');
     expect(exists('.blueprint-lifecycle.json')).toBe(false);
+    expect(output()).not.toContain('Assessment scope: lifecycle-upgrade');
   });
 
   it('records the pending plan before installing, then hands off to the installed '
@@ -146,6 +154,10 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
     expect(playbook())
       .toContain('`npx blueprint upgrade --complete review-retired-module-private`');
 
+    includesOutput('Assessment scope: lifecycle-upgrade',
+      'Semantic review: required (1 required, 0 recorded)', 'lifecycle-deterministic-migration');
+
+    expect(output()).not.toContain('lifecycle-current-config-gates');
     expect(state().blueprint).toBe('3.2.0');
   });
 
@@ -183,17 +195,19 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
       loadConfig: async () => ({}),
       verify: async (_root, application) => ({
         application, inspect: { ok: false, findings: 2 },
-        doctor: { verdict: 'incomplete', failed: ['eslint wired'], skipped: ['merged rules'] },
+        doctor: { assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+          gates: { status: 'failed', failed: 1, unverified: 0 } }, failed: ['eslint wired'],
+        skipped: ['merged rules'] },
       }),
     });
 
     expect(await runUpgrade(root, failing)).toBe(1);
 
-    expect(output())
-      .toContain('✗ inspect --baseline failed in `.` (2 finding(s) outside the baseline)');
-
-    expect(output())
-      .toContain('✗ doctor incomplete in `.` — failed: eslint wired — could not run: merged rules');
+    includesOutput('✗ inspect --baseline failed in `.` (2 finding(s) outside the baseline)',
+      '✗ doctor executable gates failed in `.` — failed: eslint wired'
+      + ' — could not run: merged rules',
+      'Executable gates: failed (1 failed, 0 unverified)',
+      'Semantic review: none-known (0 required, 1 recorded)');
 
     expect(state().pending).not.toBeNull();
 
@@ -202,6 +216,10 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
     expect(state()).toMatchObject({
       blueprint: '4.1.0', operations: ['review-retired-module-private'], pending: null,
     });
+
+    includesOutput('Assessment scope: lifecycle-upgrade',
+      'Executable gates: passed (0 failed, 0 unverified)', 'lifecycle-current-config-gates',
+      'Semantic review: none-known (0 required, 1 recorded)');
 
     expect(exists('blueprint-upgrade.md')).toBe(false);
     expect(lines.at(-1)).toContain('Blueprint upgrade complete: lifecycle 3.2.0 → 4.1.0 recorded');

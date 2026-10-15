@@ -44,3 +44,7 @@ export type * from './types';
 export type { ResolvedRootUnit, ResolvedRootUnitFiles, ResolvedRootUnitImport } from './root-unit';
 export { globToRegExp } from './globs';
 export type { ResolvedConsumerFiles } from './consumer-files';
+export type {
+  AssessmentScope, AssessmentLane, AssessmentItemStatus,
+  AssessmentHeadline, AssessmentItem, AdoptionAssessment,
+} from './adoption-assessment';

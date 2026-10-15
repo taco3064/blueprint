@@ -384,3 +384,9 @@ export {
 export type {
   ModuleDependenciesView, ModuleDependencyRowView, ModuleEdgeView,
 } from './module-dependencies';
+
+export { renderAssessment, renderAssessmentText, renderAssessmentOutput,
+  renderAssessmentConflict, renderMissingDoctorIdentity, renderAssessmentHeadline,
+  renderAssessmentGuidance } from './adoption-assessment';
+
+export { renderAssessmentClaim, renderAssessmentNextStep } from './assessment-claims';

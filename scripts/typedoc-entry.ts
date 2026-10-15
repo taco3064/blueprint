@@ -21,6 +21,12 @@ export {
   vuePreset,
 } from '../src/index';
 export type {
+  AdoptionAssessment,
+  AssessmentHeadline,
+  AssessmentItem,
+  AssessmentItemStatus,
+  AssessmentLane,
+  AssessmentScope,
   AgentEmitEntry,
   AgentFile,
   AgentFileStrategy,
@@ -44,6 +50,7 @@ export type {
   DiagramEdge,
   DoctorCheck,
   DoctorOptions,
+  DoctorResult,
   DoctorVerdict,
   EmitDef,
   ExecutableMustNot,

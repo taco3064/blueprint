@@ -113,6 +113,7 @@ describe('LF→MF transformation obligation', () => {
 
     expect(result.code).toBe(1);
     expect(result.output).toContain('has no destination decision');
+    expect(result.output).toContain('Assessment scope: topology-transformation');
     expect(read(dir, 'blueprint-transformation.json')).not.toBeNull();
   });
 
@@ -139,7 +140,10 @@ describe('LF→MF transformation obligation', () => {
 
     const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
 
-    expect(result.code, result.output).toBe(0);
+    expect(result, result.output).toMatchObject({ code: 0,
+      output: expect.stringMatching(/Assessment scope: topology-transformation[\s\S]*review-recorded/),
+    });
+
     expect(read(dir, 'blueprint-transformation.json')).toBeNull();
     expect(read(dir, 'blueprint-authoring.md')).toBeNull();
   });

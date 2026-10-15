@@ -1,9 +1,10 @@
+export { deriveAdoptionAssessment } from './adoption-assessment';
 export { BASELINE_FILE } from './baseline';
 export { runDeps } from './deps';
 export { assessLintIntegration } from './adoption';
 export type { DepsOptions, DepsResult, UnitDeps } from './deps';
 export { runDoctor } from './doctor';
-export type { DoctorCheck, DoctorOptions, DoctorVerdict } from './doctor';
+export type { DoctorCheck, DoctorOptions, DoctorVerdict, DoctorResult } from './doctor';
 export { runInspect } from './inspect';
 export type { InspectOptions, InspectResult } from './inspect';
 export { runRules } from './rules';

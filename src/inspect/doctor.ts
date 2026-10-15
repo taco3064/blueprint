@@ -17,7 +17,7 @@ import {
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
-import type { Blueprint } from '../config';
+import type { AdoptionAssessment, Blueprint } from '../config';
 import {
   renderDoctorCheck,
   renderOutsideScopeDoctorCheck,
@@ -28,9 +28,10 @@ import {
 import type { ArchitectureFactsView } from '../operational-contract';
 import { collectArchitectureFacts } from './facts';
 import type { ArchitectureFacts } from './facts';
-import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
 import {
-  computeCoverage,
+  assessmentApplication, assessmentBaseline, assembleDoctorAssessment, noConfigResult, verdictOf,
+} from './assessment-runtime';
+import {
   coverageSummary,
   unreachedIgnoreGlobs,
   vacuousNextStep,
@@ -132,51 +133,44 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
 }
 
 /**
- * Run `blueprint doctor` in `root`. Read-only. Answers the one question the
- * adoption prompt's acceptance clause asks — "is adoption actually finished?"
- * — as a checklist: config present, no leftover reference files, eslint wired
- * to emitLint, the normal lint entrypoint reaches eslint, its safely replayable
- * project-local ESLint leg passes live, the declared alias is wired to the
- * toolchain, the emitted rules remain alive in the merged eslint config, the
- * architecture is clean under the baseline (with visible coverage), and the
- * lint suppressions ledger is current. Exit 0 iff no check fails, so you can
- * gate on it — a git hook, CI, or an agent's verify loop.
- *
- * `ok` is "nothing failed", which the exit code follows. It is NOT "everything was
- * verified": a check that could not run rides on `ok: true` deliberately, so read
- * `verdict` when the difference matters — the JSON said `"ok": true` while the text
- * said `⊘ Adoption unverified` about the same run, and that gap nearly became a
- * green CI gate (field run #141).
+ * Assess current-config executable gates, structural evidence, reach, and semantic review.
+ * Read-only. `ok` preserves the exit contract: no Doctor check failed. Skipped
+ * checks can retain `ok: true`; read `assessment` for evidence and review limits.
  * @group Runtimes
- * @example
- * const { ok, verdict } = await runDoctor(process.cwd());
- *
- * process.exitCode = ok ? 0 : 1;
- *
- * if (verdict === 'unverified') console.warn('a check could not run');
  */
+export interface DoctorResult {
+  ok: boolean;
+  gateVerdict: DoctorVerdict;
+  /** @deprecated Gate-only alias for gateVerdict; not an adoption conclusion. */
+  verdict: DoctorVerdict;
+  assessment: AdoptionAssessment;
+  workflowAssessments: AdoptionAssessment[];
+  checks: DoctorCheck[];
+  prohibitions?: ProhibitionEvidence[];
+}
+
+/** Run a read-only current-config adoption assessment. @group Runtimes */
 export async function runDoctor(
   root: string,
   options: DoctorOptions = {},
-): Promise<{
-  ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[]; prohibitions?: ProhibitionEvidence[];
-}> {
+): Promise<DoctorResult> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
   if (!state.hasConfig) {
-    return noConfigResult(log, options.json);
+    return noConfigResult(assessmentApplication(root, state), log, options.json);
   }
 
   const { blueprint } = await resolveBlueprint(root, state, options);
 
   const facts = collectArchitectureFacts(root, blueprint, {
     demand: 'application-scope', dependencies: state.dependencies,
+    hasTypescript: state.hasTypescript, framework: state.framework,
   });
 
   const { scanResult } = facts;
 
-  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
+  const { coverage } = facts;
 
   const { checks, probed, prohibitions } = await doctorChecks(
     root,
@@ -184,6 +178,11 @@ export async function runDoctor(
   );
 
   const ok = checks.every((check) => check.ok);
+  const workflowAssessments = checks.flatMap((check) => check.assessment ? [check.assessment] : []);
+
+  const assessment = assembleDoctorAssessment(root, state, {
+    blueprint, facts, checks, prohibitions,
+  });
 
   const notes = [
     unreachedIgnoreNote(scanResult, blueprint, probed),
@@ -193,7 +192,7 @@ export async function runDoctor(
   ].filter((note) => note !== undefined);
 
   emit(log, checks, {
-    notes, json: options.json, prohibitions,
+    notes, json: options.json, prohibitions, assessment, workflowAssessments,
     architectureFacts: {
       outsideScope: facts.outsideScope,
       governedWork: scanResult.governedWork,
@@ -204,20 +203,8 @@ export async function runDoctor(
     },
   });
 
-  return { ok, verdict: verdictOf(checks), checks, prohibitions };
-}
-
-function noConfigResult(
-  log: (message: string) => void,
-  json?: boolean,
-): { ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[] } {
-  const checks: DoctorCheck[] = [
-    renderDoctorCheck({ kind: 'config', present: false }),
-  ];
-
-  emit(log, checks, { json });
-
-  return { ok: false, verdict: verdictOf(checks), checks };
+  return { ok, verdict: verdictOf(checks), gateVerdict: verdictOf(checks),
+    assessment, workflowAssessments, checks, prohibitions };
 }
 
 async function doctorChecks(
@@ -235,13 +222,6 @@ async function doctorChecks(
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
   const { findings } = facts;
-
-  // Stryker disable next-line ArrayDeclaration: unmatched fabricated entries change no finding.
-  const unrecorded: ReturnType<typeof parseBaseline> = [];
-
-  const recorded = fs.existsSync(path.join(root, BASELINE_FILE))
-    ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
-    : unrecorded;
 
   const wiring = await wiringCheck({
     root,
@@ -284,7 +264,7 @@ async function doctorChecks(
       wiring.check,
       ...prohibitionDoctorChecks(prohibitions),
       architectureCheck({
-        baseline: splitByBaseline(findings, recorded),
+        baseline: assessmentBaseline(root, findings),
         coverage,
         blueprint,
         analysis: facts.analysis,
@@ -392,12 +372,12 @@ function transformationChecks(
     root, obligation, blueprint, state, facts,
   });
 
-  return [renderDoctorCheck({
+  return [{ ...renderDoctorCheck({
     kind: 'transformation',
     status: 'pending',
     verified: verification.ok,
     failures: verification.failures,
-  })];
+  }), assessment: verification.assessment }];
 }
 
 function leftoversCheck(root: string, blueprint: Blueprint, legacy: boolean): DoctorCheck {
@@ -495,18 +475,12 @@ function unreachedIgnoreNote(
   return renderOperationalUnreachedIgnoreNote({ globs: dead, reach, probed });
 }
 
-function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
-  if (checks.some((check) => !check.ok)) {
-    return 'incomplete';
-  }
-
-  return checks.some((check) => check.skipped) ? 'unverified' : 'complete';
-}
-
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
   report: {
+    assessment: AdoptionAssessment;
+    workflowAssessments?: AdoptionAssessment[];
     notes?: string[]; json?: boolean; prohibitions?: ProhibitionEvidence[];
     architectureFacts?: ArchitectureFactsView;
   },

@@ -1,6 +1,10 @@
 import { activeSetting, resolveArchitecture } from '../config';
-import type { Blueprint, ResolvedArchitecture } from '../config';
+import type { Blueprint, Framework, ResolvedArchitecture } from '../config';
 import { analyze } from './analyze';
+import { computeCoverage } from './coverage';
+import type { Coverage } from './coverage';
+import { measureProhibitions } from './prohibitions';
+import type { ProhibitionFact } from './prohibitions';
 import { collectOutsideScope } from './outside-scope';
 import { importAnalysis, scan } from './scan';
 import { dropTestFiles } from './filter';
@@ -14,6 +18,8 @@ import type { Finding, OutsideScopeEvidence, ScanResult, ScannedFile } from './t
 export type ArchitectureDemand = 'governed-source' | 'application-scope';
 
 export interface ArchitectureFacts {
+  coverage: Coverage;
+  prohibitions: ProhibitionFact[];
   demand: ArchitectureDemand;
   governedFiles: ScannedFile[];
   projectReferences: Map<ScannedFile, Map<string, ProjectReferenceFact>>;
@@ -29,7 +35,8 @@ export interface ArchitectureFacts {
 export function collectArchitectureFacts(
   root: string,
   blueprint: Blueprint,
-  options: { demand: ArchitectureDemand; dependencies?: string[] },
+  options: { demand: ArchitectureDemand; dependencies?: string[];
+    hasTypescript?: boolean; framework?: Framework | null; },
 ): ArchitectureFacts {
   const { demand } = options;
   const resolved = resolveArchitecture(blueprint.architecture);
@@ -56,6 +63,8 @@ export function collectArchitectureFacts(
 
   return {
     demand,
+    coverage: computeCoverage(scanResult, blueprint, options.hasTypescript ?? false),
+    prohibitions: measureProhibitions(blueprint, scanResult, options.framework),
     governedFiles,
     projectReferences,
     moduleDependencies,

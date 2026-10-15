@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { Blueprint, ResolvedArchitecture } from '../config';
+import type { AdoptionAssessment, Blueprint, ResolvedArchitecture } from '../config';
 import { defaultGitReader, relativeFilesystemPath } from '../project';
 import type {
   GitReader, LayerToModuleObligation, ProjectState, TransformationObligationFailure,
@@ -9,9 +9,11 @@ import type {
 } from '../project';
 import { collectArchitectureFacts } from './facts';
 import type { ArchitectureFacts } from './facts';
+import { assessTransformation } from './transformation-assessment';
 import { memberFailures } from './transformation-members';
 
 export interface TransformationObligationResult {
+  assessment: AdoptionAssessment;
   ok: boolean;
   failures: TransformationObligationFailure[];
 }
@@ -47,7 +49,8 @@ export function verifyTransformationObligation(input: {
     ...decisionFailures(context), ...memberFailures(context), ...finalFailures(context),
   ];
 
-  return { ok: failures.length === 0, failures };
+  return { ok: failures.length === 0, failures,
+    assessment: assessTransformation(input.obligation, failures, facts) };
 }
 
 function authorityFailures(context: Context): TransformationObligationFailure[] {

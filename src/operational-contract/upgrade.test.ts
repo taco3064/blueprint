@@ -1,3 +1,4 @@
+import type { AdoptionAssessment } from '../config';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -19,6 +20,15 @@ import {
 import { renderUpgradePlaybook } from './upgrade-playbook';
 import { renderUpgradeRefusal } from './upgrade-refusals';
 import type { UpgradeRefusalFact } from './upgrade-refusals';
+
+const assessment: AdoptionAssessment = {
+  scope: 'current-config-adoption', headline: 'review-required',
+  gates: { status: 'passed', failed: 0, unverified: 0 },
+  conformance: { freshViolations: 0, baselinedDebt: 0, nonBlockingObservations: 0 },
+  reach: { covered: 0, partial: 0, declaratory: 0 },
+  review: { status: 'required', required: 1, recorded: 0 },
+  items: [], limitations: [],
+};
 
 const plan: UpgradePlanFact = {
   dryRun: false,
@@ -116,14 +126,19 @@ describe('upgrade progress messages', () => {
     expect(renderUpgradeVerificationResult({
       application: '.',
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'complete', failed: [], skipped: [] },
-    })).toBe('  ✓ inspect --baseline passed in `.`\n  ✓ doctor complete in `.`');
+      doctor: { assessment: { ...assessment, gates: { status: 'passed', failed: 0,
+        unverified: 0 } }, failed: [], skipped: [] },
+    })).toBe('  ✓ inspect --baseline passed in `.`\n  ✓ doctor executable gates passed in `.`\n'
+      + '  Current-config review remains separate from lifecycle completion; inspect the Doctor '
+      + 'assessment for responsibility, reach, and known debt.');
 
     expect(renderUpgradeVerificationResult({
       application: '.',
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'incomplete', failed: ['config'], skipped: [] },
-    })).toContain('✗ doctor incomplete in `.` — failed: config — run `npx blueprint doctor` there');
+      doctor: { assessment: { ...assessment, gates: { status: 'failed', failed: 1,
+        unverified: 0 } }, failed: ['config'], skipped: [] },
+    })).toContain('✗ doctor executable gates failed in `.` — failed: config '
+      + '— run `npx blueprint doctor` there');
   });
 });
 
@@ -233,4 +248,20 @@ describe('upgrade refusals', () => {
   ])('explains %j', (fact, fragment) => {
     expect(renderUpgradeRefusal(fact)).toContain(fragment);
   });
+});
+
+it('distinguishes unverified gates from success and retains each failed or skipped check', () => {
+  const output = renderUpgradeVerificationResult({
+    application: 'apps/web', inspect: { ok: false, findings: 2 },
+    doctor: {
+      assessment: { ...assessment, gates: { status: 'unverified', failed: 0, unverified: 2 } },
+      failed: [], skipped: ['lint unavailable', 'alias unknown'],
+    },
+  });
+
+  expect(output).toContain('doctor executable gates unverified in `apps/web`');
+  expect(output).toContain('could not run: lint unavailable; alias unknown');
+  expect(output).not.toContain('doctor executable gates passed');
+  expect(output).not.toContain(' — failed:');
+  expect(output).toContain('2 finding(s) outside the baseline');
 });

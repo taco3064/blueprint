@@ -7,6 +7,9 @@ import type { Blueprint } from '../config';
 import * as config from '../config';
 import { collectArchitectureFacts } from './facts';
 import * as outsideScope from './outside-scope';
+import * as scanning from './scan';
+import { computeCoverage } from './coverage';
+import { measureProhibitions } from './prohibitions';
 
 let root: string;
 
@@ -141,12 +144,14 @@ it('full facts retain one resolved architecture through every analyzer', () => {
 
   write('tools/Consumer.ts', 'import \'~app/shop\';');
   const resolve = vi.spyOn(config, 'resolveArchitecture');
+  const scan = vi.spyOn(scanning, 'scan');
 
   const facts = collectArchitectureFacts(root, { ...blueprint, rules: { cycles: 'warn' } }, {
     demand: 'application-scope', dependencies: [],
   });
 
-  expect(resolve).toHaveBeenCalledTimes(1);
+  expect(resolve).toHaveBeenCalledTimes(3);
+  expect(scan).toHaveBeenCalledExactlyOnceWith(root, 'src');
   expect(facts.resolved).toBe(resolve.mock.results[0].value);
   expect(facts.resolved.sourceRoot).toBe('src');
 
@@ -173,4 +178,34 @@ it('unavailable outside inventory cannot become complete or invent relations', (
 
   expect(facts.findings.filter((finding) => finding.rule === 'uncovered-application-source'))
     .toEqual([]);
+});
+
+it.each([undefined, false, true])('retains coverage for TypeScript=%s', (hasTypescript) => {
+  const configured: Blueprint = { ...blueprint, rules: { explicitAny: 'error' } };
+
+  const facts = collectArchitectureFacts(root, configured, {
+    demand: 'governed-source', hasTypescript, framework: 'react',
+  });
+
+  expect(facts.coverage)
+    .toEqual(computeCoverage(facts.scanResult, configured, hasTypescript ?? false));
+
+  expect(facts.prohibitions).toEqual(measureProhibitions(configured, facts.scanResult, 'react'));
+});
+
+it.each([
+  ['react', 'active'], ['vue', 'unavailable'], [null, 'unavailable'],
+] as const)('passes detected framework %s to the prohibition authority', (framework, status) => {
+  const configured: Blueprint = { ...blueprint, framework: 'auto', architecture: {
+    ...blueprint.architecture, layers: [{ name: 'components', does: 'UI', layout: 'file',
+      mustNot: [{ id: 'state', description: 'state', checks: [{ capability: 'react-state' }] }] }],
+  } };
+
+  const facts = collectArchitectureFacts(root, configured, {
+    demand: 'governed-source', framework,
+  });
+
+  expect(facts.prohibitions).toHaveLength(1);
+  expect(facts.prohibitions.map((fact) => fact.status)).toEqual([status]);
+  expect(facts.prohibitions[0].matchedFiles).toEqual(['src/shop/components/Item.ts']);
 });

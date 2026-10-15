@@ -1,3 +1,4 @@
+import { deriveAdoptionAssessment } from '../inspect';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -79,7 +80,8 @@ function upgrade(
     verify: async (_root, application) => ({
       application,
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'complete', failed: [], skipped: [] },
+      doctor: { assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+        gates: { status: 'passed', failed: 0, unverified: 0 } }, failed: [], skipped: [] },
     }),
     ...patch,
   });

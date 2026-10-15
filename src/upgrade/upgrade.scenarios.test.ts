@@ -1,3 +1,4 @@
+import { deriveAdoptionAssessment } from '../inspect';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,7 +82,8 @@ function upgrade(patch: Partial<UpgradeOptions> = {}): Promise<number> {
     verify: async (_root, application) => ({
       application,
       inspect: { ok: true, findings: 0 },
-      doctor: { verdict: 'complete', failed: [], skipped: [] },
+      doctor: { assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+        gates: { status: 'passed', failed: 0, unverified: 0 } }, failed: [], skipped: [] },
     }),
     ...patch,
   });
@@ -109,7 +111,10 @@ describe('runUpgrade · repository scope', () => {
       application,
       inspect: { ok: true, findings: 0 },
       doctor: {
-        verdict: application === 'apps/web' ? 'unverified' as const : 'complete' as const,
+        assessment: { ...deriveAdoptionAssessment('current-config-adoption', []),
+          gates: { status: application === 'apps/web'
+            ? 'unverified' as const
+            : 'passed' as const, failed: 0, unverified: application === 'apps/web' ? 1 : 0 } },
         failed: [],
         skipped: [],
       },
@@ -121,9 +126,14 @@ describe('runUpgrade · repository scope', () => {
       .toEqual([path.join(root, 'apps/admin'), path.join(root, 'apps/web')]);
 
     expect(output())
-      .toContain('✗ doctor unverified in `apps/web` — run `npx blueprint doctor` there');
+      .toContain('✗ doctor executable gates unverified in `apps/web`'
+        + ' — run `npx blueprint doctor` there');
 
-    expect(state().pending).not.toBeNull();
+    expect({ verified: verify.mock.calls.map(([, application]) => application),
+      output: output(), pending: state().pending }).toMatchObject({
+      verified: ['apps/admin', 'apps/web'], pending: expect.any(Object),
+      output: expect.stringContaining('Executable gates: unverified (0 failed, 1 unverified)'),
+    });
   });
 
   it('resumes a package move that stopped part-way without repeating what landed', async () => {

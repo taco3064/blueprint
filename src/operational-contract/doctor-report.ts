@@ -1,3 +1,5 @@
+import type { AdoptionAssessment } from '../config';
+import { renderAssessment, renderAssessmentHeadline } from './adoption-assessment';
 import type { DoctorCheckView } from './doctor';
 import { CURRENT_CONFIG_ADOPTION_SCOPE } from './inspect';
 import type { ImportGraphFact } from './inspect';
@@ -15,7 +17,8 @@ export interface ArchitectureFactsView {
 
 export function renderDoctorReport(
   checks: DoctorCheckView[],
-  report: { notes?: string[]; json?: boolean; prohibitions?: ProhibitionReportFact[];
+  report: { assessment: AdoptionAssessment; workflowAssessments?: AdoptionAssessment[];
+    notes?: string[]; json?: boolean; prohibitions?: ProhibitionReportFact[];
     architectureFacts?: ArchitectureFactsView; },
 ): OperationalText {
   const notes = report.notes ?? [];
@@ -23,12 +26,13 @@ export function renderDoctorReport(
   const skipped = checks.filter((check) => check.skipped).length;
   const passed = checks.length - failed - skipped;
   const verdict = failed ? 'incomplete' : skipped ? 'unverified' : 'complete';
-  const banner = doctorBanner({ checks: checks.length, failed, skipped, passed });
+  const banner = renderAssessmentHeadline(report.assessment.headline);
 
   if (report.json) {
     return operationalText(JSON.stringify({
       ok: checks.every((check) => check.ok),
-      verdict,
+      verdict, gateVerdict: verdict, assessment: report.assessment,
+      workflowAssessments: report.workflowAssessments ?? [],
       scope: CURRENT_CONFIG_ADOPTION_SCOPE,
       summary: banner,
       counts: { total: checks.length, passed, failed, skipped },
@@ -41,31 +45,14 @@ export function renderDoctorReport(
 
   return operationalText([
     'blueprint doctor',
+    ...renderAssessment(report.assessment),
     'Scope: current-config adoption; this is not proof of a historical topology transformation.',
     ...checks.map(renderCheck),
     '',
     banner,
     ...notes.map((note) => `  ${note}`),
+    ...(report.workflowAssessments ?? []).flatMap(renderAssessment),
   ].join('\n'));
-}
-
-function doctorBanner(counts: {
-  checks: number; failed: number; skipped: number; passed: number;
-}): string {
-  const { checks, failed, skipped, passed } = counts;
-
-  if (failed === 0 && !skipped) {
-    return `✓ Adoption complete — all ${checks} checks passed.`;
-  }
-
-  if (failed === 0) {
-    return `⊘ Adoption unverified — ${passed} of ${checks} checks passed, `
-      + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
-      + 'proves what those checks cover.';
-  }
-
-  return `✗ Adoption incomplete — ${failed} of ${checks} check(s) failed`
-    + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
 }
 
 function renderCheck(check: DoctorCheckView): string {

@@ -36,6 +36,7 @@ export type {
   ObservedModuleEdge,
   DoctorCheck,
   DoctorOptions,
+  DoctorResult,
   DoctorVerdict,
   Finding,
   GateStatus,

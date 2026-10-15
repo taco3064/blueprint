@@ -1,3 +1,4 @@
+import { renderAssessmentGuidance } from './adoption-assessment';
 import { renderTestFilesOperational } from './test-files';
 import { cleanupTargets } from './authoring-playbook';
 import type {
@@ -193,6 +194,7 @@ export function renderAcceptanceGates(
   claudeLauncher: boolean,
 ): string {
   return [
+    renderAssessmentGuidance(),
     '',
     '## Acceptance gates',
     '',

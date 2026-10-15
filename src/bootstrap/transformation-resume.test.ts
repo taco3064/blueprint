@@ -71,12 +71,15 @@ it('retires only artifacts that exist, after verification', () => {
   record();
 
   const verify = vi.spyOn(inspect, 'verifyTransformationObligation')
-    .mockReturnValue({ ok: true, failures: [] });
+    .mockReturnValue({ ok: true, failures: [],
+      assessment: inspect.deriveAdoptionAssessment('topology-transformation', []) });
+
+  const log = vi.fn();
 
   const actions = transformationRetirement({
     root, state: detect(root),
     blueprint: { framework: 'react', architecture: { alias: '~app', layers: [] } },
-    requestedTopology: 'module-first',
+    requestedTopology: 'module-first', log,
   });
 
   expect(verify).toHaveBeenCalledExactlyOnceWith({
@@ -85,10 +88,34 @@ it('retires only artifacts that exist, after verification', () => {
     obligation: readTransformationObligation(root),
   });
 
+  expect(log).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining('Assessment scope: topology-transformation'),
+  );
+
   expect(actions).toEqual([{
     kind: 'rm', path: TRANSFORMATION_OBLIGATION_FILE,
     note: `${TRANSFORMATION_OBLIGATION_FILE} (verified transformation obligation retired)`,
   }]);
+});
+
+it('reports the bounded assessment before refusing failed transformation verification', () => {
+  record();
+  const log = vi.fn();
+  const assessment = inspect.deriveAdoptionAssessment('topology-transformation', []);
+
+  vi.spyOn(inspect, 'verifyTransformationObligation').mockReturnValue({
+    ok: false, failures: [{ code: 'origin-head-changed' }], assessment,
+  });
+
+  expect(() => transformationRetirement({ root, state: detect(root), log,
+    blueprint: { framework: 'react', architecture: { layers: [] } },
+  })).toThrow();
+
+  expect(log).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining('Assessment scope: topology-transformation'),
+  );
+
+  expect(fs.existsSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE))).toBe(true);
 });
 
 it('completes only after a successful non-dry-run scaffold', async () => {

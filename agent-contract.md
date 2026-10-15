@@ -1,4 +1,5 @@
 # Blueprint agent operating discipline
+Run `blueprint doctor --json` for the current-config adoption assessment; `blueprint inspect --json` supplies the architecture subset. Report executable gates, structural evidence (including baselined debt and non-blocking violations), reach, and semantic review separately. Green checks do not prove module ownership, layer placement, root responsibility, presentation responsibility, or topology correctness. Read `assessment`; `gateVerdict` is gate-only and `verdict` is its deprecated 4.2 alias. `ok` retains exit compatibility, so exit 0 does not mean all evidence was verified. Review module/layer/root responsibility explicitly; consumer counts are review signals, not proof of neutral ownership. A deliberate empty-module runway is declaratory. Current-config gates cannot discharge historical transformation or lifecycle obligations. These generated instructions contain no live assessment; rerun the commands against current source.
 
 > Shipped with `@kekkai/blueprint`. This is the **generic** half of the
 > architecture contract — the same for every project. The **project** half
