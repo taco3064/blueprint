@@ -1,4 +1,6 @@
-import type { AliasRoot, ArchitectureDef, ResolvedSourcePosition } from '../config';
+import type {
+  AliasRoot, ArchitectureDef, ResolvedSourcePosition, ResolvedArchitecture,
+} from '../config';
 import { resolveArchitecture, stripSourceRoot } from '../config';
 import { unitKey } from '../plugin';
 import type { EntryOf, LayoutOf } from '../plugin';
@@ -8,15 +10,12 @@ import type { ImportRef, ScanResult, ScannedFile } from './types';
 export type { EntryOf, LayoutOf, RelativeVerdict, UnitShape } from '../plugin';
 export { relativeVerdict, resolveSegments, unitKey } from '../plugin';
 
-export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
-  const resolved = resolveArchitecture(architecture);
+export function layoutResolver(
+  architecture: ArchitectureDef, resolved = resolveArchitecture(architecture),
+): LayoutOf {
   const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.layout]));
 
   return (layer) => perLayer.get(layer) ?? 'file';
-}
-
-export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
-  return resolveArchitecture(architecture).aliases;
 }
 
 export function stripAlias(
@@ -42,8 +41,9 @@ export function stripAlias(
   return null;
 }
 
-export function entryResolver(architecture: ArchitectureDef): EntryOf {
-  const resolved = resolveArchitecture(architecture);
+export function entryResolver(
+  architecture: ArchitectureDef, resolved = resolveArchitecture(architecture),
+): EntryOf {
   const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.entry]));
 
   return (layer) => perLayer.get(layer) ?? 'index';
@@ -76,7 +76,12 @@ export function targetUnitKey(
   file: ScannedFile,
   architecture: ArchitectureDef,
 ): string | null {
-  const resolved = resolveArchitecture(architecture);
+  return resolvedTargetUnitKey(ref, file, resolveArchitecture(architecture));
+}
+
+function resolvedTargetUnitKey(
+  ref: ImportRef, file: ScannedFile, resolved: ResolvedArchitecture,
+): string | null {
   const position = resolved.resolveImportTarget(file.segments, ref.specifier);
 
   return position ? positionKey(position) : null;
@@ -89,10 +94,10 @@ export interface UnitGraph {
   counts: Map<string, number>;
 }
 
-export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef): UnitGraph {
+export function buildUnitGraph(
+  scan: ScanResult, architecture: ArchitectureDef, resolved = resolveArchitecture(architecture),
+): UnitGraph {
   scan = dropTestFiles(scan, architecture.testFiles);
-
-  const resolved = resolveArchitecture(architecture);
   const graph: UnitGraph = { units: new Set(), edges: new Map(), counts: new Map() };
 
   for (const file of scan.files) {
@@ -106,7 +111,7 @@ export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef):
     graph.units.add(from);
 
     for (const ref of file.imports) {
-      const to = targetUnitKey(ref, file, architecture);
+      const to = resolvedTargetUnitKey(ref, file, resolved);
 
       if (to && to !== from) {
         graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));

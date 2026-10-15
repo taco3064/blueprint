@@ -6,14 +6,18 @@ import type {
 import { renderFindingMessage } from '../operational-contract';
 import type { Finding, ScanResult, ScannedFile } from './types';
 
-export function rootUnitFindings(scan: ScanResult, blueprint: Blueprint): Finding[] {
-  const resolved = resolveArchitecture(blueprint.architecture);
+export function rootUnitFindings(
+  scan: ScanResult, blueprint: Blueprint, resolved = resolveArchitecture(blueprint.architecture),
+): Finding[] {
   const paths = scan.files.map((file) => file.path);
 
   return resolved.rootUnits.flatMap((root): Finding[] => {
     const unit = root.resolve(paths, blueprint.framework);
     const structural = unit === null ? [] : structuralFindings(root, unit, { scan, resolved });
-    const imports = rootImportFindings(scan, blueprint, { root, entry: unit?.entry ?? null });
+
+    const imports = rootImportFindings(scan, blueprint, {
+      root, entry: unit?.entry ?? null, resolved,
+    });
 
     return [...structural, ...imports];
   });
@@ -120,10 +124,9 @@ function memberTargets(
 function rootImportFindings(
   scan: ScanResult,
   blueprint: Blueprint,
-  unit: { root: ResolvedRootUnit; entry: string | null },
+  unit: { root: ResolvedRootUnit; entry: string | null; resolved: ResolvedArchitecture },
 ): Finding[] {
-  const resolved = resolveArchitecture(blueprint.architecture);
-  const { root, entry } = unit;
+  const { root, entry, resolved } = unit;
 
   return scan.files.flatMap((file) => sourceSpecifiers(file).flatMap((specifier): Finding[] => {
     const reference = resolved.resolveImport(file.segments, specifier);

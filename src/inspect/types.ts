@@ -62,7 +62,8 @@ export interface ScanResult {
   topDirs: string[];
   files: ScannedFile[];
 
-  outsideFiles?: ScannedFile[];
+  outsideScope?: OutsideScopeEvidence;
+  governedWork?: ScanWork;
 }
 
 /** One adoption-completeness check — the unit of the doctor report. */
@@ -88,3 +89,34 @@ export interface DoctorCheck {
   skipped?: string;
   prohibitionFindings?: import('./lint-runtime').ProhibitionLintFinding[];
 }
+
+export interface ScanWork {
+  inventoryFiles: number;
+  readFiles: number;
+  parsedFiles: number;
+}
+
+export interface OutsideScopeCollection extends ScanWork {
+  status: 'complete' | 'partial';
+  inventoryMode: 'git-visible' | 'filesystem-fallback';
+  files: ScannedFile[];
+  directoryWalks: number;
+  testFilesExcluded: number;
+  contributions: {
+    repositoryVisible: number;
+    explicitConsumerRoot: number;
+    governedReference: number;
+  };
+  limitations: string[];
+  fallbackReason?: string;
+}
+
+export type OutsideScopeEvidence
+  = | { status: 'not-requested' }
+    | { status: 'not-applicable'; reason: 'layer-first' | 'source-root-is-application-root' }
+    | OutsideScopeCollection
+    | {
+      status: 'unavailable';
+      inventoryMode: 'git-visible' | 'filesystem-fallback' | 'none';
+      reason: string;
+    };

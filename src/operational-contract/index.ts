@@ -224,6 +224,7 @@ export {
   renderInspectOutput,
   renderImportGraphDerivation,
   renderImportAnalysisUnavailable,
+  renderScopeBaselineRefusal,
   renderTestExemptionOutput,
   renderVacuousNextStep,
 } from './inspect';
@@ -366,3 +367,10 @@ export type {
 } from './remove';
 export { renderRemoveConflicts, renderRemoveRefusal } from './remove-conflicts';
 export type { RemoveConflictFact, RemoveRefusalFact } from './remove-conflicts';
+
+export {
+  renderOutsideScopeAnalysis, renderOutsideScopeDoctorCheck, renderOutsideScopeError,
+  renderOutsideScopeOutput,
+} from './outside-scope';
+export type { OutsideScopeView } from './outside-scope';
+export type { ArchitectureFactsView } from './doctor-report';

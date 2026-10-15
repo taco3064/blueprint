@@ -22,3 +22,7 @@ export { extractImports, importAnalysis, scan } from './scan';
 export { expectedCarriers } from './wiring';
 export type { GateStatus, LayerBans, RulesOptions } from './rules';
 export type { Finding, ImportRef, ScannedFile, ScanResult, Severity } from './types';
+
+export { collectArchitectureFacts } from './facts';
+export type { ArchitectureDemand, ArchitectureFacts } from './facts';
+export type { OutsideScopeEvidence, ScanWork } from './types';

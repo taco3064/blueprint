@@ -363,7 +363,10 @@ describe('transformation obligation inventory and final evidence', () => {
 describe('transformation obligation parent destinations', () => {
   it('rejects absolute relative-path results from different filesystem volumes', () => {
     const dir = root();
-    const relative = vi.spyOn(path, 'relative').mockReturnValue('/other-volume');
+    const originalRelative = path.relative;
+
+    const relative = vi.spyOn(path, 'relative').mockImplementation((from, to) =>
+      from === dir ? '/other-volume' : originalRelative(from, to));
 
     try {
       expect(verify(dir).failures).toContainEqual({

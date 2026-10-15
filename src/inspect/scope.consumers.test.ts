@@ -26,7 +26,18 @@ function measured(...outsideFiles: ScannedFile[]): ScanResult {
   return {
     topDirs: ['auth'],
     files: [file('src/auth/components/Login/index.tsx')],
-    outsideFiles,
+    outsideScope: {
+      status: 'complete', inventoryMode: 'filesystem-fallback', files: outsideFiles,
+      inventoryFiles: outsideFiles.length,
+      readFiles: outsideFiles.length,
+      parsedFiles: outsideFiles.length,
+
+      directoryWalks: 0, testFilesExcluded: 0, limitations: [],
+      contributions: { repositoryVisible: outsideFiles.length,
+        explicitConsumerRoot: 0,
+        governedReference: 0 },
+
+    },
   };
 }
 
@@ -37,7 +48,7 @@ function findings(scan: ScanResult, patch: Partial<ArchitectureDef> = {}) {
 function inspected(scan: ScanResult, patch: Partial<ArchitectureDef> = {}) {
   const blueprint: Blueprint = { framework: 'react', architecture: { ...architecture, ...patch } };
 
-  return analyze(scan, blueprint);
+  return analyze(scan, blueprint, { demand: 'application-scope' });
 }
 
 describe('application scope · explicit external consumers', () => {
@@ -56,7 +67,7 @@ describe('application scope · explicit external consumers', () => {
       expect(findings(scan, { consumerFiles: [] })).toEqual(undeclared);
       expect(findings(scan, { consumerFiles: '.storybook/other.ts' })).toEqual(undeclared);
       expect(findings(scan, { consumerFiles: '.storybook/preview.ts' })).toEqual([]);
-      expect(scan.outsideFiles?.map((entry) => entry.path)).toEqual(['.storybook/preview.ts']);
+      expect(scan.outsideScope).toMatchObject({ files: [{ path: '.storybook/preview.ts' }] });
     },
   );
 

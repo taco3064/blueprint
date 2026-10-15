@@ -1,7 +1,7 @@
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import { renderArchitectureReport } from '../operational-contract';
-import { importAnalysis } from './scan';
+import type { importAnalysis } from './scan';
 import type { Finding, ScanResult } from './types';
 
 export function hasErrors(findings: Finding[]): boolean {
@@ -11,7 +11,9 @@ export function hasErrors(findings: Finding[]): boolean {
 export function report(
   findings: Finding[],
   architecture?: ArchitectureDef,
-  scan?: ScanResult,
+  facts?: {
+    analysis: ReturnType<typeof importAnalysis>; outsideScope?: ScanResult['outsideScope'];
+  },
 ): string {
   const topology = architecture === undefined
     ? undefined
@@ -21,6 +23,7 @@ export function report(
 
   return renderArchitectureReport(findings, {
     ...(topology ? { topology } : {}),
-    importGraph: scan === undefined ? null : importAnalysis(scan),
+    importGraph: facts?.analysis ?? null,
+    outsideScope: facts?.outsideScope,
   });
 }

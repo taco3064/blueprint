@@ -143,7 +143,12 @@ describe('scan', () => {
   });
 
   it('returns empty when there is no src/', () => {
-    expect(scan(root)).toEqual({ topDirs: [], files: [] });
+    expect(scan(root)).toEqual({ topDirs: [],
+      files: [],
+      outsideScope: { status: 'not-requested' },
+      governedWork: { inventoryFiles: 0,
+        readFiles: 0,
+        parsedFiles: 0 } });
   });
 
   it('treats files without dynamic-import metadata as fully analyzed', () => {

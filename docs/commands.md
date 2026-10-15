@@ -216,8 +216,10 @@ presented as proof that the dependency graph was complete.
 
 `architecture.testFiles` defines the only structural test exemption. Static imports and re-exports
 join the dependency graph; dynamic imports join only when their target can be reduced to a proven
-string. Unresolved dynamic targets are disclosed without failing the command; parse failures fail
-closed because they can hide dependency edges.
+string. Unresolved dynamic targets are disclosed. In module-first projects with outside source scope,
+they make application-scope evidence partial because their targets may cross that boundary;
+Inspect refuses a complete verdict or baseline update. Source-only and layer-first analysis
+retain their existing behavior. Parse failures fail closed because they can hide dependency edges.
 
 `inspect` does not accept a positional path. Run it from the application root; the configured
 `architecture.sourceRoot` determines its scan scope. An extra path is rejected rather than ignored.
@@ -237,6 +239,23 @@ its separate, higher-priority two-way exemption; `layerFilesIgnore` does not hid
 Omitted/empty consumer declarations, layer-first projects, and `sourceRoot: '.'` retain existing
 behavior. Allowed consumer edges add no finding or exit-code change. Baselines record debt;
 they do not author an intentional consumer role.
+
+Full module-first analysis collects outside evidence once and shares it with Doctor and
+transformation verification. In a Git worktree, candidates are tracked files plus untracked,
+non-ignored files inside this application, augmented by explicit `consumerFiles` search roots
+and outside directories reached by governed imports. Ignored unrelated output is not parsed;
+tracked source stays visible even when an ignore rule matches it. Explicit roots include
+mixed-role neighbours, so a broad consumer pattern can deliberately increase scanning cost.
+Tests are removed before outside reads and parsing. Existing scanner exclusions still apply.
+
+Outside evidence distinguishes `not-requested`, `not-applicable`, `complete`, `partial`, and
+`unavailable`. Layer-first projects and `sourceRoot: '.'` do no outside analysis. Source-only
+commands such as `deps`, `survey`, and `rules` do no outside inventory, reads, or parsing.
+Without repository visibility, a complete filesystem fallback preserves discovery and reports
+its potentially greater cost. Partial or unavailable evidence blocks full conformance even
+when findings are baselined. JSON exposes the shared scope evidence and deterministic work
+counts; completeness describes the configured collection policy, not proof about ignored files
+that neither declarations nor governed dependencies reached.
 
 ## `impact`
 

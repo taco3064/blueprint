@@ -16,7 +16,6 @@ import { rootUnitFindings } from './root-units';
 import { applicationScopeFindings } from './scope';
 import { compareText } from './order';
 import {
-  aliasList,
   buildUnitGraph,
   entryResolver,
   layoutResolver,
@@ -32,30 +31,44 @@ import { renderFindingMessage } from '../operational-contract';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
+interface AnalyzeOptions {
+  dependencies?: string[];
+  demand?: 'governed-source' | 'application-scope';
+  resolved?: ResolvedArchitecture;
+}
+
+function analyzeOptions(options?: string[] | AnalyzeOptions): AnalyzeOptions {
+  return Array.isArray(options) ? { dependencies: options } : options ?? {};
+}
+
 export function analyze(
   scan: ScanResult,
   blueprint: Blueprint,
-  dependencies?: string[],
+  options?: string[] | AnalyzeOptions,
 ): Finding[] {
+  const settings = analyzeOptions(options);
+  const { dependencies, demand } = settings;
   const { architecture } = blueprint;
-  const resolved = resolveArchitecture(architecture);
-  const layerNames = resolved.layerNames;
+
+  const resolved = settings.resolved ?? resolveArchitecture(architecture);
 
   scan = dropTestFiles(scan, architecture.testFiles);
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
-    ...applicationScopeFindings(scan, architecture),
-    ...folderFindings(scan, architecture, blueprint.framework),
-    ...rootUnitFindings(lintScan, blueprint),
-    ...ownsFindings(architecture, dependencies),
-    ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
+    ...(demand === 'application-scope'
+      ? applicationScopeFindings(scan, architecture, resolved)
+      : []),
+    ...folderFindings(scan, architecture, { framework: blueprint.framework, resolved }),
+    ...rootUnitFindings(lintScan, blueprint, resolved),
+    ...ownsFindings(resolved, dependencies),
+    ...lintScan.files.flatMap((file) => importFindings(file, architecture, resolved)),
   ];
 
   const cycleTier = activeSetting(blueprint.rules?.cycles)?.tier;
 
   if (cycleTier === 'warn' || cycleTier === 'error') {
-    for (const cycle of detectCycles(buildUnitGraph(scan, architecture).edges)) {
+    for (const cycle of detectCycles(buildUnitGraph(scan, architecture, resolved).edges)) {
       const members = [...new Set(cycle)].sort(compareText);
 
       findings.push(
@@ -73,7 +86,7 @@ export function analyze(
 }
 
 function ownsFindings(
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
   dependencies: string[] | undefined,
 ): Finding[] {
   if (!dependencies) {
@@ -81,7 +94,6 @@ function ownsFindings(
   }
 
   const findings: Finding[] = [];
-  const resolved = resolveArchitecture(architecture);
 
   for (const position of resolved.layerPositions.filter(
     (entry) => entry.layer.definition.owns?.length,
@@ -127,9 +139,8 @@ interface ImportContext {
 function importFindings(
   file: ScannedFile,
   architecture: ArchitectureDef,
-  layerNames: string[],
+  resolved: ResolvedArchitecture,
 ): Finding[] {
-  const resolved = resolveArchitecture(architecture);
   const position = resolved.classify(file.segments);
 
   if (!position
@@ -145,13 +156,13 @@ function importFindings(
     architecture,
     resolved,
     position,
-    layerNames,
-    aliases: aliasList(architecture),
+    layerNames: resolved.layerNames,
+    aliases: resolved.aliases,
     // Stryker disable next-line ConditionalExpression, ArrayDeclaration: containers have no
     // importer-layer identity, and schema-valid target layers cannot match a synthetic entry.
     selfOnly: fileLayer === null ? [] : resolved.selfOnlyTargets(fileLayer),
-    layoutOf: layoutResolver(architecture),
-    entryOf: entryResolver(architecture),
+    layoutOf: layoutResolver(architecture, resolved),
+    entryOf: entryResolver(architecture, resolved),
     module: 'module' in position ? position.module?.name ?? null : null,
     layer: fileLayer,
   };
@@ -208,7 +219,7 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
 
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
   const fileLayer = context.layer;
-  const owners = ownersOf(context.architecture, ref.specifier, ref.names);
+  const owners = ownersOf(context.resolved, ref.specifier, ref.names);
 
   if (!owners || owners.includes(fileLayer ?? '')) {
     return [];
@@ -234,10 +245,12 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
 function relativeEscape(
   file: ScannedFile,
   ref: ImportRef,
-  shape: UnitShape & { architecture: ArchitectureDef; position: ResolvedSourcePosition },
+  shape: UnitShape & {
+    architecture: ArchitectureDef; position: ResolvedSourcePosition; resolved: ResolvedArchitecture;
+  },
 ): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const resolved = resolveArchitecture(shape.architecture);
+  const { resolved } = shape;
   const moduleFirst = resolved.topology === 'module-first';
 
   const verdict = relativeVerdict(file.segments, target, {
@@ -284,13 +297,13 @@ function relativeEscape(
 }
 
 function ownersOf(
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
   specifier: string,
   names: string[],
 ): string[] | null {
   const owners: string[] = [];
 
-  for (const { definition: layer } of resolveArchitecture(architecture).ownership) {
+  for (const { definition: layer } of resolved.ownership) {
     for (const owned of layer.owns!) {
       if (typeof owned === 'string') {
         if (owned === specifier) {

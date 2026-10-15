@@ -55,13 +55,9 @@ describe('report', () => {
 
   it('carries supplied scan limitations into the rendered derivation', () => {
     const out = report(findings, architecture, {
-      topDirs: [],
-      files: [{
-        path: 'src/broken.ts',
-        segments: ['broken.ts'],
-        imports: [],
-        importAnalysis: { unknownDynamicImports: 2, parseError: 'broken syntax' },
-      }],
+      analysis: { status: 'failed', scannedFiles: 1, parsedFiles: 0,
+        unknownDynamicImports: 2,
+        parseFailures: [{ path: 'src/broken.ts', message: 'broken syntax' }] },
     });
 
     expect(out).toContain('2 runtime-dependent dynamic import(s)');

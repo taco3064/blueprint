@@ -1,5 +1,5 @@
 import { resolveArchitecture } from '../config';
-import type { ArchitectureDef, Blueprint } from '../config';
+import type { ArchitectureDef, Blueprint, ResolvedArchitecture } from '../config';
 import { globToRegExp } from './filter';
 import type { Finding, ScanResult, ScannedFile } from './types';
 import { renderFindingMessage } from '../operational-contract';
@@ -7,9 +7,14 @@ import { renderFindingMessage } from '../operational-contract';
 export function folderFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
-  framework: Blueprint['framework'],
+  options: Blueprint['framework'] | {
+    framework: Blueprint['framework']; resolved: ResolvedArchitecture;
+  },
 ): Finding[] {
-  const resolved = resolveArchitecture(architecture);
+  const { framework, resolved } = typeof options === 'string'
+    ? { framework: options, resolved: resolveArchitecture(architecture) }
+    : options;
+
   const prefix = resolved.sourceRoot === '.' ? '' : `${resolved.sourceRoot}/`;
 
   const topNames = resolved.topology === 'module-first'
@@ -21,10 +26,10 @@ export function folderFindings(
 
   return [
     ...undeclaredFindings(scan, scope),
-    ...undeclaredInnerLayerFindings(scan, architecture, { framework, prefix }),
+    ...undeclaredInnerLayerFindings(scan, resolved, { framework, prefix }),
     ...missingFindings(scan, { ...scope, topology: resolved.topology }),
-    ...selfOnlyFindings(scan, architecture),
-    ...noEntryFindings(scan, architecture, prefix),
+    ...selfOnlyFindings(scan, resolved),
+    ...noEntryFindings(scan, resolved, prefix),
   ];
 }
 
@@ -52,11 +57,10 @@ function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {
 
 function undeclaredInnerLayerFindings(
   scan: ScanResult,
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
   scope: { framework: Blueprint['framework']; prefix: string },
 ): Finding[] {
   const { framework, prefix } = scope;
-  const resolved = resolveArchitecture(architecture);
 
   const modules = new Set(resolved.modules.map((module) => module.name));
 
@@ -104,13 +108,11 @@ function missingFindings(scan: ScanResult, scope: FolderScope & {
 
 function selfOnlyFindings(
   scan: ScanResult,
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
 ): Finding[] {
   if (!scan.files.length) {
     return [];
   }
-
-  const resolved = resolveArchitecture(architecture);
 
   return resolved.layerPositions.flatMap((position): Finding[] => {
     const importers = position.layer.allowedImporters
@@ -141,10 +143,10 @@ function selfOnlyFindings(
 
 function noEntryFindings(
   scan: ScanResult,
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
   prefix: string,
 ): Finding[] {
-  const units = collectFolderUnits(scan, architecture);
+  const units = collectFolderUnits(scan, resolved);
 
   return [...units].flatMap(([key, { files, entry }]): Finding[] => {
     const depth = key.split('/').length;
@@ -168,10 +170,9 @@ function noEntryFindings(
 
 function collectFolderUnits(
   scan: ScanResult,
-  architecture: ArchitectureDef,
+  resolved: ResolvedArchitecture,
 ): Map<string, { files: ScannedFile[]; entry: string }> {
   const units = new Map<string, { files: ScannedFile[]; entry: string }>();
-  const resolved = resolveArchitecture(architecture);
 
   for (const file of scan.files) {
     const position = resolved.classify(file.segments);

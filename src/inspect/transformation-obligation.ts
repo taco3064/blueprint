@@ -1,16 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolveArchitecture } from '../config';
 import type { Blueprint, ResolvedArchitecture } from '../config';
 import { defaultGitReader, relativeFilesystemPath } from '../project';
 import type {
   GitReader, LayerToModuleObligation, ProjectState, TransformationObligationFailure,
   TransformationSource,
 } from '../project';
-import { analyze } from './analyze';
+import { collectArchitectureFacts } from './facts';
+import type { ArchitectureFacts } from './facts';
 import { memberFailures } from './transformation-members';
-import { importAnalysis, scan } from './scan';
 
 export interface TransformationObligationResult {
   ok: boolean;
@@ -24,17 +23,22 @@ const failure = (
 interface Context {
   root: string; obligation: LayerToModuleObligation; blueprint: Blueprint;
   state: ProjectState; git: GitReader; resolved: ResolvedArchitecture; repositoryRoot: string;
+  facts: ArchitectureFacts;
 }
 
 export function verifyTransformationObligation(input: {
   root: string; obligation: LayerToModuleObligation; blueprint: Blueprint;
-  state: ProjectState; git?: GitReader;
+  state: ProjectState; git?: GitReader; facts?: ArchitectureFacts;
 }): TransformationObligationResult {
   const git = input.git ?? defaultGitReader;
   const repository = git(['rev-parse', '--show-toplevel'], input.root);
 
+  const facts = input.facts ?? collectArchitectureFacts(input.root, input.blueprint, {
+    demand: 'application-scope', dependencies: input.state.dependencies,
+  });
+
   const context: Context = {
-    ...input, git, resolved: resolveArchitecture(input.blueprint.architecture),
+    ...input, facts, git, resolved: facts.resolved,
     repositoryRoot: repository.status === 0 ? repository.stdout.trim() : '',
   };
 
@@ -304,7 +308,7 @@ function finalFailures(context: Context): TransformationObligationFailure[] {
 
   const current = currentArchitectureFailures(context);
 
-  if (current.parseFailures) {
+  if (current.incomplete) {
     failures.push(failure('final-import-analysis-failed'));
   }
 
@@ -317,13 +321,11 @@ function finalFailures(context: Context): TransformationObligationFailure[] {
 
 function currentArchitectureFailures(
   context: Context,
-): { parseFailures: number; errors: number } {
-  const { root, resolved, blueprint, state } = context;
-  const currentScan = scan(root, resolved.sourceRoot);
-  const findings = analyze(currentScan, blueprint, state.dependencies);
+): { incomplete: boolean; errors: number } {
+  const { findings, analysis, scopeComplete } = context.facts;
 
   return {
-    parseFailures: importAnalysis(currentScan).parseFailures.length,
+    incomplete: analysis.status !== 'healthy' || !scopeComplete,
     errors: findings.filter((finding) => finding.severity === 'error').length,
   };
 }
