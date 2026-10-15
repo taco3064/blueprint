@@ -1,6 +1,11 @@
+import {
+  renderModuleDependencyGuidance,
+  renderConsumerFiles,
+  withValidationErrorRendering,
+} from '../../operational-contract';
 import type { Blueprint } from '../../config';
+import { resolveArchitecture } from '../../config';
 import type { StackFacts } from '../lint';
-import { renderConsumerFiles, withValidationErrorRendering } from '../../operational-contract';
 import {
   renderArchitecture,
   renderComponentShape,
@@ -46,6 +51,7 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
     }),
     renderModuleGrowth(architecture),
     renderConsumerFiles(architecture, '##'),
+    renderModuleDependencyGuidance(architecture, '##'),
     renderUnit(architecture),
     renderImportDiscipline(architecture, stack.lintIntegration),
     renderComponentShape(blueprint.componentShape),
@@ -54,6 +60,7 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
     renderRules(rules, {
       framework: blueprint.framework,
       testFiles: architecture.testFiles,
+      topology: resolveArchitecture(architecture).topology,
       hasTypescript: stack.hasTypescript,
     }),
     renderNaming(architecture.naming),

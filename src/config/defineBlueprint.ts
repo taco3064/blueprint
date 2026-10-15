@@ -5,7 +5,6 @@ import type {
   Blueprint,
   EmitDef,
   LayerDef,
-  RuleSetting,
 } from './types';
 import { normalizeAllowedImporters } from './graph';
 import { migrateLegacyBlueprint } from './legacy';
@@ -315,8 +314,12 @@ function validatePlaybook(bp: Blueprint): void {
 
 function validateRuleTiers(rules: Blueprint['rules']): void {
   for (const [id, setting] of Object.entries(rules ?? {})) {
-    if (!VALID_TIERS.includes(resolveTier(setting))) {
+    if (!VALID_TIERS.includes(typeof setting === 'string' ? setting : setting?.tier)) {
       throw configValidationError({ kind: 'invalid-tier', id });
+    }
+
+    if (id === 'moduleDependencySync' && typeof setting === 'object') {
+      rejectUnknownKeys(setting, ['tier'], `rules.${id}`);
     }
   }
 }
@@ -475,8 +478,4 @@ function validateLintOverrides(layer: LayerDef): void {
       throw configValidationError({ kind: 'managed-rule', layer: layer.name, rule });
     }
   }
-}
-
-function resolveTier(setting: RuleSetting): string {
-  return typeof setting === 'string' ? setting : setting?.tier;
 }

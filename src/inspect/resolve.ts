@@ -97,7 +97,14 @@ export interface UnitGraph {
 export function buildUnitGraph(
   scan: ScanResult, architecture: ArchitectureDef, resolved = resolveArchitecture(architecture),
 ): UnitGraph {
-  scan = dropTestFiles(scan, architecture.testFiles);
+  const governed = dropTestFiles(scan, architecture.testFiles);
+
+  return buildGovernedUnitGraph(governed, architecture, resolved);
+}
+
+export function buildGovernedUnitGraph(
+  scan: ScanResult, architecture: ArchitectureDef, resolved = resolveArchitecture(architecture),
+): UnitGraph {
   const graph: UnitGraph = { units: new Set(), edges: new Map(), counts: new Map() };
 
   for (const file of scan.files) {

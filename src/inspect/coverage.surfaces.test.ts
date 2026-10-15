@@ -177,8 +177,8 @@ describe('testFiles: [] · one tree, four surfaces', () => {
     expect(healthy.deps).toContain('0 ← services');
     expect(empty.deps).toContain('1 ← services');
 
-    expect(healthy.rules).toContain('2 of them unavailable here');
-    expect(empty.rules).toContain('3 of them unavailable here');
+    expect(healthy.rules).toContain('3 of them unavailable here');
+    expect(empty.rules).toContain('4 of them unavailable here');
   });
 
   it.each(FOUR)('%s states the cause, once', (surface) => {

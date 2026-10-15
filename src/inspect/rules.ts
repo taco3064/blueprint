@@ -224,6 +224,7 @@ function resolveGate(
     : { tier: read.tier, ...(read.value !== undefined ? { value: read.value } : {}) };
 
   const unavailable = unavailableGate(spec.id, {
+    topology: blueprint ? resolveArchitecture(blueprint.architecture).topology : undefined,
     framework: blueprint?.framework,
     hasTypescript: stack.hasTypescript,
     testFiles: blueprint?.architecture.testFiles,

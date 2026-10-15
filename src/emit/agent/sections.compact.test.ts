@@ -108,12 +108,9 @@ describe('renderCompactContract', () => {
     expect(lintOnly).not.toContain('npm run');
   });
 
-  it('is singular because exactly one gate is inspect-held', () => {
-    // The sentence above uses a singular verb, with no plural arm — correct today and a
-    // branch nothing could take, so it is not written. This is what makes that safe:
-    // add a second inspect-held rule and this turns red, instead of shipping
-    // "cycles, somethingElse is diagnosed".
-    expect(LINT_GATED_RULE_IDS.filter((id) => enforcedBy(id) === 'inspect')).toEqual(['cycles']);
+  it('lists the Inspect-held gates', () => {
+    expect(LINT_GATED_RULE_IDS.filter((id) => enforcedBy(id) === 'inspect'))
+      .toEqual(['cycles', 'moduleDependencySync']);
   });
 
   it('announces only the kinds of content the blueprint carries', () => {

@@ -156,7 +156,7 @@ describe('runRules · the catalog it prints', () => {
     expect(output).toMatch(/· declared, unavailable here deepWatch →/);
     // And the row count reconciles with inspect's denominator in place, rather than
     // by subtraction the reader has to guess at (field run #137).
-    expect(output).toContain('18 listed — 2 of them unavailable here');
+    expect(output).toContain('19 listed — 3 of them unavailable here');
     // Each cause on its own line, under the count rather than inside it: the count
     // sentence would need one predicate for all of them, and the causes are not of
     // one kind.
@@ -237,7 +237,7 @@ describe('runRules · gates that are unavailable here', () => {
     expect(output).toContain('\n· testFilename: `architecture.testFiles: []` exempts nothing');
 
     // And the denominator moves with it, or the note and the rows disagree again.
-    expect(output).toContain('18 listed — 3 of them unavailable here');
+    expect(output).toContain('19 listed — 4 of them unavailable here');
   });
 
   it('keeps testFilename available for a declared net, reached or not', async () => {
@@ -290,7 +290,10 @@ describe('runRules · gates that are unavailable here', () => {
     // has to say so rather than go quiet: silence would leave the reader comparing
     // eighteen rows to a denominator with no statement either way, which is the
     // position the disagreement put them in (field run #137).
-    const dir = repo({ ...blueprint, framework: 'vue' });
+    const dir = repo({
+      ...blueprint, framework: 'vue',
+      architecture: { ...blueprint.architecture, modules: [] },
+    });
 
     // `detect` reads TypeScript off the dependency list, not off a tsconfig — the
     // fixture's package.json has to declare it or `explicitAny` stays unavailable.
@@ -399,8 +402,11 @@ describe('runRules · the dead test glob measured against the declared root', ()
 
     const out = parsed.gates.filter((gate) => gate.unavailable !== undefined);
 
-    expect(out.map((gate) => gate.id)).toEqual(['explicitAny', 'testFilename']);
-    expect(printed).toContain(`18 listed — ${out.length} of them unavailable here`);
+    expect(out.map((gate) => gate.id)).toEqual([
+      'explicitAny', 'testFilename', 'moduleDependencySync',
+    ]);
+
+    expect(printed).toContain(`19 listed — ${out.length} of them unavailable here`);
     expect(printed).not.toContain('unavailable on this stack');
 
     // Gate for gate, the text carries the JSON's own string — not a paraphrase, and

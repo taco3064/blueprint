@@ -36,6 +36,7 @@ export interface StackFacts {
 }
 
 export interface EmitFacts extends StackFacts {
+  topology?: 'module-first' | 'layer-first';
   framework?: string;
   testFiles?: string | string[];
 }

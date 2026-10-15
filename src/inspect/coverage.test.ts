@@ -44,7 +44,7 @@ describe('computeCoverage', () => {
       // so calling it uncovered would report a file nobody chose to leave out.
       outsideNets: ['src/main.ts'],
       activeRules: 2, // maxLines + unusedVars
-      gatedRules: LINT_GATED_RULE_IDS.length,
+      gatedRules: LINT_GATED_RULE_IDS.length - 1,
     });
   });
 
@@ -58,7 +58,7 @@ describe('computeCoverage', () => {
     const coverage = computeCoverage(scanOf(), { ...blueprint, framework: 'react' }, true);
 
     // A gate that never emits on this framework must not be counted as closable.
-    expect(coverage.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 1);
+    expect(coverage.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 2);
   });
 
   it('drops the TS-only explicitAny gate from a JavaScript denominator', () => {
@@ -66,12 +66,12 @@ describe('computeCoverage', () => {
     // rule to emit, so counting it would inflate the denominator forever.
     const js = computeCoverage(scanOf(), blueprint, false);
 
-    expect(js.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 1);
+    expect(js.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 2);
 
     // Both exclusions stack: a React + JS repo can open neither.
     const both = computeCoverage(scanOf(), { ...blueprint, framework: 'react' }, false);
 
-    expect(both.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 2);
+    expect(both.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 3);
   });
 
   it('counts a declared explicitAny as active only where it can emit', () => {

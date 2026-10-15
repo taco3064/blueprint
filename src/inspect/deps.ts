@@ -4,11 +4,14 @@ import type { ArchitectureDef, Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
-import { buildUnitGraph, normalizedUnitKey } from './resolve';
+import { buildGovernedUnitGraph, normalizedUnitKey } from './resolve';
 import { importAnalysis } from './scan';
 import { collectArchitectureFacts } from './facts';
 import type { ScanResult } from './types';
+import type { ModuleDependencies } from './module-dependencies-types';
 import {
+  renderModuleDependencyOutput,
+  renderModuleDependencyDerivation,
   renderDependencyLeaderboard,
   renderDependencyTestExemption,
   renderDependencyUnit,
@@ -34,6 +37,14 @@ export interface UnitDeps {
   imports: string[];
 }
 
+/** Dependency facts retain repository-wide module reconciliation for targeted queries. */
+export interface DepsResult {
+  ok: boolean;
+  units: UnitDeps[];
+  moduleDependencies: ModuleDependencies | null;
+  targetModule: string | null;
+}
+
 /**
  * Run `blueprint deps` in `root`. Read-only. With a target, answers "who
  * gets hit if I change this unit" (reverse deps + own imports); without
@@ -47,14 +58,15 @@ export interface UnitDeps {
 export async function runDeps(
   root: string,
   options: DepsOptions = {},
-): Promise<{ ok: boolean; units: UnitDeps[] }> {
+): Promise<DepsResult> {
   const log = options.log ?? ((message: string) => console.log(message));
   const context = await depsContext(root, options);
-  const { architecture, units, skipped, testExemption, scanned } = context;
+  const { architecture, units, skipped, testExemption, scanned, moduleDependencies } = context;
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      units, skipped, architecture, log, testExemption, scanned, json: options.json,
+      units, skipped, architecture, log, testExemption, scanned, moduleDependencies,
+      json: options.json,
     });
   }
 
@@ -64,6 +76,11 @@ export async function runDeps(
 
           {
             units,
+            moduleDependencies,
+            moduleDependencyDerivation: moduleDependencies === null
+              ? null
+              : renderModuleDependencyDerivation(),
+            targetModule: null,
             skipped,
             ...exemptionKey(testExemption),
             importAnalysis: importAnalysis(scanned),
@@ -72,7 +89,7 @@ export async function runDeps(
           null,
           2,
         )
-      : renderDependencyLeaderboard(
+      : renderModuleDependencyOutput(renderDependencyLeaderboard(
           units.map((unit) => ({
             ...unit,
             fileLayer: isFileLayer(unit.unit, architecture),
@@ -82,10 +99,10 @@ export async function runDeps(
             testExemption,
             importGraph: importAnalysis(scanned),
           },
-        ),
+        ), moduleDependencies),
   );
 
-  return { ok: true, units };
+  return { ok: true, units, moduleDependencies, targetModule: null };
 }
 
 async function depsContext(root: string, options: DepsOptions): Promise<{
@@ -94,20 +111,24 @@ async function depsContext(root: string, options: DepsOptions): Promise<{
   skipped: string[];
   testExemption: string | null;
   scanned: ScanResult;
+  moduleDependencies: ModuleDependencies | null;
 }> {
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
   const { architecture } = blueprint;
 
-  const { scanResult: scanned } = collectArchitectureFacts(root, blueprint, {
-    demand: 'governed-source',
-  });
+  const { scanResult: scanned, moduleDependencies, governedFiles, resolved }
+    = collectArchitectureFacts(root, blueprint, { demand: 'governed-source' });
 
-  const graph = buildUnitGraph(scanned, architecture);
+  const graph = buildGovernedUnitGraph(
+    { ...scanned, files: governedFiles }, architecture, resolved,
+  );
+
   const units = collect(graph.units, graph.edges);
 
   return {
     architecture,
+    moduleDependencies,
     units,
     skipped: skippedFolders(scanned, architecture),
     testExemption: exemptionNote(units, scanned, architecture),
@@ -148,19 +169,32 @@ function reportTarget(
     log: (message: string) => void;
     testExemption: string | null;
     scanned: ScanResult;
+    moduleDependencies: ModuleDependencies | null;
     json?: boolean;
   },
-): { ok: boolean; units: UnitDeps[] } {
-  const { units, skipped, architecture, log, testExemption, scanned } = ctx;
+): DepsResult {
+  const { units, skipped, architecture, log, testExemption, scanned, moduleDependencies } = ctx;
   const key = normalizedUnitKey(target, architecture);
+  const position = resolveArchitecture(architecture).classify(key.split('/'));
+
+  const targetModule = position !== null && position.kind !== 'source-root'
+    ? position.module?.name ?? null
+    : null;
+
   const found = units.find((entry) => entry.unit === key);
 
   if (!found) {
     const folder = skipped.find((candidate) => `${key}/`.startsWith(`${candidate}/`));
 
-    log(renderUnknownDependencyTarget({ key, ...(folder ? { outsideFolder: folder } : {}) }));
+    const output = renderUnknownDependencyTarget({
+      key, ...(folder ? { outsideFolder: folder } : {}),
+    });
 
-    return { ok: false, units: [] };
+    log(ctx.json
+      ? JSON.stringify({ ok: false, output, units: [], moduleDependencies, targetModule }, null, 2)
+      : renderModuleDependencyOutput(output, moduleDependencies, targetModule));
+
+    return { ok: false, units: [], moduleDependencies, targetModule };
   }
 
   log(
@@ -169,6 +203,11 @@ function reportTarget(
       ? JSON.stringify(
           {
             ...found,
+            moduleDependencies,
+            moduleDependencyDerivation: moduleDependencies === null
+              ? null
+              : renderModuleDependencyDerivation(),
+            targetModule,
             ...exemptionKey(testExemption),
             importAnalysis: importAnalysis(scanned),
             derivation: renderImportGraphDerivation(importAnalysis(scanned)),
@@ -176,16 +215,16 @@ function reportTarget(
           null,
           2,
         )
-      : renderDependencyUnit({
+      : renderModuleDependencyOutput(renderDependencyUnit({
           ...found,
           fileLayer: isFileLayer(found.unit, architecture),
         }, {
           testExemption,
           importGraph: importAnalysis(scanned),
-        }),
+        }), moduleDependencies, targetModule),
   );
 
-  return { ok: true, units: [found] };
+  return { ok: true, units: [found], moduleDependencies, targetModule };
 }
 
 function collect(unitSet: Set<string>, edges: Map<string, Set<string>>): UnitDeps[] {

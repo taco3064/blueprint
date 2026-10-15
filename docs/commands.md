@@ -221,6 +221,26 @@ they make application-scope evidence partial because their targets may cross tha
 Inspect refuses a complete verdict or baseline update. Source-only and layer-first analysis
 retain their existing behavior. Parse failures fail closed because they can hide dependency edges.
 
+Module-first reports always include `moduleDependencies`, even with `moduleDependencySync` absent
+or off. This compares declared direct edges (`D`) with proven source edges (`O`), separately from
+transitive permission (`P`). It reports matched, missing, unused, and unverified declarations,
+per-module reach and uncertainty, and the overall `synchronized`, `drift`, `indeterminate`, or
+`runway` status. Known drift remains drift even when analysis is incomplete.
+
+With `rules.moduleDependencySync` enabled, Inspect aggregates `module-dependency-missing` and
+`module-dependency-unused` findings per module pair, plus `module-dependency-unverified` per
+incomplete importer. These use the rule's own warn/error tier. A transitively permitted reference
+can still lack a direct declaration; forbidden references retain their separate flow violation.
+Review the intended architecture before changing source or `dependsOn`.
+
+`inspect --baseline` is a ratchet over known debt, not proof of exact equality. Baseline suppression
+can remove recorded synchronization findings from the exit decision, but never changes the full
+`moduleDependencies` status, drift lists, reach, or uncertainty in text, JSON, or `runInspect()`.
+The graph includes type-only and statically proven dynamic references, excludes configured tests,
+and still sees `layerFilesIgnore` and generated-looking governed source. Runtime-dependent targets,
+parse failures, and unresolved project references affect their importer only. See the full
+[source-scope and activation contract](./configuration.md#observed-direct-module-dependencies).
+
 `inspect` does not accept a positional path. Run it from the application root; the configured
 `architecture.sourceRoot` determines its scan scope. An extra path is rejected rather than ignored.
 
@@ -298,9 +318,23 @@ Only governed units participate. Skipped folders and import-analysis limits are 
 layout resolves per unit; file layout collapses to layer granularity. Imports from configured test
 files do not add blast radius, and only alias and relative imports create graph edges.
 
+For module-first projects, the untargeted report shows declared direct dependencies, transitive
+permission, observed edges with reference counts and deterministic examples, reconciliation, reach,
+and uncertainty before the unit leaderboard. A targeted report keeps the repository-wide status and
+shows the target's owning module row. JSON and `runDeps()` always retain the complete, unfiltered
+`moduleDependencies` object and identify the target module separately; targeting never narrows the
+repository verdict. JSON includes every unique proving path/specifier pair, sorted deterministically.
+Layer-first returns `moduleDependencies: null` and omits this section in text.
+
+Module facts come from the same governed-source analysis as Inspect and require no outside-source
+inventory. Type-only references count; configured tests do not; `layerFilesIgnore` and generated
+filenames do not exempt governed source. Unknown dynamic targets and unresolved project references
+remain uncertainty, not guessed edges or proof of unused declarations. See the
+[scope and status definitions](./configuration.md#observed-direct-module-dependencies).
+
 ## `rules`
 
-`rules` explains what `emitLint` can enforce. It separates structural rules that always emit,
+`rules` explains the available lint and Inspect gates. It separates structural rules that always emit,
 optional gates activated by `blueprint.rules`, and documentation-only rule identifiers. With a
 config it also shows the declared tier/value, whether each gate is active for the current stack,
 and the effective structural bans.
@@ -314,6 +348,10 @@ The only option is `--json`. The command is read-only and config-optional. Use i
 reverse-engineering the generated flat config; the configuration catalog is in
 [Configuration](/configuration#rules).
 
+`moduleDependencySync` reports its declared tier, availability, active state, and carrier
+`inspect (module dependency reconciliation)`. It is available only for module-first and is not
+lint-backed. Like `cycles`, it must be run through Inspect; `emit.lint.severity` does not control it.
+
 ## `doctor`
 
 If ESLint returns no config for a merge-survival probe, Doctor reports that position as
@@ -325,6 +363,9 @@ the application and effective ESLint config directories are checked.
 Agent files, ESLint wiring, the reachable `package.json` lint entrypoint and its live ESLint leg,
 alias wiring, survival of emitted structural rules in the merged flat config, architecture status,
 and the suppressions ledger.
+
+Doctor does not check ESLint wiring for `moduleDependencySync` or prove that CI runs Inspect.
+An active synchronization gate needs an actual Inspect invocation in the project's checks.
 
 Alias evidence is reported separately for recognized TypeScript, bundler/runtime, package `imports`
 subpaths, and test-runner consumers. Evidence from one consumer never produces a whole-toolchain

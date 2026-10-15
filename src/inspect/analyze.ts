@@ -16,7 +16,7 @@ import { rootUnitFindings } from './root-units';
 import { applicationScopeFindings } from './scope';
 import { compareText } from './order';
 import {
-  buildUnitGraph,
+  buildGovernedUnitGraph,
   entryResolver,
   layoutResolver,
   relativeVerdict,
@@ -33,6 +33,7 @@ const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
 interface AnalyzeOptions {
   dependencies?: string[];
+  testsFiltered?: boolean;
   demand?: 'governed-source' | 'application-scope';
   resolved?: ResolvedArchitecture;
 }
@@ -52,7 +53,7 @@ export function analyze(
 
   const resolved = settings.resolved ?? resolveArchitecture(architecture);
 
-  scan = dropTestFiles(scan, architecture.testFiles);
+  scan = settings.testsFiltered ? scan : dropTestFiles(scan, architecture.testFiles);
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
@@ -68,7 +69,7 @@ export function analyze(
   const cycleTier = activeSetting(blueprint.rules?.cycles)?.tier;
 
   if (cycleTier === 'warn' || cycleTier === 'error') {
-    for (const cycle of detectCycles(buildUnitGraph(scan, architecture, resolved).edges)) {
+    for (const cycle of detectCycles(buildGovernedUnitGraph(scan, architecture, resolved).edges)) {
       const members = [...new Set(cycle)].sort(compareText);
 
       findings.push(

@@ -1,11 +1,11 @@
 export { BASELINE_FILE } from './baseline';
 export { runDeps } from './deps';
 export { assessLintIntegration } from './adoption';
-export type { DepsOptions, UnitDeps } from './deps';
+export type { DepsOptions, DepsResult, UnitDeps } from './deps';
 export { runDoctor } from './doctor';
 export type { DoctorCheck, DoctorOptions, DoctorVerdict } from './doctor';
 export { runInspect } from './inspect';
-export type { InspectOptions } from './inspect';
+export type { InspectOptions, InspectResult } from './inspect';
 export { runRules } from './rules';
 export { measureProhibitions } from './prohibitions';
 export type { ProhibitionFact } from './prohibitions';
@@ -26,3 +26,7 @@ export type { Finding, ImportRef, ScannedFile, ScanResult, Severity } from './ty
 export { collectArchitectureFacts } from './facts';
 export type { ArchitectureDemand, ArchitectureFacts } from './facts';
 export type { OutsideScopeEvidence, ScanWork } from './types';
+
+export type {
+  ModuleDependencies, ModuleDependencyRow, ModuleDependencyUncertainty, ObservedModuleEdge,
+} from './module-dependencies-types';

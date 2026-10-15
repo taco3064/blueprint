@@ -1,13 +1,6 @@
 export type OperationalDelivery = 'runtime' | 'generated' | 'checked-in';
-export type OperationalChannel
-  = | 'agent-contract'
-    | 'authoring'
-    | 'bootstrap'
-    | 'cli'
-    | 'field'
-    | 'handbook'
-    | 'lifecycle'
-    | 'transformation';
+export type OperationalChannel = 'agent-contract' | 'authoring' | 'bootstrap' | 'cli'
+  | 'field' | 'handbook' | 'lifecycle' | 'transformation';
 export interface OperationalSurface {
   id: string; owner: string;
   channel: OperationalChannel; delivery: OperationalDelivery;
@@ -16,6 +9,16 @@ export interface OperationalSurface {
   verification: readonly string[];
 }
 export const OPERATIONAL_SURFACES = [
+  {
+    id: 'module-dependencies', owner: 'module-dependencies.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['adopters', 'coding agents'],
+    factProviders: ['shared governed-source module reconciliation', 'resolved topology'],
+    consumers: ['src/inspect/deps.ts', 'src/inspect/inspect.ts',
+      'src/inspect/module-dependencies-findings.ts',
+      'src/emit/agent/agent.ts', 'src/emit/docs/docs.ts'],
+    targets: ['Deps', 'Inspect', 'AGENTS.md', 'CLAUDE.md', 'docs/architecture-handbook.md'],
+    verification: ['module reconciliation report tests', 'generated guidance parity'],
+  },
   {
     id: 'outside-source-scope', owner: 'outside-scope.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['adopters', 'coding agents'],
@@ -120,8 +123,7 @@ export const OPERATIONAL_SURFACES = [
       'src/bootstrap/plan.ts',
       'src/bootstrap/types.ts',
     ],
-    targets: ['terminal actions'],
-    verification: ['OperationalText type gate', 'AST bypass guard'],
+    targets: ['terminal actions'], verification: ['OperationalText type gate', 'AST bypass guard'],
   },
   {
     id: 'bootstrap-runtime-messages', owner: 'runtime-messages.ts', channel: 'bootstrap',
@@ -303,8 +305,7 @@ export const OPERATIONAL_SURFACES = [
       'src/project/transformation-obligation.ts',
       'src/project/transformation-authority.ts',
     ],
-    targets: ['terminal actions'],
-    verification: ['transformation tests'],
+    targets: ['terminal actions'], verification: ['transformation tests'],
   },
   {
     id: 'transformation-recovery-playbook', owner: 'transformation-recovery.ts',
@@ -362,8 +363,7 @@ export const OPERATIONAL_SURFACES = [
     delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
     factProviders: ['upgrade decision', 'lifecycle checkpoint'],
     consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/decide.ts', 'src/upgrade/semantic.ts'],
-    targets: ['stderr'],
-    verification: ['upgrade refusal tests'],
+    targets: ['stderr'], verification: ['upgrade refusal tests'],
   },
   {
     id: 'upgrade-instructions', owner: 'upgrade-instructions.ts', channel: 'lifecycle',
@@ -394,7 +394,6 @@ export const OPERATIONAL_SURFACES = [
     delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
     factProviders: ['removal preflight conflicts', 'removal scope'],
     consumers: ['src/remove/remove.ts'],
-    targets: ['stderr'],
-    verification: ['remove conflict tests'],
+    targets: ['stderr'], verification: ['remove conflict tests'],
   },
 ] as const satisfies readonly OperationalSurface[];
