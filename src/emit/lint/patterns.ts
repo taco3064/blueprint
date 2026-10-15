@@ -9,6 +9,7 @@ import {
   renderTypeScriptOnlyUnavailable,
   renderUnreachedTestFilesOperational,
   renderVueOnlyUnavailable,
+  renderModuleDependencySyncUnavailable,
 } from '../../operational-contract';
 import type {
   EmitFacts,
@@ -139,6 +140,12 @@ export const PLUGIN_GATES: GateSpec[] = [
     runtime: 'inspect',
     note: renderLintGateNote('cycles'),
   },
+  {
+    id: 'moduleDependencySync',
+    emits: 'inspect (module dependency reconciliation)',
+    runtime: 'inspect',
+    note: renderLintGateNote('moduleDependencySync'),
+  },
 ];
 
 export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
@@ -155,6 +162,7 @@ export interface TestGlobReach extends GlobReach {
 }
 
 export interface GateStack {
+  topology?: 'module-first' | 'layer-first';
   framework: string | undefined;
   hasTypescript: boolean;
   testFiles?: string | string[];
@@ -222,6 +230,10 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
     return renderTypeScriptOnlyUnavailable();
   }
 
+  if (id === 'moduleDependencySync' && stack.topology === 'layer-first') {
+    return renderModuleDependencySyncUnavailable();
+  }
+
   if (id === 'testFilename') {
     return emptyTestGlobs(testFiles);
   }
@@ -231,6 +243,7 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
 
 export function unavailableForEmit(id: string, facts: EmitFacts): string | null {
   return unavailableGate(id, {
+    topology: facts.topology,
     framework: facts.framework,
     hasTypescript: facts.hasTypescript ?? true,
     testFiles: facts.testFiles,

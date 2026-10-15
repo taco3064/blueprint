@@ -258,6 +258,7 @@ export {
   renderFixtureImport,
   renderLayerFlowViolation,
   renderLintGateNote,
+  renderModuleDependencySyncUnavailable,
   renderModuleContainerImport,
   renderModuleFlowViolation,
   renderOutOfScanReachClause,
@@ -374,3 +375,12 @@ export {
 } from './outside-scope';
 export type { OutsideScopeView } from './outside-scope';
 export type { ArchitectureFactsView } from './doctor-report';
+
+export {
+  renderModuleDependencies, renderModuleDependencyOutput, renderModuleDependencyGuidance,
+  renderModuleDependencyDerivation,
+  renderModuleDependencyMissing, renderModuleDependencyUnused, renderModuleDependencyUnverified,
+} from './module-dependencies';
+export type {
+  ModuleDependenciesView, ModuleDependencyRowView, ModuleEdgeView,
+} from './module-dependencies';

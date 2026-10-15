@@ -28,6 +28,12 @@ export type {
 } from './presets';
 export type {
   DepsOptions,
+  DepsResult,
+  InspectResult,
+  ModuleDependencies,
+  ModuleDependencyRow,
+  ModuleDependencyUncertainty,
+  ObservedModuleEdge,
   DoctorCheck,
   DoctorOptions,
   DoctorVerdict,

@@ -145,6 +145,67 @@ not be empty, duplicated, self-referential, or cyclic.
 `app` is optional and reserved. It models recursive router-composition source at the container
 position; it is not an ordinary domain module and does not repeat the shared layers.
 
+### Observed direct module dependencies
+
+Module-first projects expose three separate graphs in `deps` and `inspect`:
+
+| Graph | Meaning |
+| --- | --- |
+| `D`: declared direct | The exact `modules[].dependsOn` edges, including directly declared edges also reachable through another path. |
+| `P`: permission | The transitive closure of `D`; this still decides module import permission. |
+| `O`: observed direct | Cross-module references proven from current governed source, using canonical module identities. |
+
+For `a -> b -> c`, a source import from `a` to `c` remains permitted transitively. It is nevertheless
+missing from `a.dependsOn` under exact synchronization. If `a` never directly references `b`, that
+declaration is unused only when `a`'s analysis is complete. Observed edges never grant permission,
+and existing flow, alias, relative-boundary, and deep-import violations remain independent.
+
+The observed graph includes static imports, side effects, type-only imports and re-exports, and
+statically proven `require()` and dynamic imports. It uses supported JS/TS/JSX/TSX/module/CommonJS/Vue
+source within `sourceRoot`, subject to existing dependency/build/coverage/cache directory exclusions.
+`testFiles` matches are excluded, including from uncertainty; `testFiles: []` removes that exemption.
+`layerFilesIgnore` only suppresses lint and lint-backed findings: it does not hide module dependencies.
+Generated-looking files count like other governed source; filenames, headers, and comments do not
+provide a generated-code exemption. Same-module references, source-root wiring without a module,
+external packages, and unclassified targets do not create module edges.
+
+Runtime-dependent imports, parse failures, and unresolved project-local references make only their
+importer module incomplete. Proven edges remain visible; unobserved declarations from that importer
+are `unverified`, not `unused`. Reliably resolved outside-source targets are not unknown module
+targets. External consumers have no module identity, and broad `consumerFiles` patterns never
+reclassify governed files. Module reconciliation and outside-scope evidence have independent
+completeness: `synchronized` module facts can coexist with partial or unavailable outside evidence.
+This is a source-observed graph within those limits, not a complete runtime dependency graph.
+
+| Status | Meaning |
+| --- | --- |
+| `synchronized` | `D = O` and module analysis is complete. |
+| `drift` | A proven missing or unused declaration exists, even if uncertainty also exists. |
+| `indeterminate` | No proven drift, but uncertainty prevents exact comparison. |
+| `runway` | Module-first topology has `modules: []`. |
+
+Each module also reports `reach: covered` when at least one governed source file was analyzed, or
+`vacuous` otherwise. Set equality over an empty source tree does not prove meaningful architecture
+coverage or correct domain ownership. Layer-first output has `moduleDependencies: null` and no human
+module section.
+
+To adopt strict synchronization, review `blueprint deps` or `blueprint inspect`, decide whether
+source or declarations need correction, resolve uncertainty, then explicitly enable a tier:
+
+```js
+rules: {
+  moduleDependencySync: 'error',
+}
+```
+
+`moduleDependencySync` accepts `error`, `warn`, or `off`, with no numeric or custom options. It runs
+in Inspect, not ESLint, and ignores `emit.lint.severity`. Missing/off keeps the report visible without
+synchronization findings; warn emits warnings; error participates in Inspect's ordinary failure
+behavior. Layer-first reports the gate unavailable; an empty module runway produces no drift finding.
+Existing adopters and built-in presets do not enable it automatically. No lifecycle migration or
+config rewrite is required; Blueprint never adds, removes, sorts, or transitively reduces
+`dependsOn` for you. A forbidden observed edge is not an instruction to add permission.
+
 ### Ordinary module root units
 
 An ordinary module with immediate governed source files is one structural unit addressed by
@@ -327,6 +388,7 @@ rules, the fallback is used only when the rule is declared without `value`.
 - **`usePrefixReactivity`** — Enforced by `blueprint/use-prefix-needs-reactivity`; checks `use`-named units for directly recognised reactive/lifecycle calls in the same file. It does not follow delegated hooks; a diagnostic is not proof of purity. Inspect composed hooks before renaming or moving code.
 - **`testFilename`** — Enforced by `blueprint/test-filename-matches-source`; uses `architecture.testFiles` and is unavailable when that list is empty.
 - **`typedefOnlyFile`** — Enforced by `blueprint/no-typedef-only-file`; JavaScript files only.
+- **`moduleDependencySync`** — Opt-in module-first exact direct-dependency reconciliation in Inspect; see [observed direct module dependencies](#observed-direct-module-dependencies).
 - **`cycles`** — Enforced by the `inspect` cycle finding for on-demand/CI graph diagnosis, not as an ESLint rule by default.
 - **`deadCode` and unknown ids** — Generated guidance only; no machine gate. Use an appropriate external tool such as knip.
 

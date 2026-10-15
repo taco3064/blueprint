@@ -16,7 +16,7 @@ export { expectedContainerStructural, expectedStructural } from './wiring-expect
 const label = (merged: boolean): string =>
   `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
-const SCOPE = 'structural bans + canonical/dynamic policy + each active gate\'s carrier rule, '
+const SCOPE = 'structural bans + canonical/dynamic policy + each active lint gate\'s carrier rule, '
   + 'one probe per governed position; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
   + 'a governed position are not compared';

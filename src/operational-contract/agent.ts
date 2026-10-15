@@ -1,3 +1,4 @@
+import { renderCompactModuleSync } from './module-dependencies';
 import type {
   ArchitectureDef,
   AxisDef,
@@ -115,6 +116,7 @@ export function renderCompactContract(
     '',
     `- Framework: \`${blueprint.framework}\`. Canonical source-root alias: \`${architecture.alias}\`.`,
     ...moduleFlowLine(resolved),
+    ...renderCompactModuleSync(resolved.topology, gates),
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, ${resolved.topology === 'module-first' ? 'module boundaries, ' : ''}unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '

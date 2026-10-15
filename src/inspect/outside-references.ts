@@ -27,7 +27,7 @@ function modulePaths(file: ScannedFile, aliases: [string, string][]): string[] {
     .map((specifier) => importedPath(specifier, file.path, aliases)).filter(Boolean);
 }
 
-function referenceExists(root: string, target: string): boolean {
+export function referenceExists(root: string, target: string): boolean {
   if (target === '..' || target.startsWith('../') || path.posix.isAbsolute(target)) {
     return false;
   }

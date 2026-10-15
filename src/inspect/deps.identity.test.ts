@@ -121,7 +121,8 @@ describe('runDeps · canonical architecture identity', () => {
 
     expect(output).toContain('← app');
     expect(output).toContain('auth/random/, rogue/');
-    expect(output).not.toContain('app/dashboard/');
+    expect(output).not.toContain('invisible to deps: app/dashboard/');
+    expect(output).toContain('src/app/dashboard/page.tsx: ~app/auth/services/api');
     expect(output).not.toContain('app/settings/');
   });
 

@@ -1,5 +1,5 @@
 import type { Blueprint } from '../../config';
-import { readSetting } from '../../config';
+import { readSetting, resolveArchitecture } from '../../config';
 import {
   renderBehavioral,
   renderChecklist,
@@ -26,6 +26,7 @@ export function gateFacts(blueprint: Blueprint, stack: StackFacts = {}): AgentGa
       || unavailableForEmit(id, {
         framework,
         testFiles: architecture.testFiles,
+        topology: resolveArchitecture(architecture).topology,
         hasTypescript: stack.hasTypescript,
       }) !== null) {
       return [];

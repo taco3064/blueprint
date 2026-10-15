@@ -36,6 +36,7 @@ describe('PLUGIN_GATES', () => {
       'testFilename',
       'typedefOnlyFile',
       'cycles',
+      'moduleDependencySync',
     ]);
 
     for (const gate of PLUGIN_GATES) {

@@ -203,6 +203,26 @@ npx @kekkai/blueprint inspect --baseline --json
 不會判定驗證完成，也不允許更新基準線。只分析受管來源與 layer-first 的行為維持不變。
 解析失敗可能隱藏相依邊，因此會讓驗證失敗。
 
+Module-first 報告一律包含 `moduleDependencies`，即使沒有設定 `moduleDependencySync`
+或設為 `off` 也一樣。它比對宣告的直接相依（`D`）與原始碼確認的直接相依（`O`），並分開
+呈現間接匯入權限（`P`）。結果包含吻合、缺少、未使用及待確認的宣告，各模組的涵蓋情況與
+不確定性，以及整體 `synchronized`、`drift`、`indeterminate` 或 `runway` 狀態。
+已確認的差異不會因分析不完整而消失。
+
+啟用 `rules.moduleDependencySync` 後，Inspect 會依模組配對彙整
+`module-dependency-missing`、`module-dependency-unused`，並為每個分析不完整的匯入模組
+產生一筆 `module-dependency-unverified`，採用此規則自己的 warn／error 層級。
+已有間接權限的參照仍可能缺少直接宣告；禁止的參照則保留原有流向違規。
+調整原始碼或 `dependsOn` 前，應先確認預期架構。
+
+`inspect --baseline` 用來防止已知債務增加，不是精確相等的證明。基準線可以讓已記錄的
+同步問題不影響結束狀態，但不會改變文字、JSON 或 `runInspect()` 中完整的
+`moduleDependencies` 狀態、差異清單、涵蓋情況與不確定性。
+相依圖納入型別參照與可靜態確認的動態匯入，排除設定指定的測試檔，仍納入
+`layerFilesIgnore` 與看似自動產生的受管原始碼。執行時才能決定的目標、解析失敗，以及
+無法解析的專案內參照只影響所屬匯入模組。完整規則見
+[來源範圍與啟用方式](./configuration.md#observed-direct-module-dependencies)。
+
 `inspect` 不接受位置參數路徑。請在應用程式根目錄執行，掃描範圍由
 `architecture.sourceRoot` 決定；額外傳入路徑會被拒絕，不會默默忽略。
 
@@ -273,9 +293,21 @@ npx @kekkai/blueprint deps
 為粒度，file layout 則收斂成分層粒度。設定為測試檔的匯入不會增加影響範圍，且只有別名
 與相對匯入會形成邊。
 
+Module-first 未指定目標時，會在單元排行榜之前列出直接宣告、間接權限、觀察到的相依及其
+參照次數與固定排序的範例，再呈現比對結果、涵蓋情況與不確定性。
+指定目標時，文字報告仍保留整個專案的狀態，另顯示目標所屬模組。
+JSON 與 `runDeps()` 永遠保留完整、未篩選的 `moduleDependencies`，並另外標示目標模組；
+指定目標不會縮小整體判定範圍。JSON 包含每一組不重複的證據路徑與匯入字串，順序固定。
+Layer-first 的 `moduleDependencies` 為 `null`，文字報告省略此區段。
+
+模組資料與 Inspect 共用受管來源分析，不需要盤點來源目錄外的檔案。
+型別參照會計算，設定指定的測試檔不計算；`layerFilesIgnore` 與自動產生風格的檔名不構成
+豁免。無法判定的動態目標與專案內參照保留為不確定性，不猜測相依，也不當成宣告未使用的
+證據。詳見[範圍與狀態定義](./configuration.md#observed-direct-module-dependencies)。
+
 ## `rules`
 
-`rules` 說明 `emitLint` 實際能執行什麼。它會區分一定產生的結構性規則、由
+`rules` 說明可用的 lint 與 Inspect 檢查。它會區分一定產生的結構性規則、由
 `blueprint.rules` 啟用的選用關卡，以及只寫入文件的規則識別碼。有設定檔時，還會顯示每個
 關卡的 tier／數值、在目前技術組合是否生效，以及實際結構限制。
 
@@ -287,6 +319,10 @@ npx @kekkai/blueprint rules --json
 唯一旗標是 `--json`。此指令唯讀，也不要求設定檔。需要理解真實結果時，應使用它，而不是
 反向推測產生後的 flat config；規則設定總表見[設定](/zh-TW/configuration#rules)。
 
+`moduleDependencySync` 會列出宣告層級、可用性、啟用狀態，以及執行來源
+`inspect (module dependency reconciliation)`。它僅適用於 module-first，不是 lint 規則；
+與 `cycles` 一樣，必須執行 Inspect 才會檢查，也不受 `emit.lint.severity` 控制。
+
 ## `doctor`
 
 若 ESLint 無法為規則存續檢查的探測路徑提供設定，Doctor 會列出路徑並標為未驗證。
@@ -296,6 +332,9 @@ npx @kekkai/blueprint rules --json
 `doctor` 檢查導入是否真的完成，包括設定檔、殘留的暫存／Agent 檔案、ESLint 接線、
 `package.json` 一般 lint 入口能否安全到達並實際跑完 ESLint、別名接線、結構性規則在合併後
 的 flat config 是否仍存在、架構狀態，以及停用規則帳本。
+
+Doctor 不會替 `moduleDependencySync` 檢查 ESLint 接線，也不證明 CI 有執行 Inspect。
+啟用同步關卡後，專案的檢查流程仍須實際呼叫 Inspect。
 
 別名證據會依可辨識的 TypeScript、bundler／runtime、套件 `imports` 子路徑與 test runner
 分開回報。單一 consumer 的證據不會產生涵蓋整個工具鏈的綠燈：缺少對應會讓該項失敗；

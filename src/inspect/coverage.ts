@@ -101,7 +101,7 @@ export function computeCoverage(
   const gates = LINT_GATED_RULE_IDS
     .filter((id) => unavailableGate(
       id,
-      { framework, hasTypescript, testFiles: architecture.testFiles },
+      { framework, hasTypescript, testFiles: architecture.testFiles, topology: resolved.topology },
     ) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;

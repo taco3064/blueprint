@@ -139,6 +139,62 @@ architecture: {
 `app` 是選用的保留名稱。它代表 container 位置上的遞迴路由組合，不是一般領域模組，
 也不重複內部分層。
 
+### 原始碼中的直接模組相依 {#observed-direct-module-dependencies}
+
+Module-first 專案的 `deps` 與 `inspect` 會分別呈現三種相依圖：
+
+| 相依圖 | 意義 |
+| --- | --- |
+| `D`：宣告的直接相依 | `modules[].dependsOn` 寫下的每條相依邊；即使另有間接路徑，也保留直接宣告。 |
+| `P`：匯入權限 | 從 `D` 推導出的所有可達模組；模組匯入權限仍由它決定。 |
+| `O`：觀察到的直接相依 | 依目前受管原始碼與標準模組身分，確認的跨模組直接參照。 |
+
+例如宣告 `a -> b -> c` 時，`a` 匯入 `c` 仍有間接權限，但精確同步比對會指出
+`a.dependsOn` 缺少 `c`。若 `a` 沒有直接參照 `b`，只有在 `a` 的分析完整時，才能將該宣告
+列為未使用。觀察到的相依不會授予權限；流向、別名、相對路徑跨界與深入匯入違規仍獨立回報。
+
+觀察範圍包含靜態匯入、副作用匯入、型別匯入與再匯出，以及可靜態確認目標的 `require()`
+和動態匯入。來源須位於 `sourceRoot`，使用既有掃描器支援的 JS／TS／JSX／TSX／模組／
+CommonJS／Vue 格式；套件相依、建置輸出、涵蓋率與快取目錄仍依既有規則排除。
+符合 `testFiles` 的檔案不納入相依或不確定性；`testFiles: []` 則取消豁免。
+`layerFilesIgnore` 只排除 lint 與以 lint 為依據的檢查，不會隱藏模組相依。
+產生的原始碼只要仍在受管範圍內，也照常計算；檔名、檔頭或註解都不是豁免依據。
+同模組參照、沒有模組身分的來源根目錄組裝檔、外部套件及無法分類的目標不會形成跨模組相依。
+
+執行時才能決定的匯入、解析失敗，以及無法解析的專案內參照，只會讓匯入者所屬模組的分析
+不完整。已確認的相依仍保留；該模組未觀察到的宣告標為 `unverified`，不能當成 `unused`。
+已可靠解析到來源目錄外的目標不算未知模組。外部使用端沒有模組身分；再廣的 `consumerFiles`
+模式也不會改變受管檔案的身分。模組分析與外部範圍證據的完整性分開判定，因此模組結果可以是
+`synchronized`，而外部證據仍不完整或無法取得。這是上述範圍內的原始碼觀察結果，並非完整的
+執行時相依圖。
+
+| 狀態 | 意義 |
+| --- | --- |
+| `synchronized` | `D = O`，且模組分析完整。 |
+| `drift` | 已確認缺少或未使用的宣告；即使同時有不確定性，也維持此狀態。 |
+| `indeterminate` | 尚無已確認的差異，但不確定性使精確比對無法完成。 |
+| `runway` | Module-first 宣告了 `modules: []`。 |
+
+每個模組也有 `reach`：至少分析一個受管檔案時為 `covered`，否則為 `vacuous`。
+空原始碼樹上的集合相等，不代表架構已有實際涵蓋範圍，也不證明領域所有權合理。
+Layer-first 的 `moduleDependencies` 為 `null`，文字報告不顯示模組區段。
+
+要啟用精確同步，先檢視 `blueprint deps` 或 `blueprint inspect`，判斷應修正原始碼還是宣告、
+處理不確定性，再明確設定所需層級：
+
+```js
+rules: {
+  moduleDependencySync: 'error',
+}
+```
+
+`moduleDependencySync` 接受 `error`、`warn` 或 `off`，沒有數值或自訂選項。
+它由 Inspect 執行，不是 ESLint 規則，也不受 `emit.lint.severity` 影響。
+未設定或設為 `off` 時仍可查看報告，但不產生同步檢查結果；`warn` 產生警告，`error` 則依
+Inspect 原有規則影響結束狀態。Layer-first 會標示此關卡不可用；空模組起步狀態不產生差異問題。
+既有專案與內建預設不會自動啟用，不需要生命週期遷移或改寫設定。Blueprint 不會自動新增、
+移除、排序或依間接路徑刪減 `dependsOn`。觀察到禁止的相依，也不代表應直接補上權限。
+
 ### 一般模組的根單元
 
 一般模組的根目錄只要有直接受管理的原始碼檔案，就形成一個以模組目錄為位址的結構單元。
@@ -311,6 +367,7 @@ rules: {
 - **`usePrefixReactivity`** — 由 `blueprint/use-prefix-needs-reactivity` 執行；檢查 `use` 命名單元是否在同一檔案直接呼叫可辨識的響應式／生命週期 API。它不會追查被呼叫的其他 hooks，因此警告不能證明函式是純函式；重新命名或搬移前，應先檢查組合的 hooks。
 - **`testFilename`** — 由 `blueprint/test-filename-matches-source` 執行；使用 `architecture.testFiles`，空陣列時無法啟用。
 - **`typedefOnlyFile`** — 由 `blueprint/no-typedef-only-file` 執行；只適用 JavaScript 檔案。
+- **`moduleDependencySync`** — 由 Inspect 執行的 module-first 選用關卡，精確比對直接相依；詳見[原始碼中的直接模組相依](#observed-direct-module-dependencies)。
 - **`cycles`** — 由 `inspect` 的循環 finding 執行；執行指令或 CI 時分析，預設不是 ESLint 規則。
 - **`deadCode` 與其他識別碼** — 只寫入產出守則，沒有機器關卡；可另用 knip 等合適工具。
 

@@ -2,6 +2,7 @@ export type LintGateNoteId
   = | 'codeStyle'
     | 'complexity'
     | 'cycles'
+    | 'moduleDependencySync'
     | 'deadCode'
     | 'deepWatch'
     | 'explicitAny'
@@ -56,6 +57,8 @@ const GATE_NOTES: Record<LintGateNoteId, string> = {
   usePrefixReactivity: 'composing-only hooks are a known false positive',
   testFilename: 'test files only',
   typedefOnlyFile: '.js files only',
+  moduleDependencySync: 'Inspect runtime gate only; baseline is a debt ratchet, not exact '
+    + 'equality. Doctor does not prove CI executes Inspect; no ESLint carrier.',
   cycles: 'on-demand/CI diagnosis only — a baseline grandfathers recorded findings; '
     + 'no ESLint line by default. Opt into import-x/no-cycle for continuous '
     + 'prevention, at the cost of re-checking the graph per file '
@@ -193,4 +196,8 @@ export function renderCodeStylePluginError(): string {
     + 'factory, and the plugin passed as emitLint\'s `stylistic` option does not expose '
     + 'it. Pass the real plugin (import stylistic from \'@stylistic/eslint-plugin\'), or '
     + 'set rules.codeStyle to \'off\'.';
+}
+
+export function renderModuleDependencySyncUnavailable(): string {
+  return 'moduleDependencySync requires module-first topology; layer-first has no module graph.';
 }
