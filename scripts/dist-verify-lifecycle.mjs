@@ -63,6 +63,7 @@ export async function verifyLifecycle(tools) {
       `Target: ${pkg.version}`,
       'legacy-unit-shape',
       'review-retired-module-private (4.0.0)',
+      'review-module-root-unit (4.2.0)',
       'Safety: ✗ starting an upgrade requires a Git worktree',
     ]) {
       expect(dry.output.includes(fragment), `dry run never said: ${fragment}\n${dry.output}`);
@@ -103,7 +104,7 @@ export async function verifyLifecycle(tools) {
     for (const fragment of [
       'npm install -D',
       'continuing with the project-installed @kekkai/blueprint',
-      'Upgrade pending — 1 semantic operation(s) need the coding Agent',
+      'Upgrade pending — 2 semantic operation(s) need the coding Agent',
     ]) {
       expect(started.output.includes(fragment), `upgrade never said: ${fragment}\n${started.output}`);
     }
@@ -118,8 +119,18 @@ export async function verifyLifecycle(tools) {
     expect(state.blueprint === '3.2.0' && state.pending?.to === pkg.version,
       `lifecycle moved before verification: ${JSON.stringify(state)}`);
 
-    expect(fs.readFileSync(path.join(dir, 'blueprint-upgrade.md'), 'utf-8')
-      .includes('review-retired-module-private'), 'the resolved playbook lost its operation');
+    const operations = ['review-retired-module-private', 'review-module-root-unit'];
+
+    expect(JSON.stringify(state.pending.operations.map((operation) => operation.id))
+      === JSON.stringify(operations), 'the pending plan lost or reordered an operation');
+
+    expect(state.pending.completed.length === 0, 'upgrade completed an operation without review');
+
+    const playbook = fs.readFileSync(path.join(dir, 'blueprint-upgrade.md'), 'utf-8');
+
+    for (const operation of operations) {
+      expect(playbook.includes(operation), `the resolved playbook lost ${operation}`);
+    }
 
     const localBin = path.join(dir, 'node_modules/@kekkai/blueprint/dist/bin.js');
 
@@ -131,6 +142,31 @@ export async function verifyLifecycle(tools) {
       [localBin, 'upgrade', '--complete', 'review-retired-module-private'], { cwd: dir });
 
     expect(completed.code === 0, `--complete exited ${completed.code}\n${completed.output}`);
+
+    const partial = readJson(path.join(dir, '.blueprint-lifecycle.json'));
+
+    expect(partial.blueprint === '3.2.0'
+      && JSON.stringify(partial.pending.completed)
+      === JSON.stringify(['review-retired-module-private']),
+    'completing one operation moved the checkpoint or completed the other');
+
+    const pending = runCmd(process.execPath, [localBin, 'upgrade'], { cwd: dir });
+
+    expect(pending.code === 1
+      && pending.output.includes('Upgrade pending — 1 semantic operation(s) need the coding Agent'),
+    `the remaining root review did not keep upgrade pending (${pending.code})\n${pending.output}`);
+
+    expect(readJson(path.join(dir, '.blueprint-lifecycle.json')).blueprint === '3.2.0',
+      'the checkpoint moved while root review was pending');
+
+    const reviewed = runCmd(process.execPath,
+      [localBin, 'upgrade', '--complete', 'review-module-root-unit'], { cwd: dir });
+
+    expect(reviewed.code === 0, `root review completion exited ${reviewed.code}\n${reviewed.output}`);
+
+    expect(JSON.stringify(readJson(path.join(dir, '.blueprint-lifecycle.json')).pending.completed)
+      === JSON.stringify(['review-retired-module-private', 'review-module-root-unit']),
+    'the completion record did not preserve both reviewed operations');
 
     const manifest = readJson(path.join(dir, 'package.json'));
 
