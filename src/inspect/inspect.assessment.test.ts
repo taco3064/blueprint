@@ -78,6 +78,7 @@ it('preserves debt across legacy exit policies', async () => {
 
 it('assesses the updated baseline after repairing its old version', async () => {
   write('src/utils/Bad.ts', 'export const bad = 1;');
+  write(BASELINE_FILE, 'invalid');
   let json = '';
 
   const updated = await runInspect(root, { updateBaseline: true, json: true,
@@ -87,7 +88,7 @@ it('assesses the updated baseline after repairing its old version', async () => 
 
   expect(updated.ok).toBe(true);
   expect(updated.assessment.conformance.freshViolations).toBe(0);
-  expect(updated.assessment.conformance.baselinedDebt).toBeGreaterThan(0);
+  expect(updated.assessment.conformance.baselinedDebt).toBe(1);
   expect(updated.assessment.gates.status).toBe('passed');
   expect(JSON.parse(json).assessment).toEqual(updated.assessment);
 });

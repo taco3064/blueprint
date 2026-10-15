@@ -150,7 +150,7 @@ const configFor = (limb: Limb) => async (): Promise<Blueprint> => ({
 
 /** The note line for a field, or '' — asserted on, so a missing line fails loudly. */
 const noteFor = (output: string, field: string) =>
-  output.split('\n').find((line) => line.includes(`\`architecture.${field}\``)) ?? '';
+  output.split('\n').find((line) => line.startsWith(`  \`architecture.${field}\``)) ?? '';
 
 /**
  * Where each class's shared text opens in a note, and where the field's own words resume.

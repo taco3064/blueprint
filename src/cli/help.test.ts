@@ -111,12 +111,12 @@ describe('run · --help belongs to the command that has one', () => {
     expect(logged('reverse dependencies / blast radius')).toBe(true);
 
     await run(['doctor', '--help']);
-    expect(logged('is adoption actually finished?')).toBe(true);
+    expect(logged('current-config adoption assessment')).toBe(true);
     // The exit-code gate this help invites has one blind spot, and the help owes it:
     // a skipped check keeps exit 0, so `--json`'s `skipped` is what a gate reads
     // (field run #129 — the skip that was counted as a pass).
-    expect(logged('Exit stays')).toBe(true);
-    expect(logged('look for `skipped` on a check')).toBe(true);
+    expect(logged('Exit remains 0')).toBe(true);
+    expect(logged('Read `assessment` in JSON for independent gates')).toBe(true);
 
     expect(logged(
       'the normal package.json lint entrypoint reaches eslint, directly or through\n'

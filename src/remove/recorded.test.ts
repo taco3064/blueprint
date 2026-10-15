@@ -38,6 +38,15 @@ function removal(
 }
 
 describe('carriesBlueprintSignature', () => {
+  it('keeps the historical handbook ownership signature distinct from surrounding guidance', () => {
+    expect(HANDBOOK_MARK).toBe(
+      '> Generated from `blueprint.config` by `@kekkai/blueprint` — edit the blueprint, '
+      + 'not this file.',
+    );
+
+    expect(carriesBlueprintSignature('')).toBe(false);
+  });
+
   it('recognizes each generated signature only where Blueprint writes it', () => {
     expect(carriesBlueprintSignature(`${GENERATED_ESLINT_BANNER}\nexport default [];\n`)).toBe(true);
     expect(carriesBlueprintSignature(`# Handbook\n\n${HANDBOOK_MARK}\n`)).toBe(true);

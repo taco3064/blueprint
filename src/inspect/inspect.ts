@@ -87,7 +87,7 @@ export async function runInspect(
 
   const assess = () => {
     const baseline = inspectAssessmentBaseline(root, findings,
-      options.baseline === true || options.updateBaseline === true);
+      options.baseline === true);
 
     const application = assessmentApplication(root, state);
 

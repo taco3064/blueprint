@@ -171,7 +171,7 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
 
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
-    expect(doctor.output).toContain('⊘ Adoption unverified');
+    expect(doctor.output).toContain('Adoption unverified:');
     expect(doctor.output).not.toContain('Adoption complete');
   });
 
@@ -208,7 +208,7 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
 
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
-    expect(doctor.output).toContain('⊘ Adoption unverified');
+    expect(doctor.output).toContain('Adoption unverified:');
     expect(doctor.output).not.toContain('Adoption complete');
   });
 
@@ -244,7 +244,7 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
 
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
-    expect(doctor.output).toContain('⊘ Adoption unverified');
+    expect(doctor.output).toContain('Adoption unverified:');
     expect(doctor.output).not.toContain('Adoption complete');
   });
 });
@@ -275,7 +275,13 @@ async function expectBothLedgersCurrent(root: string): Promise<void> {
   const result = await cli(root, ['doctor']);
 
   expect(result.code).toBe(0);
-  expect(result.output).toContain('✓ Adoption complete — all 12 checks passed');
+  expect(result.output).toContain('Executable gates: passed (0 failed, 0 unverified)');
+
+  expect(result.output).toContain(
+    'Adoption unverified: required source-universe evidence is incomplete or unavailable.',
+  );
+
+  expect(result.output).not.toContain('Adoption complete');
 }
 
 async function expectNewLintOnlyDebtCrossesLedgers(root: string): Promise<void> {

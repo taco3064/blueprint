@@ -115,7 +115,14 @@ describe('CLI outside-scope evidence', () => {
     const ledger = 'user-owned baseline sentinel';
 
     write('.blueprint-baseline.json', ledger);
-    expect(await run(['inspect', '--update-baseline'], root)).toBe(1);
+    const refused = await inspect('--update-baseline');
+
+    expect(refused).toMatchObject({ code: 1, report: { ok: false, assessment: {
+      items: expect.arrayContaining([expect.objectContaining({
+        id: 'baseline-evidence', status: 'unverified', affectsExit: false,
+      })]),
+    } } });
+
     expect(fs.readFileSync(path.join(root, '.blueprint-baseline.json'), 'utf-8')).toBe(ledger);
     expect(console.error).not.toHaveBeenCalled();
   });

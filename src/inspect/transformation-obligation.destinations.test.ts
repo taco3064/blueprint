@@ -235,5 +235,8 @@ it('degraded governed analysis independently blocks a complete application scope
     git: git(dir), facts,
   });
 
-  expect(result).toEqual({ ok: false, failures: [{ code: 'final-import-analysis-failed' }] });
+  expect(result.ok).toBe(false);
+  expect(result.failures).toEqual([{ code: 'final-import-analysis-failed' }]);
+  expect(result.assessment.scope).toBe('topology-transformation');
+  expect(result.assessment.gates.status).toBe('failed');
 });
