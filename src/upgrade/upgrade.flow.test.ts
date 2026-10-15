@@ -155,7 +155,9 @@ describe('runUpgrade · direct jump from a pre-lifecycle 3.2 adoption', () => {
       .toContain('`npx blueprint upgrade --complete review-retired-module-private`');
 
     includesOutput('Assessment scope: lifecycle-upgrade',
-      'Semantic review: required (1 required, 0 recorded)', 'lifecycle-deterministic-migration');
+      'Semantic review: required (1 required, 0 recorded)',
+      '[["lifecycle-upgrade",".","lifecycle-deterministic-migration","legacy-unit-shape"]]'
+      + ' gate: passed');
 
     expect(output()).not.toContain('lifecycle-current-config-gates');
     expect(state().blueprint).toBe('3.2.0');

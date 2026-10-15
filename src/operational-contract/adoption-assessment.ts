@@ -71,9 +71,7 @@ export function renderMissingDoctorIdentity(): OperationalText {
 
 function summarizeEvidence(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.length === 0
-      ? { count: 0 }
-      : { count: value.length, example: summarizeEvidence(value[0]) };
+    return { count: value.length, example: summarizeEvidence(value[0]) };
   }
 
   if (value !== null && typeof value === 'object') {

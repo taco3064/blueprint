@@ -101,7 +101,10 @@ it('keeps distinct warning files once without making warning counts gate failure
     warning, { ...warning, filePath: 'src/shop/views/Z.ts' },
   ]);
 
-  expect(result[1].sourceKey).not.toBe(result[2].sourceKey);
+  expect(result.slice(1).map((item) => [item.application, item.subject, item.sourceKey])).toEqual([
+    ['.', 'shop/views', JSON.stringify(['["shop/views","no-network"]', warning.filePath])],
+    ['.', 'shop/views', JSON.stringify(['["shop/views","no-network"]', 'src/shop/views/Z.ts'])],
+  ]);
 });
 
 it('uses passed measurement ahead of the original unverified plan', () => {

@@ -70,7 +70,9 @@ it('preserves debt across legacy exit policies', async () => {
   expect(JSON.parse(json).assessment).toEqual(baseline.assessment);
 
   expect(strict.assessment.items.filter((item) => item.id === 'inspect-baseline-policy'))
-    .toHaveLength(1);
+    .toEqual([expect.objectContaining({ lane: 'gate', status: 'failed',
+      evidence: initial.findings,
+      limitations: [], signals: [], affectsExit: true, reach: null, nextStep: null })]);
 
   expect(baseline.assessment.items.filter((item) => item.id === 'inspect-baseline-policy'))
     .toEqual([]);
@@ -132,22 +134,41 @@ it('Doctor and Inspect share review-only prohibition identity', async () => {
   expect(relevant(diagnosed.assessment)).toEqual(relevant(inspected.assessment));
 });
 
-it('ordinary Inspect preserves exit with unreadable baseline evidence', async () => {
-  write('src/components/Widget.vue', '<template><div /></template>');
-  write(BASELINE_FILE, 'invalid');
-  const options = { loadConfig: async () => vuePreset(), log: () => {} };
-  const result = await runInspect(root, options);
+it.each([undefined, false])(
+  'ordinary Inspect preserves exit with unreadable baseline and baseline=%s', async (baseline) => {
+    write('src/components/Widget.vue', '<template><div /></template>');
+    write(BASELINE_FILE, 'invalid');
+    const options = { loadConfig: async () => vuePreset(), log: () => {} };
+    const result = await runInspect(root, { ...options, baseline });
 
-  expect(result.ok).toBe(true);
-  expect(result.assessment.gates.status).toBe('unverified');
-  expect(result.assessment.conformance.baselinedDebt).toBe(0);
+    expect(result.ok).toBe(true);
+    expect(result.assessment.gates.status).toBe('unverified');
+    expect(result.assessment.conformance.baselinedDebt).toBe(0);
 
-  expect(result.assessment.items.filter((item) => item.id === 'baseline-evidence'))
-    .toEqual([expect.objectContaining({ status: 'unverified', lane: 'gate',
-      affectsExit: false, reach: null, evidence: { error: expect.stringContaining('JSON') } })]);
+    expect(result.assessment.items.filter((item) => item.id === 'baseline-evidence'))
+      .toEqual([expect.objectContaining({ status: 'unverified', lane: 'gate',
+        affectsExit: false, reach: null, evidence: { error: expect.stringContaining('JSON') },
+        limitations: [expect.stringContaining('JSON')], signals: [] })]);
 
-  await expect(runInspect(root, { ...options, baseline: true })).rejects.toThrow();
-});
+    await expect(runInspect(root, { ...options, baseline: true })).rejects.toThrow();
+  });
+
+it('retains strict baseline refusal when degraded scope prevents replacing an invalid ledger',
+  async () => {
+    write('src/components/Widget.vue', '<template><div /></template>');
+    write('src/components/Broken.ts', 'const invalid: = 1;');
+    write(BASELINE_FILE, 'invalid');
+    const options = { loadConfig: async () => vuePreset(), updateBaseline: true, log: () => {} };
+    const result = await runInspect(root, options);
+
+    expect(result.ok).toBe(false);
+
+    expect(result.assessment.items.find((item) => item.id === 'baseline-evidence'))
+      .toMatchObject({ status: 'unverified', limitations: [expect.stringContaining('JSON')] });
+
+    await expect(runInspect(root, { ...options, baseline: true })).rejects.toThrow();
+    expect(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf8')).toBe('invalid');
+  });
 
 it('a valid empty baseline produces no unavailable-evidence item in ordinary Inspect', async () => {
   write(BASELINE_FILE, renderBaseline([]));

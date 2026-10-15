@@ -145,3 +145,16 @@ it('source unverified status is not invented from a non-reach item or an aggrega
     expect(result.headline).toBe('none-known');
     expect(result.reach).toEqual({ covered: 0, partial: 1, declaratory: 0 });
   });
+
+it.each([false, true])('counts only nonblocking conformance failures with affectsExit=%s',
+  (affectsExit) => {
+    const result = assess([
+      item({ id: 'gate', lane: 'gate', status: 'failed', affectsExit: false }),
+      item({ id: 'finding', lane: 'conformance', status: 'failed', affectsExit }),
+    ]);
+
+    expect(result.conformance).toEqual({ freshViolations: 1, baselinedDebt: 0,
+      nonBlockingObservations: affectsExit ? 0 : 1 });
+
+    expect(result.gates).toEqual({ status: 'failed', failed: 1, unverified: 0 });
+  });
