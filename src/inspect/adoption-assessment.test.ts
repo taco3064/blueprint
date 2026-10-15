@@ -158,3 +158,17 @@ it.each([false, true])('counts only nonblocking conformance failures with affect
 
     expect(result.gates).toEqual({ status: 'failed', failed: 1, unverified: 0 });
   });
+
+it('counts known debt only in the conformance lane', () => {
+  const result = assess([
+    item({ id: 'gate-debt', lane: 'gate', status: 'known-debt' }),
+    item({ id: 'reach-debt', lane: 'reach', status: 'known-debt' }),
+    item({ id: 'review-debt', lane: 'review', status: 'known-debt' }),
+    item({ id: 'structural-debt', lane: 'conformance', status: 'known-debt' }),
+    item({ id: 'fresh', lane: 'conformance', status: 'failed', affectsExit: true }),
+  ]);
+
+  expect(result.conformance).toEqual({
+    freshViolations: 1, baselinedDebt: 1, nonBlockingObservations: 0,
+  });
+});
