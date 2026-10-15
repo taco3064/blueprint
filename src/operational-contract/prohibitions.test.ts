@@ -56,6 +56,34 @@ describe('prohibition report composition', () => {
   });
 });
 
+it('uses explicit framework and severity while resolving compact detector availability', () => {
+  const architecture = { alias: '@', layers: [{
+    name: 'domain', does: 'policy', mustNot: [{
+      id: 'state', description: 'own state', checks: [{ capability: 'react-state' as const }],
+    }],
+  }] };
+
+  const blueprint = { framework: 'react' as const, architecture,
+    emit: { lint: { severity: 'warn' as const } } };
+
+  const explicit = renderCompactProhibitions(blueprint, 'vue').join('\n');
+
+  expect(explicit).toContain('severity warn');
+  expect(explicit).toContain('lint backed; available detectors');
+  expect(explicit).not.toContain('Requires resolved react framework support.');
+
+  const automatic = { ...blueprint, framework: 'auto' as const };
+
+  expect(renderCompactProhibitions(automatic, 'react').join('\n'))
+    .toContain('lint backed; available detectors');
+
+  expect(renderCompactProhibitions(automatic, 'vue').join('\n'))
+    .toContain('Requires resolved react framework support.');
+
+  expect(renderCompactProhibitions(automatic).join('\n'))
+    .toContain('Requires resolved react framework support.');
+});
+
 describe('prohibition explanation authority', () => {
   it('omits executable policy when all declarations are review-only', () => {
     const architecture = { alias: '@', layers: [{
