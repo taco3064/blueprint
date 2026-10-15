@@ -44,6 +44,7 @@ const MUTATION_AUTHORITY_FILES = [
   'tsconfig.types.json',
   'scripts/mutation-ci.mjs',
   'scripts/mutation-smoke.mjs',
+  'scripts/mutation-sequencer.ts',
 ];
 
 const require = createRequire(import.meta.url);
