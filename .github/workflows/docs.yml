@@ -54,18 +54,6 @@ jobs:
           ref: refs/tags/${{ steps.release.outputs.tag }}
           path: site
 
-      - name: Apply the release badge presentation
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
-          if (`v${version}` !== process.env.RELEASE_TAG) throw new Error('Release tag and package version disagree');
-          NODE
-          cp ../tooling/docs/.vitepress/theme/version-identity.ts docs/.vitepress/theme/version-identity.ts
-          cp ../tooling/docs/.vitepress/theme/VersionBadge.vue docs/.vitepress/theme/VersionBadge.vue
-
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -73,16 +61,33 @@ jobs:
           cache: 'npm'
           cache-dependency-path: site/package-lock.json
 
+      - name: Apply the compatible presentation overlay
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: node ../tooling/scripts/docs-overlay.mjs ../tooling . "$RELEASE_TAG"
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build docs (typedoc + vitepress)
         env:
           VITE_BP_DOCS_TAG: ${{ steps.release.outputs.tag }}
+          DOCS_GOOGLE_SITE_VERIFICATION: ${{ vars.DOCS_GOOGLE_SITE_VERIFICATION }}
         run: npm run docs:build
 
       - name: Check internal links (pages + hand-written anchors)
         run: npm run docs:check
+
+      - name: Check the exact release-overlay SEO output
+        run: node ../tooling/scripts/check-doc-seo.mjs docs/.vitepress/dist
+
+      - name: Preserve publication evidence for live verification
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-publication-${{ github.run_id }}
+          path: site/docs/.vitepress/dist
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
@@ -106,3 +111,23 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Checkout exact publishing tools
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+
+      - name: Download the published artifact for live comparison
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-publication-${{ github.run_id }}
+          path: published
+
+      - name: Setup Node for live verification
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: tooling/.nvmrc
+
+      - name: Verify the deployed site matches the validated artifact
+        run: node tooling/scripts/check-doc-live.mjs published
