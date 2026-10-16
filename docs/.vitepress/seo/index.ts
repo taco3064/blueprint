@@ -1,0 +1,1 @@
+export { withSeo } from './seo';

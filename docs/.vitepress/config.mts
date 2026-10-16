@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import typedocSidebar from '../api/typedoc-sidebar.json';
+import { withSeo } from './seo';
 
 const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'),
@@ -27,7 +28,7 @@ const withZhPrefix = (items: SidebarItem[]): SidebarItem[] =>
 // https://vitepress.dev/reference/site-config
 // withMermaid renders ```mermaid blocks (e.g. the layer-flow diagram) as SVG,
 // matching the flowcharts the emitted handbook itself produces.
-export default withMermaid(defineConfig({
+export default withSeo(withMermaid(defineConfig({
   vite: { define: { __BP_VERSION__: JSON.stringify(version) } },
   title: '@kekkai/blueprint',
   description:
@@ -122,4 +123,4 @@ export default withMermaid(defineConfig({
     socialLinks: [{ icon: 'github', link: 'https://github.com/taco3064/blueprint' }],
     search: { provider: 'local' },
   },
-}));
+})));

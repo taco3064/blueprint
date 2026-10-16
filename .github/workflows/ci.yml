@@ -166,6 +166,72 @@ jobs:
       - run: npm ci
       - run: npm run docs:build
       - run: npm run docs:check
+      - run: node scripts/check-doc-seo.mjs
+
+  documentation-release-overlay:
+    name: Released documentation overlay proof
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate publishing tools
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+          path: tooling
+      - name: Select the latest published stable release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/docs-release.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const release = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/docs-release.json', 'utf8'));
+          if (release.draft || release.prerelease || !release.published_at || !/^v\d+\.\d+\.\d+$/.test(release.tag_name)) {
+            throw new Error('Documentation requires a published stable release');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `tag=${release.tag_name}\n`);
+          NODE
+      - name: Checkout released product content
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ steps.release.outputs.tag }}
+          path: site
+      - name: Setup released Node toolchain
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: site/.nvmrc
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Apply candidate presentation overlay
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: node tooling/scripts/docs-overlay.mjs tooling site "$RELEASE_TAG"
+      - run: npm ci
+        working-directory: site
+      - name: Build released content with candidate presentation
+        working-directory: site
+        env:
+          VITE_BP_DOCS_TAG: ${{ steps.release.outputs.tag }}
+          DOCS_GOOGLE_SITE_VERIFICATION: ${{ vars.DOCS_GOOGLE_SITE_VERIFICATION }}
+        run: npm run docs:build
+      - name: Check released links and API semantics
+        working-directory: site
+        run: npm run docs:check
+      - name: Check exact publication SEO output
+        run: node tooling/scripts/check-doc-seo.mjs site/docs/.vitepress/dist
+      - name: Confirm the tested release is still current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$RELEASE_TAG"
+      - name: Preserve candidate publication artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-release-overlay-${{ github.run_id }}
+          path: site/docs/.vitepress/dist
+          retention-days: 30
+          if-no-files-found: error
 
   transformation:
     name: Deterministic topology replay
@@ -374,7 +440,7 @@ jobs:
   pr-gate:
     name: PR verification
     if: always() && github.event_name == 'pull_request'
-    needs: [preflight, ci, engines-floor, eslint-10, operational, documentation, transformation, mutation-aggregate]
+    needs: [preflight, ci, engines-floor, eslint-10, operational, documentation, documentation-release-overlay, transformation, mutation-aggregate]
     runs-on: ubuntu-latest
     steps:
       - name: Require every verification branch
@@ -393,7 +459,7 @@ jobs:
   candidate:
     name: Pack exact main candidate
     if: always() && github.event_name == 'push'
-    needs: [preflight, ci, engines-floor, eslint-10, operational, documentation, transformation]
+    needs: [preflight, ci, engines-floor, eslint-10, operational, documentation, documentation-release-overlay, transformation]
     runs-on: ubuntu-latest
     steps:
       - name: Require deterministic main gates
